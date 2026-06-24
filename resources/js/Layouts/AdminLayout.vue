@@ -1,9 +1,9 @@
 <script setup>
 import { Link, router } from '@inertiajs/vue3'
+import { usePage } from '@inertiajs/vue3'
 
-const props = defineProps({
-    auth: Object,
-})
+const page = usePage()
+const user = () => page.props.auth?.user
 
 function logout() {
     router.post('/logout')
@@ -36,7 +36,8 @@ function logout() {
         <!-- Main -->
         <div class="flex-1 flex flex-col min-w-0">
             <!-- Top bar -->
-            <header class="bg-white border-b border-stone-200 px-6 py-3 flex items-center justify-end">
+            <header class="bg-white border-b border-stone-200 px-6 py-3 flex items-center justify-end gap-4">
+                <span v-if="user()" class="text-sm text-stone-500">{{ user().email }}</span>
                 <button @click="logout"
                     class="text-sm text-stone-500 hover:text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
                     登出
