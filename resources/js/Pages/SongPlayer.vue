@@ -1,5 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
+import { Link } from '@inertiajs/vue3'
+import PublicLayout from '@/Layouts/PublicLayout.vue'
 
 const props = defineProps({ song: Object })
 
@@ -39,8 +41,14 @@ const modeLabel = computed(() => ({ both: '全部', native: '族語', zh: '中�
 </script>
 
 <template>
+    <PublicLayout>
     <div class="min-h-screen bg-stone-50 p-4 pb-32">
         <div class="max-w-2xl mx-auto">
+            <!-- 返回清單 -->
+            <Link href="/" class="inline-flex items-center gap-1 text-stone-500 hover:text-stone-700 text-sm mb-4">
+                ← 返回清單
+            </Link>
+
             <div class="text-center mb-6">
                 <h1 class="text-3xl font-bold text-stone-800" style="font-size: clamp(1.5rem, 5vw, 2rem)">
                     {{ song.title_native }}
@@ -88,4 +96,5 @@ const modeLabel = computed(() => ({ both: '全部', native: '族語', zh: '中�
             </div>
         </div>
     </div>
+    </PublicLayout>
 </template>
