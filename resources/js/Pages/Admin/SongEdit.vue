@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useForm } from '@inertiajs/vue3'
+import AdminLayout from '@/Layouts/AdminLayout.vue'
 import axios from 'axios'
 
 const props = defineProps({ song: Object })
@@ -72,6 +73,7 @@ async function saveLines() {
 </script>
 
 <template>
+    <AdminLayout>
     <div class="p-6 max-w-3xl mx-auto space-y-8">
         <div class="flex items-center gap-4">
             <a href="/admin/songs" class="text-blue-600 hover:underline">← 返回清單</a>
@@ -136,4 +138,5 @@ async function saveLines() {
             </section>
         </template>
     </div>
+    </AdminLayout>
 </template>

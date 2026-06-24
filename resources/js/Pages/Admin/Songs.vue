@@ -1,5 +1,6 @@
 <script setup>
 import { Link, router } from '@inertiajs/vue3'
+import AdminLayout from '@/Layouts/AdminLayout.vue'
 
 defineProps({ songs: Array })
 
@@ -10,6 +11,7 @@ function deleteSong(id) {
 </script>
 
 <template>
+    <AdminLayout>
     <div class="p-6">
         <div class="flex items-center justify-between mb-6">
             <h1 class="text-2xl font-bold">歌曲管理</h1>
@@ -49,4 +51,5 @@ function deleteSong(id) {
             </table>
         </div>
     </div>
+    </AdminLayout>
 </template>
