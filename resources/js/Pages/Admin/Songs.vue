@@ -6,7 +6,7 @@ defineProps({ songs: Array })
 
 function deleteSong(id) {
     if (!confirm('確定要刪除這首歌嗎？')) return
-    router.delete(`/admin/songs/${id}`)
+    router.delete(`/api/admin/songs/${id}`)
 }
 </script>
 

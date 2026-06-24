@@ -20,7 +20,9 @@ const scoreError = ref('')
 const audioError = ref('')
 
 function saveSong() {
-    props.song?.id ? songForm.put(`/admin/songs/${props.song.id}`) : songForm.post('/admin/songs')
+    props.song?.id
+        ? songForm.put(`/api/admin/songs/${props.song.id}`)
+        : songForm.post('/api/admin/songs')
 }
 
 async function uploadScore(e) {
