@@ -2,14 +2,9 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-      - develop
-      - 'feature/**'
-      - 'fix/**'
+    branches: [main, develop, 'feature/**', 'fix/**']
   pull_request:
-    branches:
-      - develop
+    branches: [develop]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -18,40 +13,20 @@ concurrency:
 jobs:
   ci:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           extensions: mbstring, xml, pdo_sqlite, sqlite3
           coverage: none
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
-
-      - name: Install Composer dependencies
-        run: composer install --no-interaction --prefer-dist
-
-      - name: Install Node.js dependencies
-        run: npm ci
-
-      - name: Prepare application environment
-        run: |
-          cp .env.testing .env
-          php artisan key:generate --force
-
-      - name: Build frontend assets
-        run: npm run build
-
-      - name: Run backend tests
-        run: php artisan test
-
-      - name: Run frontend tests
-        run: npm run test -- --run
+      - run: composer install --no-interaction --prefer-dist
+      - run: npm ci
+      - run: cp .env.testing .env && php artisan key:generate --force
+      - run: npm run build
+      - run: php artisan test
+      - run: npm run test -- --run

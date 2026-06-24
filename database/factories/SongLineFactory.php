@@ -11,7 +11,6 @@ class SongLineFactory extends Factory
     {
         static $order = 0;
         $order++;
-
         return [
             'song_id' => Song::factory(),
             'order' => $order,

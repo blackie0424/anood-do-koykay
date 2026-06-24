@@ -1,4 +1,5 @@
 <?php
+
 namespace Database\Seeders;
 
 use App\Models\User;
@@ -11,10 +12,7 @@ class DatabaseSeeder extends Seeder
     {
         User::firstOrCreate(
             ['email' => 'admin@example.com'],
-            [
-                'name' => 'Admin',
-                'password' => Hash::make('password'),
-            ]
+            ['name' => 'Admin', 'password' => Hash::make('password')]
         );
     }
 }

@@ -8,7 +8,7 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
-      - name: Notify Discord — trigger 流川楓 code review
+      - name: Notify Discord — trigger 流川楓-kiro code review
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |

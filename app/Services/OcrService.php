@@ -38,15 +38,35 @@ class OcrService
     {
         $raw = array_values(array_filter(array_map('trim', explode("\n", $text))));
         $lines = [];
+        $order = 1;
 
-        foreach ($raw as $i => $line) {
+        foreach ($raw as $line) {
+            if ($this->isNotationOrChordLine($line)) {
+                continue;
+            }
+
             $lines[] = [
-                'order' => $i + 1,
+                'order' => $order++,
                 'text_native' => $line,
                 'text_zh' => '',
             ];
         }
 
         return $lines;
+    }
+
+    private function isNotationOrChordLine(string $line): bool
+    {
+        // 簡譜數字行：只含數字 0-7、空格、連字號、點、|
+        if (preg_match('/^[\d\s\-\.\|]+$/', $line)) {
+            return true;
+        }
+
+        // 和弦行：只含大寫字母、數字、#、b、/、空格（如 C Am7 G/B）
+        if (preg_match('/^[A-G][A-Za-z0-9#b\/\s]*$/', $line) && strlen($line) <= 20) {
+            return true;
+        }
+
+        return false;
     }
 }
