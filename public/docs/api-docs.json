@@ -1,0 +1,826 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Tao Among API",
+        "description": "Tao Among API Documentation",
+        "version": "1.0.0"
+    },
+    "paths": {
+        "/prefix/api/fish": {
+            "get": {
+                "tags": [
+                    "Fish"
+                ],
+                "summary": "取得魚類列表",
+                "operationId": "b13e244d4a771b8009d46e33e736683b",
+                "responses": {
+                    "200": {
+                        "description": "成功"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Fish"
+                ],
+                "summary": "新增魚類",
+                "operationId": "9f5210dbcf0bf1a8abc77322f544d10b",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "image"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "image": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "建立成功"
+                    }
+                }
+            }
+        },
+        "/prefix/api/fish/{id}": {
+            "get": {
+                "tags": [
+                    "Fish"
+                ],
+                "summary": "取得單一魚類資料",
+                "operationId": "151ff128ee6f94ff1cce32f5405b16d0",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功"
+                    },
+                    "404": {
+                        "description": "找不到資料"
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Fish"
+                ],
+                "summary": "更新魚類資料",
+                "operationId": "c6eb628750cf59e859da2ce731a77ab8",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "image": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "更新成功"
+                    },
+                    "404": {
+                        "description": "找不到資料"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Fish"
+                ],
+                "summary": "刪除魚類",
+                "operationId": "48836c10037d57f5e64d7c14b0ffc64b",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "魚類 ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "刪除成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Fish deleted successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "找不到魚類",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "fish not found"
+                                        },
+                                        "data": {
+                                            "type": "string",
+                                            "example": null
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/prefix/api/fish/{id}/notes": {
+            "get": {
+                "tags": [
+                    "Fish"
+                ],
+                "summary": "取得指定魚類的筆記（可用 since 篩選）",
+                "operationId": "1f1e47ef1614f3b3bffafc9efebe611f",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "since",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功"
+                    }
+                }
+            }
+        },
+        "/prefix/api/fish/{id}/note": {
+            "post": {
+                "tags": [
+                    "FishNote"
+                ],
+                "summary": "新增魚類筆記",
+                "operationId": "3d2297c17648d57bd9e0e31b18edab0a",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "note",
+                                    "locate"
+                                ],
+                                "properties": {
+                                    "note": {
+                                        "type": "string"
+                                    },
+                                    "note_type": {
+                                        "type": "string"
+                                    },
+                                    "locate": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "建立成功"
+                    }
+                }
+            }
+        },
+        "/prefix/api/fish/note/{id}": {
+            "put": {
+                "tags": [
+                    "FishNote"
+                ],
+                "summary": "更新魚類筆記",
+                "operationId": "4811c9adf39794f625fc62d44f3dc2e1",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "note": {
+                                        "type": "string"
+                                    },
+                                    "note_type": {
+                                        "type": "string"
+                                    },
+                                    "locate": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "更新成功"
+                    },
+                    "404": {
+                        "description": "找不到該筆記"
+                    }
+                }
+            }
+        },
+        "/prefix/api/fish/{id}/note/{note_id}": {
+            "delete": {
+                "tags": [
+                    "FishNote"
+                ],
+                "summary": "刪除魚類筆記",
+                "operationId": "b44e4b08d9036b5a88f1093006ab2e61",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "魚類 ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "note_id",
+                        "in": "path",
+                        "description": "筆記 ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "刪除成功"
+                    },
+                    "404": {
+                        "description": "找不到該筆記"
+                    }
+                }
+            }
+        },
+        "/prefix/api/fishSize/{fish_id}": {
+            "get": {
+                "tags": [
+                    "FishSize"
+                ],
+                "summary": "取得指定 fish_id 的 fish_size",
+                "description": "取得指定魚種的尺寸資訊",
+                "operationId": "83e75c75cbbdf5e144284f393d51fa4c",
+                "parameters": [
+                    {
+                        "name": "fish_id",
+                        "in": "path",
+                        "description": "魚種 ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "取得成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "取得成功"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "fish_id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "parts": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "手指1"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "找不到資料",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "error"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Not Found"
+                                        },
+                                        "data": {
+                                            "type": "string",
+                                            "example": null
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/prefix/api/fishSize": {
+            "post": {
+                "tags": [
+                    "FishSize"
+                ],
+                "summary": "新增 fish_size",
+                "description": "新增一筆 fish size",
+                "operationId": "7bd346ed3b85b0245248820e8740582f",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "fish_id",
+                                    "parts"
+                                ],
+                                "properties": {
+                                    "fish_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "parts": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "example": "手指1"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "建立成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "建立成功"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "fish_id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "parts": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "手指1"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "驗證失敗",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "error"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "驗證失敗"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/prefix/api/upload-audio": {
+            "post": {
+                "tags": [
+                    "Upload"
+                ],
+                "summary": "上傳音訊檔案",
+                "description": "上傳音訊檔案",
+                "operationId": "b309c97f3c01d476245787e4569a150b",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "audio"
+                                ],
+                                "properties": {
+                                    "audio": {
+                                        "description": "要上傳的音訊檔案（mp3, wav, ogg，最大 10MB，長度不超過 6 秒）",
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "上傳成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "audio uploaded successfully"
+                                        },
+                                        "data": {
+                                            "type": "string",
+                                            "example": "filename.mp3"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "驗證失敗",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "驗證失敗"
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "audio": {
+                                                    "description": "可能的錯誤訊息：請選擇要上傳的音訊檔案。|只能上傳單一音訊檔案。|音訊格式僅限 mp3, wav, ogg。|音訊大小不可超過 10MB。|音訊長度不可超過 6 秒。",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "音訊格式僅限 mp3, wav, ogg。|音訊大小不可超過 10MB。|音訊長度不可超過 6 秒。"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "音訊儲存失敗",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "音訊儲存失敗，請稍後再試。"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/prefix/api/upload": {
+            "post": {
+                "tags": [
+                    "Upload"
+                ],
+                "summary": "上傳魚類圖片",
+                "description": "上傳魚類圖片",
+                "operationId": "a4bcb2e378bd169697ceb21dae229c40",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "image"
+                                ],
+                                "properties": {
+                                    "image": {
+                                        "description": "要上傳的圖片",
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "上傳成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "image uploaded successfully"
+                                        },
+                                        "data": {
+                                            "type": "string",
+                                            "example": "filename.jpg"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "驗證失敗",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "驗證失敗"
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "image": {
+                                                    "description": "可能的錯誤訊息：只能上傳單一圖片檔案。|請選擇要上傳的圖片。|圖片格式僅限 jpeg, png, jpg, gif, svg。|圖片大小不可超過 4403 KB。|圖片檔案不可為空。",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "只能上傳單一圖片檔案。"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/prefix/api/supabase/signed-upload-url": {
+            "post": {
+                "tags": [
+                    "Upload"
+                ],
+                "summary": "取得 Supabase 簽名上傳 URL",
+                "description": "獲取 Supabase 簽名上傳 URL",
+                "operationId": "4e50a3d7177f275f7f09e622dc332b11",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "filename"
+                                ],
+                                "properties": {
+                                    "filename": {
+                                        "description": "原始檔名",
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "成功取得簽名上傳 URL",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "url": {
+                                            "type": "string",
+                                            "example": "https://your-project-id.supabase.co/storage/v1/object/upload/sign/bucket/images/uuid.jpg"
+                                        },
+                                        "path": {
+                                            "type": "string",
+                                            "example": "images/uuid.jpg"
+                                        },
+                                        "filename": {
+                                            "type": "string",
+                                            "example": "uuid.jpg"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "驗證失敗",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "驗證失敗"
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "filename": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "檔名格式不正確。"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "產生簽名上傳 URL 失敗",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Failed to create signed upload URL"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Fish",
+            "description": "Fish"
+        },
+        {
+            "name": "FishNote",
+            "description": "FishNote"
+        },
+        {
+            "name": "FishSize",
+            "description": "FishSize"
+        },
+        {
+            "name": "Upload",
+            "description": "Upload"
+        }
+    ]
+}

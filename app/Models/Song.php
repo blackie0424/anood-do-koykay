@@ -1,0 +1,17 @@
+<?php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Song extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['title_native', 'title_zh', 'score_image', 'audio_full', 'status'];
+
+    public function lines()
+    {
+        return $this->hasMany(SongLine::class)->orderBy('order');
+    }
+}

@@ -1,0 +1,26 @@
+name: Notify Discord on PR
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Discord — trigger 流川楓 code review
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_NUM="${{ github.event.pull_request.number }}"
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          PR_BRANCH="${{ github.event.pull_request.head.ref }}"
+
+          MSG="[GH-EVENT] repo:${{ github.repository }} action:pr_opened PR #${PR_NUM}\n"
+          MSG="${MSG}**${PR_TITLE}**\nbranch: \`${PR_BRANCH}\` by ${PR_AUTHOR}\n${PR_URL}\n\n"
+          MSG="${MSG}<@1505571574068281476> 請 code review 這個 PR"
+
+          PAYLOAD=$(printf '%s' "$MSG" | jq -Rs '{content: .}')
+          curl -s -H "Content-Type: application/json" -d "$PAYLOAD" "$DISCORD_WEBHOOK_URL"
