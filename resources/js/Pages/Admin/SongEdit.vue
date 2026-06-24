@@ -1,16 +1,17 @@
 <script setup>
 import { ref } from 'vue'
-import { useForm } from '@inertiajs/vue3'
+import { router } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import axios from 'axios'
 
 const props = defineProps({ song: Object })
 
-const songForm = useForm({
+const form = ref({
     title_native: props.song?.title_native ?? '',
     title_zh: props.song?.title_zh ?? '',
     status: props.song?.status ?? 'draft',
 })
+const saveError = ref('')
 
 const lines = ref(props.song?.lines ?? [])
 const scoreUploading = ref(false)
@@ -19,10 +20,18 @@ const savingLines = ref(false)
 const scoreError = ref('')
 const audioError = ref('')
 
-function saveSong() {
-    props.song?.id
-        ? songForm.put(`/api/admin/songs/${props.song.id}`)
-        : songForm.post('/api/admin/songs')
+async function saveSong() {
+    saveError.value = ''
+    try {
+        if (props.song?.id) {
+            await axios.put(`/api/admin/songs/${props.song.id}`, form.value)
+        } else {
+            const { data } = await axios.post('/api/admin/songs', form.value)
+            router.visit(`/admin/songs/${data.id}/edit`)
+        }
+    } catch {
+        saveError.value = '儲存失敗，請稍後再試'
+    }
 }
 
 async function uploadScore(e) {
@@ -86,20 +95,21 @@ async function saveLines() {
             <h2 class="font-semibold text-lg">基本資料</h2>
             <div>
                 <label class="block text-sm font-medium mb-1">族語名稱 *</label>
-                <input v-model="songForm.title_native" type="text" required class="w-full border rounded px-3 py-2" />
+                <input v-model="form.title_native" type="text" required class="w-full border rounded px-3 py-2" />
             </div>
             <div>
                 <label class="block text-sm font-medium mb-1">中文名稱</label>
-                <input v-model="songForm.title_zh" type="text" class="w-full border rounded px-3 py-2" />
+                <input v-model="form.title_zh" type="text" class="w-full border rounded px-3 py-2" />
             </div>
             <div>
                 <label class="block text-sm font-medium mb-1">狀態</label>
-                <select v-model="songForm.status" class="border rounded px-3 py-2">
+                <select v-model="form.status" class="border rounded px-3 py-2">
                     <option value="draft">草稿</option>
                     <option value="published">已發布</option>
                 </select>
             </div>
-            <button @click="saveSong" :disabled="songForm.processing" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">儲存</button>
+            <p v-if="saveError" class="text-red-500 text-sm">{{ saveError }}</p>
+            <button @click="saveSong" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">儲存</button>
         </section>
 
         <template v-if="song?.id">
