@@ -45,9 +45,10 @@ describe('SongPlayer', () => {
     expect(wrapper.text()).toContain('全部')
   })
 
-  it('shows error notice when audio fails', async () => {
+  it('shows error notice when audio element emits error', async () => {
     const wrapper = mount(SongPlayer, { props: { song: mockSong } })
-    await wrapper.setData({ hasError: true })
+    const audio = wrapper.find('audio')
+    await audio.trigger('error')
     expect(wrapper.text()).toContain('無法播放，請稍後再試')
   })
 
