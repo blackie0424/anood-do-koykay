@@ -57,10 +57,10 @@ const modeLabel = computed(() => ({ both: '全部', native: '族語', zh: '中�
                     @click="playLine(line)"
                     :class="['rounded-xl p-4 transition-colors cursor-pointer select-none',
                         idx === activeLineIndex ? 'bg-blue-100 border-2 border-blue-400' : 'bg-white border border-stone-200 hover:bg-stone-100']">
-                    <p v-if="displayMode !== 'zh'" class="font-semibold text-stone-800" style="font-size: clamp(1.25rem, 4vw, 1.5rem)">
+                    <p v-if="displayMode !== 'zh'" class="font-semibold text-stone-800" style="font-size: clamp(1.5rem, 4vw, 2rem)">
                         {{ line.text_native }}
                     </p>
-                    <p v-if="displayMode !== 'native'" class="text-stone-600" style="font-size: clamp(1rem, 3vw, 1.25rem)">
+                    <p v-if="displayMode !== 'native'" class="text-stone-600" style="font-size: clamp(1.5rem, 3vw, 1.75rem)">
                         {{ line.text_zh }}
                     </p>
                 </div>
