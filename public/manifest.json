@@ -1,0 +1,58 @@
+{
+  "id": "/",
+  "name": "Tao Among - 達悟族魚類圖鑑",
+  "short_name": "達悟魚鑑",
+  "description": "蘭嶼達悟族傳統魚類知識數位典藏系統",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#1976d2",
+  "lang": "zh-TW",
+  "dir": "ltr",
+  "categories": ["education", "reference"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/screenshot1.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "桌面版首頁畫面"
+    },
+    {
+      "src": "/screenshots/screenshot2.png",
+      "sizes": "375x807",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "行動版首頁畫面"
+    }
+  ],
+  "prefer_related_applications": false
+}
