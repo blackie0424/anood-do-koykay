@@ -35,6 +35,34 @@ class SongController extends Controller
         );
     }
 
+    public function webStore(Request $request)
+    {
+        $data = $request->validate([
+            'title_native' => ['required', 'string', 'max:255'],
+            'title_zh' => ['nullable', 'string', 'max:255'],
+            'status' => ['nullable', 'in:draft,published'],
+        ]);
+        $song = Song::create($data);
+        return redirect()->route('admin.songs.edit', $song);
+    }
+
+    public function webUpdate(Request $request, Song $song)
+    {
+        $data = $request->validate([
+            'title_native' => ['sometimes', 'string', 'max:255'],
+            'title_zh' => ['nullable', 'string', 'max:255'],
+            'status' => ['nullable', 'in:draft,published'],
+        ]);
+        $song->update($data);
+        return redirect()->route('admin.songs.edit', $song);
+    }
+
+    public function webDestroy(Song $song)
+    {
+        $song->delete();
+        return redirect()->route('admin.songs.index');
+    }
+
     public function store(Request $request)
     {
         $data = $request->validate([
