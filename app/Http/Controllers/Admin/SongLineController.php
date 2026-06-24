@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
@@ -36,7 +37,6 @@ class SongLineController extends Controller
             'start_time' => ['required', 'numeric', 'min:0'],
             'end_time' => ['required', 'numeric', 'min:0'],
         ]);
-
         $line->update($data);
         return response()->json($line);
     }

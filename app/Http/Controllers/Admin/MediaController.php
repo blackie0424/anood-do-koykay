@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
@@ -22,7 +23,6 @@ class MediaController extends Controller
 
         $path = $this->storage->uploadFile($request->file('score'), "scores/{$song->id}");
         $song->update(['score_image' => $path]);
-
         $lines = $this->ocr->extractLines($request->file('score'));
 
         return response()->json([
@@ -39,7 +39,10 @@ class MediaController extends Controller
             'line_id' => ['nullable', 'integer', 'exists:song_lines,id'],
         ]);
 
-        $folder = $request->input('type') === 'full' ? "audio/full/{$song->id}" : "audio/lines/{$song->id}";
+        $folder = $request->input('type') === 'full'
+            ? "audio/full/{$song->id}"
+            : "audio/lines/{$song->id}";
+
         $path = $this->storage->uploadFile($request->file('audio'), $folder);
 
         if ($request->input('type') === 'full') {

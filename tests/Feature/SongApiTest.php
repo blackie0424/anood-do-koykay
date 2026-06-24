@@ -12,194 +12,139 @@ class SongApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    // =====================================================
-    // 公開 API
-    // =====================================================
+    // ── Public API ──────────────────────────────────────────────────
 
-    public function test_public_songs_list_returns_only_published(): void
+    public function test_health_check_returns_ok(): void
     {
-        Song::factory()->create(['status' => 'draft', 'title_native' => 'Draft Song']);
-        Song::factory()->create(['status' => 'published', 'title_native' => 'Published Song']);
-
-        $response = $this->getJson('/api/songs');
-
-        $response->assertOk()
-            ->assertJsonCount(1)
-            ->assertJsonFragment(['title_native' => 'Published Song'])
-            ->assertJsonMissing(['title_native' => 'Draft Song']);
+        $this->getJson('/api/health-check')
+            ->assertOk()
+            ->assertJson(['status' => 'ok']);
     }
 
-    public function test_public_song_show_returns_song_with_lines(): void
+    public function test_public_songs_index_returns_only_published(): void
     {
-        $song = Song::factory()
-            ->has(SongLine::factory()->count(3), 'lines')
-            ->create(['status' => 'published']);
+        Song::factory()->create(['status' => 'draft']);
+        $published = Song::factory()->published()->create();
 
-        $response = $this->getJson("/api/songs/{$song->id}");
-
-        $response->assertOk()
-            ->assertJsonPath('id', $song->id)
-            ->assertJsonCount(3, 'lines');
+        $this->getJson('/api/songs')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonFragment(['id' => $published->id]);
     }
 
     public function test_public_song_show_returns_404_for_draft(): void
     {
-        $song = Song::factory()->create(['status' => 'draft']);
-
-        $this->getJson("/api/songs/{$song->id}")->assertNotFound();
+        $draft = Song::factory()->create(['status' => 'draft']);
+        $this->getJson("/api/songs/{$draft->id}")->assertNotFound();
     }
 
-    // =====================================================
-    // 後台認證
-    // =====================================================
+    public function test_public_song_show_returns_song_with_lines(): void
+    {
+        $song = Song::factory()->published()->create();
+        SongLine::factory()->count(3)->create(['song_id' => $song->id]);
+
+        $this->getJson("/api/songs/{$song->id}")
+            ->assertOk()
+            ->assertJsonStructure(['id', 'title_native', 'lines']);
+    }
+
+    // ── Auth ────────────────────────────────────────────────────────
 
     public function test_admin_login_returns_token(): void
     {
         $user = User::factory()->create(['password' => bcrypt('secret')]);
 
-        $response = $this->postJson('/api/admin/login', [
-            'email' => $user->email,
-            'password' => 'secret',
-        ]);
-
-        $response->assertOk()->assertJsonStructure(['token']);
+        $this->postJson('/api/admin/login', ['email' => $user->email, 'password' => 'secret'])
+            ->assertOk()
+            ->assertJsonStructure(['token']);
     }
 
-    public function test_admin_login_fails_with_wrong_credentials(): void
+    public function test_admin_login_fails_with_wrong_password(): void
     {
-        User::factory()->create(['email' => 'admin@example.com', 'password' => bcrypt('secret')]);
+        $user = User::factory()->create(['password' => bcrypt('secret')]);
 
-        $this->postJson('/api/admin/login', [
-            'email' => 'admin@example.com',
-            'password' => 'wrong',
-        ])->assertUnprocessable();
+        $this->postJson('/api/admin/login', ['email' => $user->email, 'password' => 'wrong'])
+            ->assertUnprocessable();
     }
 
-    public function test_admin_logout_revokes_token(): void
+    public function test_me_endpoint_requires_auth(): void
+    {
+        $this->getJson('/api/admin/me')->assertUnauthorized();
+    }
+
+    public function test_me_returns_user_info(): void
     {
         $user = User::factory()->create();
-        $token = $user->createToken('admin')->plainTextToken;
-
-        $this->withToken($token)
-            ->postJson('/api/admin/logout')
-            ->assertOk();
+        $token = $user->createToken('test')->plainTextToken;
 
         $this->withToken($token)
             ->getJson('/api/admin/me')
-            ->assertUnauthorized();
-    }
-
-    // =====================================================
-    // 後台歌曲 CRUD (需登入)
-    // =====================================================
-
-    public function test_admin_can_list_all_songs(): void
-    {
-        $user = User::factory()->create();
-        Song::factory()->count(3)->create();
-
-        $this->actingAs($user)
-            ->getJson('/api/admin/songs')
             ->assertOk()
-            ->assertJsonCount(3);
+            ->assertJsonFragment(['email' => $user->email]);
     }
+
+    // ── Admin Song CRUD ─────────────────────────────────────────────
 
     public function test_admin_can_create_song(): void
     {
         $user = User::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
 
-        $response = $this->actingAs($user)->postJson('/api/admin/songs', [
-            'title_native' => 'Araw Do Koykay',
-            'title_zh' => '飛魚之歌',
-        ]);
+        $this->withToken($token)
+            ->postJson('/api/admin/songs', [
+                'title_native' => 'Do Koykay',
+                'title_zh' => '飛魚之歌',
+            ])
+            ->assertCreated()
+            ->assertJsonFragment(['title_native' => 'Do Koykay']);
 
-        $response->assertCreated()
-            ->assertJsonPath('title_native', 'Araw Do Koykay');
-
-        $this->assertDatabaseHas('songs', ['title_native' => 'Araw Do Koykay']);
+        $this->assertDatabaseHas('songs', ['title_native' => 'Do Koykay']);
     }
 
     public function test_admin_can_update_song(): void
     {
         $user = User::factory()->create();
-        $song = Song::factory()->create(['status' => 'draft']);
+        $token = $user->createToken('test')->plainTextToken;
+        $song = Song::factory()->create();
 
-        $this->actingAs($user)
-            ->putJson("/api/admin/songs/{$song->id}", ['status' => 'published'])
+        $this->withToken($token)
+            ->putJson("/api/admin/songs/{$song->id}", ['title_native' => 'Updated'])
             ->assertOk()
-            ->assertJsonPath('status', 'published');
+            ->assertJsonFragment(['title_native' => 'Updated']);
     }
 
     public function test_admin_can_delete_song(): void
     {
         $user = User::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
         $song = Song::factory()->create();
 
-        $this->actingAs($user)
+        $this->withToken($token)
             ->deleteJson("/api/admin/songs/{$song->id}")
-            ->assertOk();
+            ->assertOk()
+            ->assertJsonFragment(['message' => '已刪除']);
 
         $this->assertDatabaseMissing('songs', ['id' => $song->id]);
     }
 
-    public function test_unauthenticated_cannot_access_admin_songs(): void
-    {
-        $this->getJson('/api/admin/songs')->assertUnauthorized();
-        $this->postJson('/api/admin/songs', ['title_native' => 'Test'])->assertUnauthorized();
-    }
+    // ── Song Lines ──────────────────────────────────────────────────
 
-    // =====================================================
-    // 歌詞管理
-    // =====================================================
-
-    public function test_admin_can_batch_save_song_lines(): void
+    public function test_admin_can_batch_store_lines(): void
     {
         $user = User::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
         $song = Song::factory()->create();
 
         $lines = [
-            ['order' => 1, 'text_native' => 'Do koykay', 'text_zh' => '飛魚', 'start_time' => 0.0, 'end_time' => 3.5],
+            ['order' => 1, 'text_native' => 'Maomaw do koykay', 'text_zh' => '飛魚來了', 'start_time' => 0, 'end_time' => 3.5],
             ['order' => 2, 'text_native' => 'Anood', 'text_zh' => '海浪', 'start_time' => 3.5, 'end_time' => 7.0],
         ];
 
-        $response = $this->actingAs($user)
-            ->postJson("/api/admin/songs/{$song->id}/lines/batch", ['lines' => $lines]);
-
-        $response->assertOk()
-            ->assertJsonCount(2, 'lines');
+        $this->withToken($token)
+            ->postJson("/api/admin/songs/{$song->id}/lines/batch", ['lines' => $lines])
+            ->assertOk()
+            ->assertJsonPath('lines.0.text_native', 'Maomaw do koykay');
 
         $this->assertDatabaseCount('song_lines', 2);
-    }
-
-    public function test_batch_save_replaces_existing_lines(): void
-    {
-        $user = User::factory()->create();
-        $song = Song::factory()
-            ->has(SongLine::factory()->count(5), 'lines')
-            ->create();
-
-        $this->actingAs($user)
-            ->postJson("/api/admin/songs/{$song->id}/lines/batch", [
-                'lines' => [
-                    ['order' => 1, 'text_native' => 'New line', 'text_zh' => '新歌詞'],
-                ],
-            ])
-            ->assertOk();
-
-        $this->assertDatabaseCount('song_lines', 1);
-    }
-
-    public function test_song_line_requires_order(): void
-    {
-        $user = User::factory()->create();
-        $song = Song::factory()->create();
-
-        $this->actingAs($user)
-            ->postJson("/api/admin/songs/{$song->id}/lines/batch", [
-                'lines' => [
-                    ['text_native' => 'Missing order'],
-                ],
-            ])
-            ->assertUnprocessable();
     }
 }

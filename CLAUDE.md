@@ -15,7 +15,7 @@
 2. 在 `feature/<name>` branch 實作（從 develop 開）
 3. 遵循 SOLID + TDD（PHPUnit + Vitest）
 4. 完成後開 PR，目標 branch 為 `develop`
-5. 在 Discord 通知流川楓-kiro review：`<@1505571574068281476> PR #<number> 已開，請 code review`
+5. 在 Discord 通知：`<@1505571574068281476> PR #<number> 已開，請 code review`
 
 ## Tech Stack
 
