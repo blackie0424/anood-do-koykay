@@ -1,12 +1,14 @@
 <script setup>
 import { Link, router } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import axios from 'axios'
 
 defineProps({ songs: Array })
 
-function deleteSong(id) {
+async function deleteSong(id) {
     if (!confirm('確定要刪除這首歌嗎？')) return
-    router.delete(`/admin/songs/${id}`)
+    await axios.delete(`/api/admin/songs/${id}`)
+    router.reload()
 }
 </script>
 
