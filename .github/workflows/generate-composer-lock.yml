@@ -1,0 +1,42 @@
+name: Generate composer.lock
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: develop
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml
+
+      - run: composer install --no-interaction --prefer-dist
+
+      - name: Commit and push composer.lock
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b feature/add-composer-lock
+          git add composer.lock
+          git commit -m "chore: 加入 composer.lock 鎖定依賴版本"
+          git push origin feature/add-composer-lock
+
+      - name: Create PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base develop \
+            --head feature/add-composer-lock \
+            --title "chore: 加入 composer.lock" \
+            --body "由 workflow 自動產生 composer.lock，鎖定所有依賴的精確版本。"
