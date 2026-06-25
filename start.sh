@@ -3,4 +3,5 @@ set -e
 
 php artisan migrate --force
 
-exec /usr/bin/supervisord -n -c /etc/supervisord.conf
+php-fpm -D
+exec nginx -g 'daemon off;'
