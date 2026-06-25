@@ -1,4 +1,3 @@
 {
-    "build_command": "bash /app/build.sh",
-    "start_command": "bash /app/start.sh"
+    "start_command": "bash /var/www/start.sh"
 }
