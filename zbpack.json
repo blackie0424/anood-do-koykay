@@ -1,4 +1,4 @@
 {
-    "build_command": "composer install --no-dev --optimize-autoloader && npm ci && npm run build",
+    "build_command": "bash /app/build.sh",
     "start_command": "bash /app/start.sh"
 }
