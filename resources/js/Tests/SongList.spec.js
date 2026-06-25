@@ -38,6 +38,6 @@ describe('SongList', () => {
             props: { songs: mockSongs },
             global: { stubs: { Link: { template: '<a><slot /></a>' } } },
         })
-        expect(wrapper.findAll('a')).toHaveLength(2)
+        expect(wrapper.findAll('a[aria-label="播放"]')).toHaveLength(2)
     })
 })
