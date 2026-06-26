@@ -32,22 +32,16 @@ class OcrService
 
         $annotations = $response->json('responses.0.textAnnotations', []);
         $grouped = $this->groupByYCoordinate($annotations);
-        $filteredRaw = $this->filterRawText($grouped);
 
-        return ['raw' => $filteredRaw, 'lines' => $this->parseLines($grouped, $titleNative)];
+        return ['raw' => implode("\n", $grouped), 'lines' => $this->parseLines($grouped, $titleNative)];
     }
 
-    /**
-     * Group word annotations by y-coordinate (within 10px = same line).
-     * Returns array of line strings sorted by y position.
-     */
     private function groupByYCoordinate(array $annotations): array
     {
         if (empty($annotations)) {
             return [];
         }
 
-        // Skip index 0 (full text annotation)
         $words = array_slice($annotations, 1);
         $groups = [];
 
@@ -70,23 +64,6 @@ class OcrService
         usort($groups, fn($a, $b) => $a['y'] <=> $b['y']);
 
         return array_map(fn($g) => implode(' ', $g['words']), $groups);
-    }
-
-    private function filterRawText(array $lines): string
-    {
-        $kept = array_filter($lines, function (string $line) {
-            if (preg_match('/[A-Za-z]/', $line)) {
-                if (preg_match('/^[A-G][A-Za-z0-9#b\/\s]*$/', trim($line)) && strlen(trim($line)) <= 20) {
-                    return false;
-                }
-                return true;
-            }
-            if (preg_match('/[\x{4e00}-\x{9fff}]/u', $line)) {
-                return true;
-            }
-            return false;
-        });
-        return implode("\n", $kept);
     }
 
     private function parseLines(array $lines, string $titleNative = ''): array
@@ -117,12 +94,23 @@ class OcrService
 
     private function isNotationOrChordLine(string $line): bool
     {
-        if (preg_match('/^[\d\s\-\.\|]+$/', $line)) {
+        // 純數字/符號行
+        if (preg_match('/^[\d\s\-\.\|·•]+$/', $line)) {
             return true;
         }
-        if (preg_match('/^[A-G][A-Za-z0-9#b\/\s]*$/', $line) && strlen($line) <= 20) {
+
+        // 和弦行：每個 token（以空格分隔）都符合標準和弦格式，且 token 數 ≤ 6
+        $tokens = preg_split('/\s+/', trim($line));
+        if (count($tokens) > 0 && count($tokens) <= 6 &&
+            array_reduce($tokens, fn($carry, $t) => $carry && $this->isChordToken($t), true)) {
             return true;
         }
+
         return false;
+    }
+
+    private function isChordToken(string $token): bool
+    {
+        return (bool) preg_match('/^[A-G][m]?[0-9]?(#|b)?(\/[A-G])?$/', $token);
     }
 }
