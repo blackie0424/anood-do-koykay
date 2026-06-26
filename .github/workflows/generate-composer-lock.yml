@@ -20,16 +20,16 @@ jobs:
           php-version: '8.3'
           extensions: mbstring, xml
 
-      - run: composer install --no-interaction --prefer-dist
+      - run: composer update --no-interaction --prefer-dist --no-dev
 
       - name: Commit and push composer.lock
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b feature/add-composer-lock
+          git checkout -b feature/update-composer-lock
           git add composer.lock
-          git commit -m "chore: 加入 composer.lock 鎖定依賴版本"
-          git push origin feature/add-composer-lock
+          git commit -m "chore: 更新 composer.lock"
+          git push origin feature/update-composer-lock
 
       - name: Create PR
         env:

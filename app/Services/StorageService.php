@@ -13,7 +13,7 @@ class StorageService
         $ext = $file->getClientOriginalExtension();
         $filename = Str::uuid() . '.' . $ext;
         $path = "{$folder}/{$filename}";
-        Storage::disk('r2')->put($path, file_get_contents($file->getRealPath()), 'public');
+        Storage::disk('r2')->put($path, file_get_contents($file->getRealPath()), ['visibility' => 'public']);
         return Storage::disk('r2')->url($path);
     }
 
