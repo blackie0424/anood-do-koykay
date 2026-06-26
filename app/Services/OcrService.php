@@ -31,7 +31,7 @@ class OcrService
         }
 
         $text = $response->json('responses.0.fullTextAnnotation.text', '');
-        return ['raw' => $text, 'lines' => $this->parseLines($text)];
+        return ['raw' => $this->filterRawText($text), 'lines' => $this->parseLines($text)];
     }
 
     private function parseLines(string $text): array
@@ -53,6 +53,27 @@ class OcrService
         }
 
         return $lines;
+    }
+
+    private function filterRawText(string $text): string
+    {
+        $lines = explode("\n", $text);
+        $kept = array_filter($lines, function (string $line) {
+            // 保留含拉丁字母的行（族語）
+            if (preg_match('/[A-Za-z]/', $line)) {
+                // 排除純和弦行（短且只含和弦符號）
+                if (preg_match('/^[A-G][A-Za-z0-9#b\/\s]*$/', trim($line)) && strlen(trim($line)) <= 20) {
+                    return false;
+                }
+                return true;
+            }
+            // 保留含 CJK 字元的行（中文）
+            if (preg_match('/[\x{4e00}-\x{9fff}]/u', $line)) {
+                return true;
+            }
+            return false;
+        });
+        return implode("\n", $kept);
     }
 
     private function isNotationOrChordLine(string $line): bool
