@@ -26,24 +26,25 @@ class MediaController extends Controller
         $song->update(['score_image' => $path]);
 
         $ocrError = null;
+        $result = ['raw' => '', 'lines' => []];
         try {
-            $lines = $this->ocr->extractLines($request->file('score'));
-            if (!empty($lines)) {
-                DB::transaction(function () use ($song, $lines) {
+            $result = $this->ocr->extractLines($request->file('score'));
+            $song->update(['ocr_raw' => $result['raw']]);
+            if (!empty($result['lines'])) {
+                DB::transaction(function () use ($song, $result) {
                     $song->lines()->delete();
-                    foreach ($lines as $line) {
+                    foreach ($result['lines'] as $line) {
                         $song->lines()->create($line);
                     }
                 });
             }
         } catch (\RuntimeException $e) {
-            $lines = [];
             $ocrError = $e->getMessage();
         }
 
         return response()->json([
             'score_image' => $path,
-            'lines_draft' => $lines,
+            'lines_draft' => $result['lines'],
             'ocr_error' => $ocrError,
         ]);
     }
