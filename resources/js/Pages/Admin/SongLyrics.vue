@@ -96,14 +96,15 @@ async function saveLines() {
             <!-- Step Navbar -->
             <div class="px-6 py-3 bg-white border-b shadow-sm">
                 <div class="flex items-center justify-between">
-                    <nav class="flex items-center gap-1 text-sm">
+                    <nav class="flex items-center gap-1 text-sm flex-wrap">
                         <a :href="`/admin/songs/${song.id}/edit`" class="text-stone-400 hover:text-blue-600">基本資料</a>
                         <span class="text-stone-300 mx-1">›</span>
                         <a :href="`/admin/songs/${song.id}/media`" class="text-stone-400 hover:text-blue-600">媒體上傳</a>
                         <span class="text-stone-300 mx-1">›</span>
-                        <span class="font-semibold text-stone-800">歌詞編輯</span>
+                        <span class="text-stone-500 truncate max-w-xs">({{ titleNative || '族語名稱' }} / {{ titleZh || '中文名稱' }})</span>
+                        <span class="font-semibold text-stone-800 ml-1">歌詞編輯</span>
                         <button @click="titleEditing = !titleEditing"
-                            class="ml-2 text-stone-400 hover:text-blue-500 text-xs px-1" title="編輯歌曲名稱">✏️</button>
+                            class="ml-1 text-stone-400 hover:text-blue-500 text-xs px-1" title="編輯歌曲名稱">✏️</button>
                     </nav>
                     <div class="flex items-center gap-3">
                         <span v-if="saveSuccess" class="text-green-600 text-sm">✓ 已儲存</span>
@@ -116,9 +117,9 @@ async function saveLines() {
                 <!-- Title edit panel (hidden by default) -->
                 <div v-if="titleEditing" class="flex items-center gap-3 mt-2">
                     <input v-model="titleNative" @input="onTitleInput" placeholder="族語名稱"
-                        class="border rounded px-2 py-1 text-sm w-48" />
+                        class="border rounded px-2 py-1 text-sm w-64" />
                     <input v-model="titleZh" @input="onTitleInput" placeholder="中文名稱"
-                        class="border rounded px-2 py-1 text-sm w-48" />
+                        class="border rounded px-2 py-1 text-sm w-64" />
                     <span v-if="titleSaving" class="text-stone-400 text-xs">儲存中…</span>
                     <span v-else-if="titleSaved" class="text-green-600 text-xs">✓ 已儲存</span>
                 </div>
