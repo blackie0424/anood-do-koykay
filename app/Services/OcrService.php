@@ -26,8 +26,8 @@ class OcrService
         ]);
 
         if (!$response->successful()) {
-            Log::error('OCR request failed', ['status' => $response->status()]);
-            return [];
+            Log::error('OCR request failed', ['status' => $response->status(), 'body' => $response->body()]);
+            throw new \RuntimeException('OCR 辨識失敗（HTTP ' . $response->status() . '），請確認 Google Vision API 權限');
         }
 
         $text = $response->json('responses.0.fullTextAnnotation.text', '');

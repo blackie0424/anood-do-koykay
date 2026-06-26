@@ -10,6 +10,8 @@ const audioFull = ref(props.song?.audio_full ?? null)
 const scoreUploading = ref(false)
 const audioUploading = ref(false)
 const scoreError = ref('')
+const scoreOcrError = ref('')
+const scoreSuccess = ref(false)
 const audioError = ref('')
 
 async function uploadScore(e) {
@@ -17,11 +19,20 @@ async function uploadScore(e) {
     if (!file) return
     scoreUploading.value = true
     scoreError.value = ''
+    scoreOcrError.value = ''
+    scoreSuccess.value = false
     const fd = new FormData()
     fd.append('score', file)
     try {
         const { data } = await axios.post(`/api/admin/songs/${props.song.id}/score`, fd)
         scoreImage.value = data.score_image
+        if (data.ocr_error) {
+            scoreOcrError.value = `圖片上傳成功，但 OCR 辨識失敗：${data.ocr_error}`
+        } else if (data.lines_draft?.length) {
+            scoreSuccess.value = true
+        } else {
+            scoreOcrError.value = '圖片上傳成功，但 OCR 未辨識出任何文字'
+        }
     } catch {
         scoreError.value = '上傳失敗，請稍後再試'
     } finally {
@@ -64,6 +75,8 @@ async function uploadAudio(e) {
                     @change="uploadScore" :disabled="scoreUploading" class="block" />
                 <p v-if="scoreUploading" class="text-stone-500 text-sm">上傳中…</p>
                 <p v-if="scoreError" class="text-red-500 text-sm">{{ scoreError }}</p>
+                <p v-if="scoreOcrError" class="text-yellow-600 text-sm">⚠️ {{ scoreOcrError }}</p>
+                <p v-if="scoreSuccess" class="text-green-600 text-sm">✓ 上傳成功，歌詞已辨識，請前往歌詞編輯頁查看</p>
             </section>
 
             <!-- 完整錄音 -->
