@@ -1,6 +1,7 @@
 name: Auto-update composer.lock
 
 on:
+  workflow_dispatch:
   push:
     branches: [develop, 'feature/**', 'fix/**']
     paths:
