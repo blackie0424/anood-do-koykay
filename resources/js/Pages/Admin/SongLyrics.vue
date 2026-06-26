@@ -132,6 +132,7 @@ async function saveLines() {
                         </button>
                     </div>
                 </div>
+            </div>
 
             <!-- Audio Player -->
             <div v-if="song.audio_full" class="px-6 py-2 bg-stone-50 border-b flex items-center gap-4">
