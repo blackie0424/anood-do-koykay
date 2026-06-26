@@ -113,23 +113,32 @@ class OcrService
 
     private function isNotationOrChordLine(string $line): bool
     {
-        // 純數字/符號行
-        if (preg_match('/^[\d\s\-\.\|·•]+$/', $line)) {
+        if (preg_match('/^[\d\s\-\.\|·•:]+$/', $line)) {
             return true;
         }
 
-        // 和弦行：每個 token（以空格分隔）都符合標準和弦格式，且 token 數 ≤ 6
-        $tokens = preg_split('/\s+/', trim($line));
-        if (count($tokens) > 0 && count($tokens) <= 6 &&
-            array_reduce($tokens, fn($carry, $t) => $carry && $this->isChordToken($t), true)) {
-            return true;
+        $tokens = array_values(array_filter(preg_split('/\s+/', trim($line))));
+        $total = count($tokens);
+        if ($total === 0) return false;
+
+        $chordCount = 0;
+        $numericCount = 0;
+        foreach ($tokens as $token) {
+            if ($this->isChordToken($token)) {
+                $chordCount++;
+            } elseif (preg_match('/^\d+$/', $token)) {
+                $numericCount++;
+            }
         }
+
+        if ($chordCount / $total > 0.6) return true;
+        if ($numericCount / $total > 0.4) return true;
 
         return false;
     }
 
     private function isChordToken(string $token): bool
     {
-        return (bool) preg_match('/^[A-G][m]?[0-9]?(#|b)?(\/[A-G])?$/', $token);
+        return (bool) preg_match('/^[A-G](m|maj|dim|aug|min)?(maj7|m7|dim7|mmaj7|7|9|11|13|6|sus2|sus4|add9|add2)?(#|b)?(\/[A-G])?$/', $token);
     }
 }
