@@ -49,6 +49,24 @@ class MediaController extends Controller
         ]);
     }
 
+    public function reOcr(Song $song)
+    {
+        if (!$song->score_image) {
+            return response()->json(['error' => '尚未上傳樂譜'], 422);
+        }
+        $result = $this->ocr->extractLinesFromUrl($song->score_image, $song->title_native ?? '');
+        $song->update(['ocr_raw' => $result['raw']]);
+        if (!empty($result['lines'])) {
+            DB::transaction(function () use ($song, $result) {
+                $song->lines()->delete();
+                foreach ($result['lines'] as $line) {
+                    $song->lines()->create($line);
+                }
+            });
+        }
+        return response()->json(['ocr_raw' => $result['raw'], 'lines' => $result['lines']]);
+    }
+
     public function uploadAudio(Request $request, Song $song)
     {
         $request->validate([
