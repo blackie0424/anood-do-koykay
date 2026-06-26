@@ -227,4 +227,63 @@ class OcrServiceTest extends TestCase
 
         $this->assertSame(['raw' => '', 'lines' => []], $result);
     }
+
+    public function test_smart_filter_correctly_classifies_all_line_types(): void
+    {
+        Config::set('services.google.vision_api_key', 'test-key');
+
+        $w = fn(string $d, int $x, int $y) => [
+            'description' => $d,
+            'boundingPoly' => ['vertices' => [['x' => $x, 'y' => $y]]],
+        ];
+
+        Http::fake([
+            'vision.googleapis.com/*' => Http::response([
+                'responses' => [[
+                    'textAnnotations' => [
+                        $w('FULL_TEXT', 0, 0),
+                        // y=50: Azwain ta si Yeso (kept — lyrics title)
+                        $w('Azwain', 10, 50), $w('ta', 80, 50), $w('si', 110, 50), $w('Yeso', 140, 50),
+                        // y=150: Ya- bo ma- ka- had si Ye- SO . (kept — lyrics)
+                        $w('Ya-', 10, 150), $w('bo', 50, 150), $w('ma-', 80, 150), $w('ka-', 110, 150),
+                        $w('had', 140, 150), $w('si', 170, 150), $w('Ye-', 200, 150), $w('SO', 230, 150), $w('.', 260, 150),
+                        // y=250: 作詞 : (kept — contains Chinese)
+                        $w('作詞', 10, 250), $w(':', 80, 250),
+                        // y=350: macinanao (kept — Latin word)
+                        $w('macinanao', 10, 350),
+                        // y=450: 9 (filtered — pure number)
+                        $w('9', 10, 450),
+                        // y=550: | : 6 6 6 3 2 12 2 1 1 | 6 (filtered — symbol/notation line)
+                        $w('|', 10, 550), $w(':', 30, 550), $w('6', 50, 550), $w('6', 70, 550),
+                        $w('6', 90, 550), $w('3', 110, 550), $w('2', 130, 550), $w('12', 150, 550),
+                        $w('2', 170, 550), $w('1', 190, 550), $w('1', 210, 550), $w('|', 230, 550), $w('6', 250, 550),
+                        // y=650: Dm EN C7 Dm (filtered — chord ratio 75%)
+                        $w('Dm', 10, 650), $w('EN', 50, 650), $w('C7', 80, 650), $w('Dm', 110, 650),
+                        // y=750: Dm 3/4 syaman (kept — chord ratio 33%)
+                        $w('Dm', 10, 750), $w('3/4', 50, 750), $w('syaman', 80, 750),
+                        // y=850: C7 Dm Dm -TO (filtered — chord ratio 75%)
+                        $w('C7', 10, 850), $w('Dm', 50, 850), $w('Dm', 80, 850), $w('-TO', 110, 850),
+                        // y=950: G Am C (filtered — chord ratio 100%)
+                        $w('G', 10, 950), $w('Am', 40, 950), $w('C', 70, 950),
+                    ],
+                ]],
+            ], 200),
+        ]);
+
+        $file = UploadedFile::fake()->image('score.png');
+        $result = $this->service->extractLines($file, '');
+        $textNatives = array_column($result['lines'], 'text_native');
+
+        $this->assertContains('Azwain ta si Yeso', $textNatives);
+        $this->assertContains('Ya- bo ma- ka- had si Ye- SO .', $textNatives);
+        $this->assertContains('作詞 :', $textNatives);
+        $this->assertContains('macinanao', $textNatives);
+        $this->assertContains('Dm 3/4 syaman', $textNatives);
+
+        $this->assertNotContains('9', $textNatives);
+        $this->assertNotContains('| : 6 6 6 3 2 12 2 1 1 | 6', $textNatives);
+        $this->assertNotContains('Dm EN C7 Dm', $textNatives);
+        $this->assertNotContains('C7 Dm Dm -TO', $textNatives);
+        $this->assertNotContains('G Am C', $textNatives);
+    }
 }

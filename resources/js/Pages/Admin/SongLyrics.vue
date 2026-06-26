@@ -18,22 +18,32 @@ const lines = ref(
         : [{ order: 1, text_native: '', text_zh: '', start_time: null, end_time: null }]
 )
 
+const CHORD_RE = /^[A-G](m|maj|dim|aug|min)?(maj7|m7|dim7|mmaj7|7|9|11|13|6|sus2|sus4|add9|add2)?(#|b)?(\/[A-G])?$/
+
+function isFilteredLine(line) {
+    const t = line.trim()
+    if (!t) return true
+    if (/^[\d\s\-\.|·•:]+$/.test(t)) return true
+    const tokens = t.split(/\s+/).filter(Boolean)
+    if (tokens.length === 0) return true
+    const chordCount = tokens.filter(tok => CHORD_RE.test(tok)).length
+    const numericCount = tokens.filter(tok => /^\d+$/.test(tok)).length
+    if (chordCount / tokens.length > 0.6) return true
+    if (numericCount / tokens.length > 0.4) return true
+    return false
+}
+
 const filteredOcrRaw = computed(() => {
     if (!props.song?.ocr_raw) return ''
-    const lines = props.song.ocr_raw.split('\n')
-    return lines.filter((line, idx) => {
-        if (idx === 0) return true  // 第一行永遠保留（歌曲名稱）
+    const titleWords = (props.song.title_native || '').toLowerCase().split(/\s+/).filter(Boolean)
+    return props.song.ocr_raw.split('\n').filter((line, idx) => {
         const t = line.trim()
         if (!t) return false
-        // 純數字/符號/小節線行
-        if (/^[\d\s\-\.\|·•:]+$/.test(t)) return false
-        // 含數字超過一半的行（簡譜行）
-        if ((t.match(/\d/g) || []).length > t.length * 0.3) return false
-        // 和弦行：每個 token 都是和弦格式
-        const tokens = t.split(/\s+/)
-        if (tokens.length <= 6 && tokens.every(tok => /^[A-G][m]?[0-9]?(#|b)?(\/[A-G])?$/.test(tok))) return false
-        // 含拉丁字母或中文才保留
-        return /[A-Za-z\u4e00-\u9fff]/.test(t)
+        if (idx === 0 && titleWords.length > 0) {
+            const lower = t.toLowerCase()
+            return titleWords.some(w => lower.includes(w))
+        }
+        return !isFilteredLine(line)
     }).join('\n')
 })
 
