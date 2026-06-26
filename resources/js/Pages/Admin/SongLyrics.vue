@@ -103,14 +103,14 @@ async function saveLines() {
                 <div class="w-3/5 overflow-y-auto p-4 space-y-3">
                     <div v-for="(line, idx) in lines" :key="idx"
                         class="bg-white rounded-lg border p-3 space-y-2">
-                        <div class="flex items-center gap-2">
-                            <span class="text-stone-400 font-mono text-xs w-5">{{ idx + 1 }}</span>
-                            <input v-model="line.text_native" placeholder="族語歌詞"
-                                class="flex-1 border rounded px-2 py-1 text-sm" />
-                            <input v-model="line.text_zh" placeholder="中文翻譯"
-                                class="flex-1 border rounded px-2 py-1 text-sm" />
+                        <div class="flex items-start gap-2">
+                            <span class="text-stone-400 font-mono text-xs w-5 mt-2">{{ idx + 1 }}</span>
+                            <textarea v-model="line.text_native" placeholder="族語歌詞" rows="2"
+                                class="flex-1 border rounded px-2 py-1 text-sm resize-y" />
+                            <textarea v-model="line.text_zh" placeholder="中文翻譯" rows="2"
+                                class="flex-1 border rounded px-2 py-1 text-sm resize-y" />
                             <button @click="removeLine(idx)"
-                                class="text-red-400 hover:text-red-600 text-xs px-1">✕</button>
+                                class="text-red-400 hover:text-red-600 text-xs px-1 mt-1">✕</button>
                         </div>
                         <div class="flex items-center gap-2 pl-7">
                             <button @click="markStart(line)"

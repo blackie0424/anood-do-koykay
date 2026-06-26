@@ -7,6 +7,7 @@ use App\Models\Song;
 use App\Services\OcrService;
 use App\Services\StorageService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class MediaController extends Controller
 {
@@ -27,6 +28,14 @@ class MediaController extends Controller
         $ocrError = null;
         try {
             $lines = $this->ocr->extractLines($request->file('score'));
+            if (!empty($lines)) {
+                DB::transaction(function () use ($song, $lines) {
+                    $song->lines()->delete();
+                    foreach ($lines as $line) {
+                        $song->lines()->create($line);
+                    }
+                });
+            }
         } catch (\RuntimeException $e) {
             $lines = [];
             $ocrError = $e->getMessage();
