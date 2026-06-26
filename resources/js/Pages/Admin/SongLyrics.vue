@@ -22,10 +22,18 @@ const filteredOcrRaw = computed(() => {
     if (!props.song?.ocr_raw) return ''
     const lines = props.song.ocr_raw.split('\n')
     return lines.filter((line, idx) => {
-        if (idx === 0) return true
-        if (/^[\d\s\-\.\|·•]+$/.test(line)) return false
-        if (/^[A-G][A-Za-z0-9#b/\s]*$/.test(line.trim()) && line.trim().length <= 10) return false
-        return true
+        if (idx === 0) return true  // 第一行永遠保留（歌曲名稱）
+        const t = line.trim()
+        if (!t) return false
+        // 純數字/符號/小節線行
+        if (/^[\d\s\-\.\|·•:]+$/.test(t)) return false
+        // 含數字超過一半的行（簡譜行）
+        if ((t.match(/\d/g) || []).length > t.length * 0.3) return false
+        // 和弦行：每個 token 都是和弦格式
+        const tokens = t.split(/\s+/)
+        if (tokens.length <= 6 && tokens.every(tok => /^[A-G][m]?[0-9]?(#|b)?(\/[A-G])?$/.test(tok))) return false
+        // 含拉丁字母或中文才保留
+        return /[A-Za-z\u4e00-\u9fff]/.test(t)
     }).join('\n')
 })
 
