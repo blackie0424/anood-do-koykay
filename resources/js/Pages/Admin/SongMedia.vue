@@ -13,6 +13,9 @@ const scoreError = ref('')
 const scoreOcrError = ref('')
 const scoreSuccess = ref(false)
 const audioError = ref('')
+const reOcrLoading = ref(false)
+const reOcrSuccess = ref(false)
+const reOcrError = ref('')
 
 async function uploadScore(e) {
     const file = e.target.files[0]
@@ -37,6 +40,20 @@ async function uploadScore(e) {
         scoreError.value = '上傳失敗，請稍後再試'
     } finally {
         scoreUploading.value = false
+    }
+}
+
+async function reOcr() {
+    reOcrLoading.value = true
+    reOcrSuccess.value = false
+    reOcrError.value = ''
+    try {
+        await axios.post(`/api/admin/songs/${props.song.id}/score/reocr`)
+        reOcrSuccess.value = true
+    } catch (e) {
+        reOcrError.value = e.response?.data?.error ?? '重新辨識失敗，請稍後再試'
+    } finally {
+        reOcrLoading.value = false
     }
 }
 
@@ -77,6 +94,14 @@ async function uploadAudio(e) {
                 <p v-if="scoreError" class="text-red-500 text-sm">{{ scoreError }}</p>
                 <p v-if="scoreOcrError" class="text-yellow-600 text-sm">⚠️ {{ scoreOcrError }}</p>
                 <p v-if="scoreSuccess" class="text-green-600 text-sm">✓ 上傳成功，歌詞已辨識，請前往歌詞編輯頁查看</p>
+                <div v-if="scoreImage" class="flex items-center gap-3">
+                    <button @click="reOcr" :disabled="reOcrLoading"
+                        class="text-sm text-blue-600 hover:underline disabled:opacity-50">
+                        {{ reOcrLoading ? '辨識中…' : '重新辨識歌詞' }}
+                    </button>
+                    <p v-if="reOcrSuccess" class="text-green-600 text-sm">✓ 辨識完成，請前往歌詞編輯頁查看</p>
+                    <p v-if="reOcrError" class="text-red-500 text-sm">{{ reOcrError }}</p>
+                </div>
             </section>
 
             <!-- 完整錄音 -->
