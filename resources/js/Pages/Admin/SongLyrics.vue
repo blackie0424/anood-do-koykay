@@ -92,13 +92,16 @@ async function saveLines() {
 <template>
     <AdminLayout>
         <div class="flex flex-col h-screen overflow-hidden">
-            <!-- Header -->
+            <!-- Step Navbar -->
             <div class="px-6 py-3 bg-white border-b shadow-sm space-y-2">
                 <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-4">
-                        <a :href="`/admin/songs/${song.id}/media`" class="text-blue-600 hover:underline text-sm">← 媒體上傳</a>
-                        <span class="text-xl font-bold">歌詞編輯</span>
-                    </div>
+                    <nav class="flex items-center gap-1 text-sm">
+                        <a :href="`/admin/songs/${song.id}/edit`" class="text-stone-400 hover:text-blue-600">基本資料</a>
+                        <span class="text-stone-300 mx-1">›</span>
+                        <a :href="`/admin/songs/${song.id}/media`" class="text-stone-400 hover:text-blue-600">媒體上傳</a>
+                        <span class="text-stone-300 mx-1">›</span>
+                        <span class="font-semibold text-stone-800">歌詞編輯</span>
+                    </nav>
                     <div class="flex items-center gap-3">
                         <span v-if="saveSuccess" class="text-green-600 text-sm">✓ 已儲存</span>
                         <button @click="saveLines" :disabled="saving"
@@ -126,17 +129,26 @@ async function saveLines() {
                 </span>
             </div>
 
-            <!-- Main Content -->
+            <!-- Three-column Content -->
             <div class="flex flex-1 overflow-hidden">
-                <!-- Left: Score Image -->
-                <div class="w-2/5 border-r overflow-y-auto p-4 bg-stone-50">
+                <!-- Col 1: Score Image -->
+                <div class="w-1/3 border-r overflow-y-auto p-4 bg-stone-50">
+                    <p class="text-xs text-stone-400 mb-2 font-medium">原圖</p>
                     <img v-if="song.score_image" :src="song.score_image" alt="樂譜"
                         class="w-full rounded border" />
-                    <p v-else class="text-stone-400 text-center mt-8">尚未上傳樂譜</p>
+                    <p v-else class="text-stone-400 text-center mt-8 text-sm">尚未上傳樂譜</p>
                 </div>
 
-                <!-- Right: Lyrics List -->
-                <div class="w-3/5 overflow-y-auto p-4 space-y-3">
+                <!-- Col 2: OCR Raw -->
+                <div class="w-1/3 border-r overflow-y-auto p-4 bg-stone-50">
+                    <p class="text-xs text-stone-400 mb-2 font-medium">OCR 辨識結果（可複製）</p>
+                    <pre v-if="song.ocr_raw" class="font-mono text-xs whitespace-pre-wrap text-stone-700 select-all">{{ song.ocr_raw }}</pre>
+                    <p v-else class="text-stone-400 text-center mt-8 text-sm">尚無 OCR 資料</p>
+                </div>
+
+                <!-- Col 3: Lyrics Editor -->
+                <div class="w-1/3 overflow-y-auto p-4 space-y-3">
+                    <p class="text-xs text-stone-400 font-medium">歌詞編輯</p>
                     <div v-for="(line, idx) in lines" :key="idx"
                         class="bg-white rounded-lg border p-3 space-y-2">
                         <div class="flex items-start gap-2">
@@ -154,13 +166,13 @@ async function saveLines() {
                                 標記起始
                             </button>
                             <input v-model.number="line.start_time" type="number" step="0.1" placeholder="起始(秒)"
-                                class="w-24 border rounded px-2 py-0.5 text-xs" />
+                                class="w-20 border rounded px-2 py-0.5 text-xs" />
                             <button @click="markEnd(line, idx)"
                                 class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded hover:bg-orange-200">
                                 標記結束
                             </button>
                             <input v-model.number="line.end_time" type="number" step="0.1" placeholder="結束(秒)"
-                                class="w-24 border rounded px-2 py-0.5 text-xs" />
+                                class="w-20 border rounded px-2 py-0.5 text-xs" />
                         </div>
                     </div>
 

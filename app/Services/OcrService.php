@@ -13,7 +13,7 @@ class OcrService
 
         if (!$apiKey) {
             Log::warning('Google Vision API key not configured');
-            return [];
+            return ['raw' => '', 'lines' => []];
         }
 
         $base64 = base64_encode(file_get_contents($file->getRealPath()));
@@ -31,7 +31,7 @@ class OcrService
         }
 
         $text = $response->json('responses.0.fullTextAnnotation.text', '');
-        return $this->parseLines($text);
+        return ['raw' => $text, 'lines' => $this->parseLines($text)];
     }
 
     private function parseLines(string $text): array
