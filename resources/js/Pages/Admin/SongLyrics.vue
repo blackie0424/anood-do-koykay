@@ -111,11 +111,11 @@ async function saveLines() {
                             </template>
                         </template>
                         <template v-else>
-                            <input v-model="titleNative" @input="onTitleInput" placeholder="族語名稱"
-                                class="border rounded px-2 py-0.5 text-sm w-80 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                            <input v-model="titleNative" @input="onTitleInput" @blur="titleEditing = false" placeholder="族語名稱"
+                                class="border rounded px-2 py-0.5 text-sm w-full max-w-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
                             <span class="text-stone-400 mx-1">/</span>
-                            <input v-model="titleZh" @input="onTitleInput" placeholder="中文名稱"
-                                class="border rounded px-2 py-0.5 text-sm w-48 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                            <input v-model="titleZh" @input="onTitleInput" @blur="titleEditing = false" placeholder="中文名稱"
+                                class="border rounded px-2 py-0.5 text-sm w-full max-w-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
                             <span v-if="titleSaving" class="text-stone-400 text-xs ml-1">儲存中…</span>
                             <span v-else-if="titleSaved" class="text-green-600 text-xs ml-1">✓</span>
                         </template>

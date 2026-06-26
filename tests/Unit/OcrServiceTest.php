@@ -121,6 +121,44 @@ class OcrServiceTest extends TestCase
         $this->assertContains('ko tey-kak', $textNatives);
     }
 
+    public function test_song_title_starting_with_chord_letter_is_not_filtered_from_lines(): void
+    {
+        Config::set('services.google.vision_api_key', 'test-key');
+
+        Http::fake([
+            'vision.googleapis.com/*' => Http::response([
+                'responses' => [[
+                    'textAnnotations' => [
+                        ['description' => 'FULL_TEXT', 'boundingPoly' => ['vertices' => [['x' => 0, 'y' => 0]]]],
+                        // title "Azwain ta si Yeso" - starts with A but is not a chord
+                        ['description' => 'Azwain', 'boundingPoly' => ['vertices' => [['x' => 10, 'y' => 50]]]],
+                        ['description' => 'ta', 'boundingPoly' => ['vertices' => [['x' => 80, 'y' => 51]]]],
+                        ['description' => 'si', 'boundingPoly' => ['vertices' => [['x' => 110, 'y' => 50]]]],
+                        ['description' => 'Yeso', 'boundingPoly' => ['vertices' => [['x' => 140, 'y' => 50]]]],
+                        // real chord line "G Am C"
+                        ['description' => 'G', 'boundingPoly' => ['vertices' => [['x' => 10, 'y' => 80]]]],
+                        ['description' => 'Am', 'boundingPoly' => ['vertices' => [['x' => 30, 'y' => 81]]]],
+                        ['description' => 'C', 'boundingPoly' => ['vertices' => [['x' => 55, 'y' => 80]]]],
+                        // lyrics line
+                        ['description' => 'ko', 'boundingPoly' => ['vertices' => [['x' => 10, 'y' => 120]]]],
+                        ['description' => 'tey-kak', 'boundingPoly' => ['vertices' => [['x' => 50, 'y' => 121]]]],
+                    ],
+                ]],
+            ], 200),
+        ]);
+
+        $file = UploadedFile::fake()->image('score.png');
+        $result = $this->service->extractLines($file);
+
+        $textNatives = array_column($result['lines'], 'text_native');
+        // "Azwain ta si Yeso" is NOT a chord line — should be kept
+        $this->assertContains('Azwain ta si Yeso', $textNatives);
+        // "G Am C" IS a chord line — should be filtered
+        $this->assertNotContains('G Am C', $textNatives);
+        // lyrics kept
+        $this->assertContains('ko tey-kak', $textNatives);
+    }
+
     public function test_throws_runtime_exception_on_api_failure(): void
     {
         Config::set('services.google.vision_api_key', 'test-key');
