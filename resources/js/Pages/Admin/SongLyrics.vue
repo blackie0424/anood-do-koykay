@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import axios from 'axios'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 
@@ -17,6 +17,17 @@ const lines = ref(
         ? props.song.lines.map(l => ({ ...l }))
         : [{ order: 1, text_native: '', text_zh: '', start_time: null, end_time: null }]
 )
+
+const filteredOcrRaw = computed(() => {
+    if (!props.song?.ocr_raw) return ''
+    const lines = props.song.ocr_raw.split('\n')
+    return lines.filter((line, idx) => {
+        if (idx === 0) return true
+        if (/^[\d\s\-\.\|·•]+$/.test(line)) return false
+        if (/^[A-G][A-Za-z0-9#b/\s]*$/.test(line.trim()) && line.trim().length <= 10) return false
+        return true
+    }).join('\n')
+})
 
 const audioRef = ref(null)
 const currentTime = ref(0)
@@ -156,7 +167,7 @@ async function saveLines() {
                 <!-- Col 2: OCR Raw -->
                 <div class="w-1/3 border-r overflow-y-auto p-4 bg-stone-50">
                     <p class="text-xs text-stone-400 mb-2 font-medium">OCR 辨識結果（可複製）</p>
-                    <pre v-if="song.ocr_raw" class="font-mono text-xs whitespace-pre-wrap text-stone-700 select-text cursor-text">{{ song.ocr_raw }}</pre>
+                    <pre v-if="filteredOcrRaw" class="font-mono text-xs whitespace-pre-wrap text-stone-700 select-text cursor-text">{{ filteredOcrRaw }}</pre>
                     <p v-else class="text-stone-400 text-center mt-8 text-sm">尚無 OCR 資料</p>
                 </div>
 
