@@ -1,0 +1,39 @@
+name: Auto-update composer.lock
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop, 'feature/**', 'fix/**']
+    paths:
+      - 'composer.json'
+
+permissions:
+  contents: write
+
+jobs:
+  update-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml
+
+      - run: composer update --no-interaction --prefer-dist --no-dev
+
+      - name: Commit if composer.lock changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet composer.lock; then
+            echo "composer.lock 無變動，略過 commit"
+          else
+            git add composer.lock
+            git commit -m "chore: 自動更新 composer.lock"
+            git push
+          fi
