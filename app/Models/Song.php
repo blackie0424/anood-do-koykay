@@ -9,7 +9,7 @@ class Song extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['title_native', 'title_zh', 'score_image', 'audio_full', 'status'];
+    protected $fillable = ['title_native', 'title_zh', 'score_image', 'audio_full', 'status', 'ocr_raw'];
 
     public function lines()
     {
