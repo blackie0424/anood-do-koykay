@@ -33,10 +33,10 @@ function isFilteredLine(line) {
     return false
 }
 
-const filteredOcrRaw = computed(() => {
-    if (!props.song?.ocr_raw) return ''
+function filterOcrLines(ocrRaw) {
+    if (!ocrRaw) return ''
     const titleWords = (props.song.title_native || '').toLowerCase().split(/\s+/).filter(Boolean)
-    return props.song.ocr_raw.split('\n').filter((line, idx) => {
+    return ocrRaw.split('\n').filter((line, idx) => {
         const t = line.trim()
         if (!t) return false
         if (idx === 0 && titleWords.length > 0) {
@@ -45,6 +45,15 @@ const filteredOcrRaw = computed(() => {
         }
         return !isFilteredLine(line)
     }).join('\n')
+}
+
+const filteredOcrRaw = computed(() => {
+    const scores = props.song?.scores ?? []
+    if (!scores.length) return ''
+    return scores.map((score, i) => {
+        const filtered = filterOcrLines(score.ocr_raw || '')
+        return scores.length > 1 ? `--- 第${i + 1}張 ---\n${filtered}` : filtered
+    }).filter(Boolean).join('\n\n')
 })
 
 const audioRef = ref(null)
@@ -174,11 +183,15 @@ async function saveLines() {
 
             <!-- Three-column Content -->
             <div class="flex flex-1 overflow-hidden">
-                <!-- Col 1: Score Image -->
+                <!-- Col 1: Score Images -->
                 <div class="w-1/3 border-r overflow-y-auto p-4 bg-stone-50">
                     <p class="text-xs text-stone-400 mb-2 font-medium">原圖</p>
-                    <img v-if="song.score_image" :src="song.score_image" alt="樂譜"
-                        class="w-full rounded border" />
+                    <template v-if="song.scores?.length">
+                        <div v-for="(score, i) in song.scores" :key="score.id" class="mb-3">
+                            <p v-if="song.scores.length > 1" class="text-xs text-stone-400 mb-1">第 {{ i + 1 }} 張</p>
+                            <img :src="score.image_url" alt="樂譜" class="w-full rounded border" />
+                        </div>
+                    </template>
                     <p v-else class="text-stone-400 text-center mt-8 text-sm">尚未上傳樂譜</p>
                 </div>
 
