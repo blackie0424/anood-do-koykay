@@ -23,11 +23,19 @@ class MediaController extends Controller
 
         $path = $this->storage->uploadFile($request->file('score'), "scores/{$song->id}");
         $song->update(['score_image' => $path]);
-        $lines = $this->ocr->extractLines($request->file('score'));
+
+        $ocrError = null;
+        try {
+            $lines = $this->ocr->extractLines($request->file('score'));
+        } catch (\RuntimeException $e) {
+            $lines = [];
+            $ocrError = $e->getMessage();
+        }
 
         return response()->json([
             'score_image' => $path,
             'lines_draft' => $lines,
+            'ocr_error' => $ocrError,
         ]);
     }
 
