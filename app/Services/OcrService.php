@@ -55,7 +55,7 @@ class OcrService
             $y = $word['boundingPoly']['vertices'][0]['y'] ?? 0;
             $matched = false;
             foreach ($groups as &$group) {
-                if (abs($group['y'] - $y) <= 10) {
+                if (abs($group['y'] - $y) <= 15) {
                     $group['words'][] = $word['description'];
                     $matched = true;
                     break;

@@ -39,13 +39,13 @@ class OcrServiceTest extends TestCase
                     'textAnnotations' => [
                         // index 0 = full text (skipped)
                         ['description' => 'FULL_TEXT', 'boundingPoly' => ['vertices' => [['x' => 0, 'y' => 0]]]],
-                        // line 1: y≈100
+                        // line 1: y≈100, spread within 15px tolerance
                         ['description' => 'ko', 'boundingPoly' => ['vertices' => [['x' => 10, 'y' => 100]]]],
-                        ['description' => 'tey-kak', 'boundingPoly' => ['vertices' => [['x' => 50, 'y' => 102]]]],
+                        ['description' => 'tey-kak', 'boundingPoly' => ['vertices' => [['x' => 50, 'y' => 113]]]],
                         ['description' => 'za', 'boundingPoly' => ['vertices' => [['x' => 120, 'y' => 99]]]],
-                        // line 2: y≈150
-                        ['description' => 'ma-i', 'boundingPoly' => ['vertices' => [['x' => 10, 'y' => 150]]]],
-                        ['description' => 'ka-na', 'boundingPoly' => ['vertices' => [['x' => 60, 'y' => 152]]]],
+                        // line 2: y≈160, more than 15px away from line 1
+                        ['description' => 'ma-i', 'boundingPoly' => ['vertices' => [['x' => 10, 'y' => 160]]]],
+                        ['description' => 'ka-na', 'boundingPoly' => ['vertices' => [['x' => 60, 'y' => 162]]]],
                     ],
                 ]],
             ], 200),
