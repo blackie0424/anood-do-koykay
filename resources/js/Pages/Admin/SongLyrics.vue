@@ -131,7 +131,7 @@ async function saveLines() {
                             {{ saving ? '儲存中…' : '儲存歌詞' }}
                         </button>
                     </div>
-            </div>
+                </div>
 
             <!-- Audio Player -->
             <div v-if="song.audio_full" class="px-6 py-2 bg-stone-50 border-b flex items-center gap-4">
