@@ -23,8 +23,22 @@ class SongController extends Controller
 
     public function editPage(Song $song)
     {
-        $song->load('lines');
         return Inertia::render('Admin/SongEdit', ['song' => $song]);
+    }
+
+    public function mediaPage(Song $song)
+    {
+        return Inertia::render('Admin/SongMedia', [
+            'song' => $song->only('id', 'title_native', 'score_image', 'audio_full'),
+        ]);
+    }
+
+    public function lyricsPage(Song $song)
+    {
+        $song->load('lines');
+        return Inertia::render('Admin/SongLyrics', [
+            'song' => $song->only('id', 'title_native', 'score_image', 'audio_full', 'lines'),
+        ]);
     }
 
     public function index()
