@@ -7,6 +7,7 @@ const props = defineProps({ song: Object })
 
 const titleNative = ref(props.song?.title_native ?? '')
 const titleZh = ref(props.song?.title_zh ?? '')
+const titleEditing = ref(false)
 const titleSaving = ref(false)
 const titleSaved = ref(false)
 let titleSaveTimer = null
@@ -93,7 +94,7 @@ async function saveLines() {
     <AdminLayout>
         <div class="flex flex-col h-screen overflow-hidden">
             <!-- Step Navbar -->
-            <div class="px-6 py-3 bg-white border-b shadow-sm space-y-2">
+            <div class="px-6 py-3 bg-white border-b shadow-sm">
                 <div class="flex items-center justify-between">
                     <nav class="flex items-center gap-1 text-sm">
                         <a :href="`/admin/songs/${song.id}/edit`" class="text-stone-400 hover:text-blue-600">基本資料</a>
@@ -101,6 +102,8 @@ async function saveLines() {
                         <a :href="`/admin/songs/${song.id}/media`" class="text-stone-400 hover:text-blue-600">媒體上傳</a>
                         <span class="text-stone-300 mx-1">›</span>
                         <span class="font-semibold text-stone-800">歌詞編輯</span>
+                        <button @click="titleEditing = !titleEditing"
+                            class="ml-2 text-stone-400 hover:text-blue-500 text-xs px-1" title="編輯歌曲名稱">✏️</button>
                     </nav>
                     <div class="flex items-center gap-3">
                         <span v-if="saveSuccess" class="text-green-600 text-sm">✓ 已儲存</span>
@@ -110,7 +113,8 @@ async function saveLines() {
                         </button>
                     </div>
                 </div>
-                <div class="flex items-center gap-3">
+                <!-- Title edit panel (hidden by default) -->
+                <div v-if="titleEditing" class="flex items-center gap-3 mt-2">
                     <input v-model="titleNative" @input="onTitleInput" placeholder="族語名稱"
                         class="border rounded px-2 py-1 text-sm w-48" />
                     <input v-model="titleZh" @input="onTitleInput" placeholder="中文名稱"
@@ -142,7 +146,7 @@ async function saveLines() {
                 <!-- Col 2: OCR Raw -->
                 <div class="w-1/3 border-r overflow-y-auto p-4 bg-stone-50">
                     <p class="text-xs text-stone-400 mb-2 font-medium">OCR 辨識結果（可複製）</p>
-                    <pre v-if="song.ocr_raw" class="font-mono text-xs whitespace-pre-wrap text-stone-700 select-all">{{ song.ocr_raw }}</pre>
+                    <pre v-if="song.ocr_raw" class="font-mono text-xs whitespace-pre-wrap text-stone-700 select-text cursor-text">{{ song.ocr_raw }}</pre>
                     <p v-else class="text-stone-400 text-center mt-8 text-sm">尚無 OCR 資料</p>
                 </div>
 
