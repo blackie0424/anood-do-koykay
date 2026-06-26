@@ -32,12 +32,10 @@ class OcrServiceTest extends TestCase
     {
         Config::set('services.google.vision_api_key', 'test-key');
 
-        // Three words on same line (y=100), one on different line (y=150)
         Http::fake([
             'vision.googleapis.com/*' => Http::response([
                 'responses' => [[
                     'textAnnotations' => [
-                        // index 0 = full text (skipped)
                         ['description' => 'FULL_TEXT', 'boundingPoly' => ['vertices' => [['x' => 0, 'y' => 0]]]],
                         // line 1: y≈100, spread within 15px tolerance
                         ['description' => 'ko', 'boundingPoly' => ['vertices' => [['x' => 10, 'y' => 100]]]],
@@ -60,7 +58,41 @@ class OcrServiceTest extends TestCase
         $this->assertSame('ma-i ka-na', $lines[1]);
     }
 
-    public function test_skips_line_matching_song_title(): void
+    public function test_raw_includes_song_title_and_all_content(): void
+    {
+        Config::set('services.google.vision_api_key', 'test-key');
+
+        Http::fake([
+            'vision.googleapis.com/*' => Http::response([
+                'responses' => [[
+                    'textAnnotations' => [
+                        ['description' => 'FULL_TEXT', 'boundingPoly' => ['vertices' => [['x' => 0, 'y' => 0]]]],
+                        // title line y≈50
+                        ['description' => 'Azwain', 'boundingPoly' => ['vertices' => [['x' => 10, 'y' => 50]]]],
+                        ['description' => 'ta', 'boundingPoly' => ['vertices' => [['x' => 80, 'y' => 51]]]],
+                        ['description' => 'si', 'boundingPoly' => ['vertices' => [['x' => 110, 'y' => 50]]]],
+                        ['description' => 'Yeso', 'boundingPoly' => ['vertices' => [['x' => 140, 'y' => 50]]]],
+                        // lyrics line y≈100
+                        ['description' => 'ko', 'boundingPoly' => ['vertices' => [['x' => 10, 'y' => 100]]]],
+                        ['description' => 'tey-kak', 'boundingPoly' => ['vertices' => [['x' => 50, 'y' => 101]]]],
+                        // number line y≈140
+                        ['description' => '3', 'boundingPoly' => ['vertices' => [['x' => 10, 'y' => 140]]]],
+                        ['description' => '3', 'boundingPoly' => ['vertices' => [['x' => 30, 'y' => 141]]]],
+                    ],
+                ]],
+            ], 200),
+        ]);
+
+        $file = UploadedFile::fake()->image('score.png');
+        $result = $this->service->extractLines($file);
+
+        // raw contains everything including title and numbers
+        $this->assertStringContainsString('Azwain ta si Yeso', $result['raw']);
+        $this->assertStringContainsString('ko tey-kak', $result['raw']);
+        $this->assertStringContainsString('3 3', $result['raw']);
+    }
+
+    public function test_skips_line_matching_song_title_in_parsed_lines(): void
     {
         Config::set('services.google.vision_api_key', 'test-key');
 
@@ -87,36 +119,6 @@ class OcrServiceTest extends TestCase
         $textNatives = array_column($result['lines'], 'text_native');
         $this->assertNotContains('Apen mo', $textNatives);
         $this->assertContains('ko tey-kak', $textNatives);
-    }
-
-    public function test_raw_text_filters_out_symbol_and_number_only_lines(): void
-    {
-        Config::set('services.google.vision_api_key', 'test-key');
-
-        Http::fake([
-            'vision.googleapis.com/*' => Http::response([
-                'responses' => [[
-                    'textAnnotations' => [
-                        ['description' => 'FULL_TEXT', 'boundingPoly' => ['vertices' => [['x' => 0, 'y' => 0]]]],
-                        // CJK line y≈40
-                        ['description' => '一切歌頌讚美', 'boundingPoly' => ['vertices' => [['x' => 10, 'y' => 40]]]],
-                        // Latin line y≈80
-                        ['description' => 'ko', 'boundingPoly' => ['vertices' => [['x' => 10, 'y' => 80]]]],
-                        ['description' => 'tey-kak', 'boundingPoly' => ['vertices' => [['x' => 50, 'y' => 81]]]],
-                        // symbol-only line y≈120
-                        ['description' => '3', 'boundingPoly' => ['vertices' => [['x' => 10, 'y' => 120]]]],
-                        ['description' => '3', 'boundingPoly' => ['vertices' => [['x' => 30, 'y' => 121]]]],
-                    ],
-                ]],
-            ], 200),
-        ]);
-
-        $file = UploadedFile::fake()->image('score.png');
-        $result = $this->service->extractLines($file);
-
-        $this->assertStringContainsString('一切歌頌讚美', $result['raw']);
-        $this->assertStringContainsString('ko tey-kak', $result['raw']);
-        $this->assertStringNotContainsString('3 3', $result['raw']);
     }
 
     public function test_throws_runtime_exception_on_api_failure(): void

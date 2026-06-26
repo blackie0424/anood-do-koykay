@@ -32,9 +32,8 @@ class OcrService
 
         $annotations = $response->json('responses.0.textAnnotations', []);
         $grouped = $this->groupByYCoordinate($annotations);
-        $filteredRaw = $this->filterRawText($grouped);
 
-        return ['raw' => $filteredRaw, 'lines' => $this->parseLines($grouped, $titleNative)];
+        return ['raw' => implode("\n", $grouped), 'lines' => $this->parseLines($grouped, $titleNative)];
     }
 
     /**
