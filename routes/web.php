@@ -16,4 +16,6 @@ Route::middleware('auth')->prefix('admin')->group(function () {
     Route::get('/songs', [Admin\SongController::class, 'indexPage'])->name('admin.songs.index');
     Route::get('/songs/create', [Admin\SongController::class, 'createPage'])->name('admin.songs.create');
     Route::get('/songs/{song}/edit', [Admin\SongController::class, 'editPage'])->name('admin.songs.edit');
+    Route::get('/songs/{song}/media', [Admin\SongController::class, 'mediaPage'])->name('admin.songs.media');
+    Route::get('/songs/{song}/lyrics', [Admin\SongController::class, 'lyricsPage'])->name('admin.songs.lyrics');
 });
