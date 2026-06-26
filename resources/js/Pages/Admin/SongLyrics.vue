@@ -5,6 +5,12 @@ import AdminLayout from '@/Layouts/AdminLayout.vue'
 
 const props = defineProps({ song: Object })
 
+const titleNative = ref(props.song?.title_native ?? '')
+const titleZh = ref(props.song?.title_zh ?? '')
+const titleSaving = ref(false)
+const titleSaved = ref(false)
+let titleSaveTimer = null
+
 const lines = ref(
     props.song?.lines?.length
         ? props.song.lines.map(l => ({ ...l }))
@@ -27,12 +33,32 @@ function onTimeUpdate() {
     currentTime.value = audioRef.value?.currentTime ?? 0
 }
 
+function onTitleInput() {
+    clearTimeout(titleSaveTimer)
+    titleSaveTimer = setTimeout(saveTitle, 500)
+}
+
+async function saveTitle() {
+    titleSaving.value = true
+    try {
+        await axios.put(`/api/admin/songs/${props.song.id}`, {
+            title_native: titleNative.value,
+            title_zh: titleZh.value,
+        })
+        titleSaved.value = true
+        setTimeout(() => { titleSaved.value = false }, 2000)
+    } finally {
+        titleSaving.value = false
+    }
+}
+
 function markStart(line) {
     line.start_time = Math.round(currentTime.value * 10) / 10
 }
 
-function markEnd(line) {
+function markEnd(line, idx) {
     line.end_time = Math.round(currentTime.value * 10) / 10
+    if (lines.value[idx + 1]) lines.value[idx + 1].start_time = Math.round(currentTime.value * 10) / 10
 }
 
 function addLine() {
@@ -67,17 +93,27 @@ async function saveLines() {
     <AdminLayout>
         <div class="flex flex-col h-screen overflow-hidden">
             <!-- Header -->
-            <div class="flex items-center justify-between px-6 py-3 bg-white border-b shadow-sm">
-                <div class="flex items-center gap-4">
-                    <a :href="`/admin/songs/${song.id}/media`" class="text-blue-600 hover:underline text-sm">← 媒體上傳</a>
-                    <h1 class="text-xl font-bold">歌詞編輯 — {{ song.title_native }}</h1>
+            <div class="px-6 py-3 bg-white border-b shadow-sm space-y-2">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <a :href="`/admin/songs/${song.id}/media`" class="text-blue-600 hover:underline text-sm">← 媒體上傳</a>
+                        <span class="text-xl font-bold">歌詞編輯</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span v-if="saveSuccess" class="text-green-600 text-sm">✓ 已儲存</span>
+                        <button @click="saveLines" :disabled="saving"
+                            class="bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700 disabled:opacity-50 text-sm">
+                            {{ saving ? '儲存中…' : '儲存歌詞' }}
+                        </button>
+                    </div>
                 </div>
                 <div class="flex items-center gap-3">
-                    <span v-if="saveSuccess" class="text-green-600 text-sm">✓ 已儲存</span>
-                    <button @click="saveLines" :disabled="saving"
-                        class="bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700 disabled:opacity-50 text-sm">
-                        {{ saving ? '儲存中…' : '儲存歌詞' }}
-                    </button>
+                    <input v-model="titleNative" @input="onTitleInput" placeholder="族語名稱"
+                        class="border rounded px-2 py-1 text-sm w-48" />
+                    <input v-model="titleZh" @input="onTitleInput" placeholder="中文名稱"
+                        class="border rounded px-2 py-1 text-sm w-48" />
+                    <span v-if="titleSaving" class="text-stone-400 text-xs">儲存中…</span>
+                    <span v-else-if="titleSaved" class="text-green-600 text-xs">✓ 已儲存</span>
                 </div>
             </div>
 
@@ -119,7 +155,7 @@ async function saveLines() {
                             </button>
                             <input v-model.number="line.start_time" type="number" step="0.1" placeholder="起始(秒)"
                                 class="w-24 border rounded px-2 py-0.5 text-xs" />
-                            <button @click="markEnd(line)"
+                            <button @click="markEnd(line, idx)"
                                 class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded hover:bg-orange-200">
                                 標記結束
                             </button>
