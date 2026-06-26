@@ -33,6 +33,7 @@ class MediaControllerTest extends TestCase
         $this->mock(OcrService::class)
             ->shouldReceive('extractLines')
             ->once()
+            ->withArgs(fn($file, $title) => is_string($title))
             ->andReturn(['raw' => "ko tey-kak\nma-i ka-na", 'lines' => [
                 ['order' => 1, 'text_native' => 'ko tey-kak', 'text_zh' => ''],
                 ['order' => 2, 'text_native' => 'ma-i ka-na', 'text_zh' => ''],
@@ -68,6 +69,7 @@ class MediaControllerTest extends TestCase
         $this->mock(OcrService::class)
             ->shouldReceive('extractLines')
             ->once()
+            ->withArgs(fn($file, $title) => is_string($title))
             ->andThrow(new \RuntimeException('OCR 辨識失敗（HTTP 403）'));
 
         $response = $this->withHeaders($headers)

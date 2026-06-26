@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Log;
 
 class OcrService
 {
-    public function extractLines(UploadedFile $file): array
+    public function extractLines(UploadedFile $file, string $titleNative = ''): array
     {
         $apiKey = config('services.google.vision_api_key');
 
@@ -21,7 +21,7 @@ class OcrService
         $response = Http::post("https://vision.googleapis.com/v1/images:annotate?key={$apiKey}", [
             'requests' => [[
                 'image' => ['content' => $base64],
-                'features' => [['type' => 'TEXT_DETECTION']],
+                'features' => [['type' => 'DOCUMENT_TEXT_DETECTION']],
             ]],
         ]);
 
@@ -30,44 +30,57 @@ class OcrService
             throw new \RuntimeException('OCR 辨識失敗（HTTP ' . $response->status() . '），請確認 Google Vision API 權限');
         }
 
-        $text = $response->json('responses.0.fullTextAnnotation.text', '');
-        return ['raw' => $this->filterRawText($text), 'lines' => $this->parseLines($text)];
+        $annotations = $response->json('responses.0.textAnnotations', []);
+        $grouped = $this->groupByYCoordinate($annotations);
+        $filteredRaw = $this->filterRawText($grouped);
+
+        return ['raw' => $filteredRaw, 'lines' => $this->parseLines($grouped, $titleNative)];
     }
 
-    private function parseLines(string $text): array
+    /**
+     * Group word annotations by y-coordinate (within 10px = same line).
+     * Returns array of line strings sorted by y position.
+     */
+    private function groupByYCoordinate(array $annotations): array
     {
-        $raw = array_values(array_filter(array_map('trim', explode("\n", $text))));
-        $lines = [];
-        $order = 1;
-
-        foreach ($raw as $line) {
-            if ($this->isNotationOrChordLine($line)) {
-                continue;
-            }
-
-            $lines[] = [
-                'order' => $order++,
-                'text_native' => $line,
-                'text_zh' => '',
-            ];
+        if (empty($annotations)) {
+            return [];
         }
 
-        return $lines;
+        // Skip index 0 (full text annotation)
+        $words = array_slice($annotations, 1);
+        $groups = [];
+
+        foreach ($words as $word) {
+            $y = $word['boundingPoly']['vertices'][0]['y'] ?? 0;
+            $matched = false;
+            foreach ($groups as &$group) {
+                if (abs($group['y'] - $y) <= 15) {
+                    $group['words'][] = $word['description'];
+                    $matched = true;
+                    break;
+                }
+            }
+            unset($group);
+            if (!$matched) {
+                $groups[] = ['y' => $y, 'words' => [$word['description']]];
+            }
+        }
+
+        usort($groups, fn($a, $b) => $a['y'] <=> $b['y']);
+
+        return array_map(fn($g) => implode(' ', $g['words']), $groups);
     }
 
-    private function filterRawText(string $text): string
+    private function filterRawText(array $lines): string
     {
-        $lines = explode("\n", $text);
         $kept = array_filter($lines, function (string $line) {
-            // 保留含拉丁字母的行（族語）
             if (preg_match('/[A-Za-z]/', $line)) {
-                // 排除純和弦行（短且只含和弦符號）
                 if (preg_match('/^[A-G][A-Za-z0-9#b\/\s]*$/', trim($line)) && strlen(trim($line)) <= 20) {
                     return false;
                 }
                 return true;
             }
-            // 保留含 CJK 字元的行（中文）
             if (preg_match('/[\x{4e00}-\x{9fff}]/u', $line)) {
                 return true;
             }
@@ -76,18 +89,40 @@ class OcrService
         return implode("\n", $kept);
     }
 
+    private function parseLines(array $lines, string $titleNative = ''): array
+    {
+        $result = [];
+        $order = 1;
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line)) {
+                continue;
+            }
+            if ($this->isNotationOrChordLine($line)) {
+                continue;
+            }
+            if ($titleNative && str_contains(strtolower($line), strtolower($titleNative))) {
+                continue;
+            }
+            $result[] = [
+                'order' => $order++,
+                'text_native' => $line,
+                'text_zh' => '',
+            ];
+        }
+
+        return $result;
+    }
+
     private function isNotationOrChordLine(string $line): bool
     {
-        // 簡譜數字行：只含數字 0-7、空格、連字號、點、|
         if (preg_match('/^[\d\s\-\.\|]+$/', $line)) {
             return true;
         }
-
-        // 和弦行：只含大寫字母、數字、#、b、/、空格（如 C Am7 G/B）
         if (preg_match('/^[A-G][A-Za-z0-9#b\/\s]*$/', $line) && strlen($line) <= 20) {
             return true;
         }
-
         return false;
     }
 }

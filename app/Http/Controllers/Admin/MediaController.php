@@ -28,7 +28,7 @@ class MediaController extends Controller
         $ocrError = null;
         $result = ['raw' => '', 'lines' => []];
         try {
-            $result = $this->ocr->extractLines($request->file('score'));
+            $result = $this->ocr->extractLines($request->file('score'), $song->title_native ?? '');
             $song->update(['ocr_raw' => $result['raw']]);
             if (!empty($result['lines'])) {
                 DB::transaction(function () use ($song, $result) {
