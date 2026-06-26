@@ -172,4 +172,59 @@ class OcrServiceTest extends TestCase
         $file = UploadedFile::fake()->image('score.png');
         $this->service->extractLines($file);
     }
+
+    public function test_extract_lines_from_url_returns_same_structure_as_extract_lines(): void
+    {
+        Config::set('services.google.vision_api_key', 'test-key');
+
+        Http::fake([
+            'vision.googleapis.com/*' => Http::response([
+                'responses' => [[
+                    'textAnnotations' => [
+                        ['description' => 'FULL_TEXT', 'boundingPoly' => ['vertices' => [['x' => 0, 'y' => 0]]]],
+                        ['description' => 'ko', 'boundingPoly' => ['vertices' => [['x' => 10, 'y' => 100]]]],
+                        ['description' => 'tey-kak', 'boundingPoly' => ['vertices' => [['x' => 50, 'y' => 101]]]],
+                    ],
+                ]],
+            ], 200),
+        ]);
+
+        $result = $this->service->extractLinesFromUrl('https://example.com/score.png');
+
+        $this->assertArrayHasKey('raw', $result);
+        $this->assertArrayHasKey('lines', $result);
+        $this->assertSame('ko tey-kak', $result['raw']);
+        $this->assertCount(1, $result['lines']);
+        $this->assertSame('ko tey-kak', $result['lines'][0]['text_native']);
+    }
+
+    public function test_extract_lines_from_url_sends_image_uri_not_base64(): void
+    {
+        Config::set('services.google.vision_api_key', 'test-key');
+
+        Http::fake([
+            'vision.googleapis.com/*' => Http::response([
+                'responses' => [['textAnnotations' => []]],
+            ], 200),
+        ]);
+
+        $this->service->extractLinesFromUrl('https://example.com/score.png');
+
+        Http::assertSent(function ($request) {
+            $body = $request->data();
+            $image = $body['requests'][0]['image'] ?? [];
+            return isset($image['source']['imageUri'])
+                && $image['source']['imageUri'] === 'https://example.com/score.png'
+                && !isset($image['content']);
+        });
+    }
+
+    public function test_extract_lines_from_url_returns_empty_when_api_key_not_configured(): void
+    {
+        Config::set('services.google.vision_api_key', null);
+
+        $result = $this->service->extractLinesFromUrl('https://example.com/score.png');
+
+        $this->assertSame(['raw' => '', 'lines' => []], $result);
+    }
 }

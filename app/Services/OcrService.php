@@ -18,9 +18,28 @@ class OcrService
 
         $base64 = base64_encode(file_get_contents($file->getRealPath()));
 
+        return $this->callApi(['content' => $base64], $titleNative);
+    }
+
+    public function extractLinesFromUrl(string $url, string $titleNative = ''): array
+    {
+        $apiKey = config('services.google.vision_api_key');
+
+        if (!$apiKey) {
+            Log::warning('Google Vision API key not configured');
+            return ['raw' => '', 'lines' => []];
+        }
+
+        return $this->callApi(['source' => ['imageUri' => $url]], $titleNative);
+    }
+
+    private function callApi(array $image, string $titleNative): array
+    {
+        $apiKey = config('services.google.vision_api_key');
+
         $response = Http::post("https://vision.googleapis.com/v1/images:annotate?key={$apiKey}", [
             'requests' => [[
-                'image' => ['content' => $base64],
+                'image' => $image,
                 'features' => [['type' => 'DOCUMENT_TEXT_DETECTION']],
             ]],
         ]);

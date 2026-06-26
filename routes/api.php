@@ -20,5 +20,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/songs/{song}/lines/batch', [Admin\SongLineController::class, 'batchStore']);
     Route::put('/admin/songs/{song}/lines/{line}/mark-time', [Admin\SongLineController::class, 'markTime']);
     Route::post('/admin/songs/{song}/score', [Admin\MediaController::class, 'uploadScore']);
+    Route::post('/admin/songs/{song}/score/reocr', [Admin\MediaController::class, 'reOcr']);
     Route::post('/admin/songs/{song}/audio', [Admin\MediaController::class, 'uploadAudio']);
 });

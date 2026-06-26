@@ -92,4 +92,55 @@ class MediaControllerTest extends TestCase
             'score' => UploadedFile::fake()->image('score.png'),
         ])->assertUnauthorized();
     }
+
+    public function test_reocr_updates_ocr_raw_and_lines_in_database(): void
+    {
+        $headers = $this->actingAsAdmin();
+        $song = Song::factory()->create([
+            'score_image' => 'https://example.com/score.png',
+            'title_native' => 'ko tey',
+        ]);
+
+        $this->mock(OcrService::class)
+            ->shouldReceive('extractLinesFromUrl')
+            ->once()
+            ->with('https://example.com/score.png', 'ko tey')
+            ->andReturn(['raw' => "ko tey-kak\nma-i ka-na", 'lines' => [
+                ['order' => 1, 'text_native' => 'ko tey-kak', 'text_zh' => ''],
+                ['order' => 2, 'text_native' => 'ma-i ka-na', 'text_zh' => ''],
+            ]]);
+
+        $response = $this->withHeaders($headers)
+            ->postJson("/api/admin/songs/{$song->id}/score/reocr");
+
+        $response->assertOk()
+            ->assertJsonStructure(['ocr_raw', 'lines'])
+            ->assertJsonCount(2, 'lines');
+
+        $this->assertDatabaseHas('songs', [
+            'id' => $song->id,
+            'ocr_raw' => "ko tey-kak\nma-i ka-na",
+        ]);
+
+        $this->assertDatabaseCount('song_lines', 2);
+    }
+
+    public function test_reocr_returns_422_when_no_score_image(): void
+    {
+        $headers = $this->actingAsAdmin();
+        $song = Song::factory()->create(['score_image' => null]);
+
+        $this->withHeaders($headers)
+            ->postJson("/api/admin/songs/{$song->id}/score/reocr")
+            ->assertStatus(422)
+            ->assertJsonFragment(['error' => '尚未上傳樂譜']);
+    }
+
+    public function test_reocr_requires_auth(): void
+    {
+        $song = Song::factory()->create(['score_image' => 'https://example.com/score.png']);
+
+        $this->postJson("/api/admin/songs/{$song->id}/score/reocr")
+            ->assertUnauthorized();
+    }
 }
