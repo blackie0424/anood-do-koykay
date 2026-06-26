@@ -96,12 +96,15 @@ class MediaControllerTest extends TestCase
     public function test_reocr_updates_ocr_raw_and_lines_in_database(): void
     {
         $headers = $this->actingAsAdmin();
-        $song = Song::factory()->create(['score_image' => 'https://example.com/score.png']);
+        $song = Song::factory()->create([
+            'score_image' => 'https://example.com/score.png',
+            'title_native' => 'ko tey',
+        ]);
 
         $this->mock(OcrService::class)
             ->shouldReceive('extractLinesFromUrl')
             ->once()
-            ->with('https://example.com/score.png', '')
+            ->with('https://example.com/score.png', 'ko tey')
             ->andReturn(['raw' => "ko tey-kak\nma-i ka-na", 'lines' => [
                 ['order' => 1, 'text_native' => 'ko tey-kak', 'text_zh' => ''],
                 ['order' => 2, 'text_native' => 'ma-i ka-na', 'text_zh' => ''],
