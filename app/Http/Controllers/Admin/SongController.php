@@ -28,16 +28,23 @@ class SongController extends Controller
 
     public function mediaPage(Song $song)
     {
+        $song->load('scores');
         return Inertia::render('Admin/SongMedia', [
-            'song' => $song->only('id', 'title_native', 'score_image', 'audio_full'),
+            'song' => array_merge(
+                $song->only('id', 'title_native', 'score_image', 'audio_full'),
+                ['scores' => $song->scores]
+            ),
         ]);
     }
 
     public function lyricsPage(Song $song)
     {
-        $song->load('lines');
+        $song->load('lines', 'scores');
         return Inertia::render('Admin/SongLyrics', [
-            'song' => $song->only('id', 'title_native', 'title_zh', 'score_image', 'audio_full', 'ocr_raw', 'lines'),
+            'song' => array_merge(
+                $song->only('id', 'title_native', 'title_zh', 'audio_full'),
+                ['lines' => $song->lines, 'scores' => $song->scores]
+            ),
         ]);
     }
 

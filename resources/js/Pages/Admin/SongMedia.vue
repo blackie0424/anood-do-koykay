@@ -5,55 +5,86 @@ import AdminLayout from '@/Layouts/AdminLayout.vue'
 
 const props = defineProps({ song: Object })
 
-const scoreImage = ref(props.song?.score_image ?? null)
+const scores = ref(props.song?.scores ?? [])
 const audioFull = ref(props.song?.audio_full ?? null)
 const scoreUploading = ref(false)
 const audioUploading = ref(false)
 const scoreError = ref('')
-const scoreOcrError = ref('')
-const scoreSuccess = ref(false)
 const audioError = ref('')
-const reOcrLoading = ref(false)
-const reOcrSuccess = ref(false)
-const reOcrError = ref('')
+const reOcrLoadingId = ref(null)
+const reOcrSuccessId = ref(null)
+const reOcrErrorId = ref(null)
+
+let dragSrcIdx = null
 
 async function uploadScore(e) {
     const file = e.target.files[0]
     if (!file) return
     scoreUploading.value = true
     scoreError.value = ''
-    scoreOcrError.value = ''
-    scoreSuccess.value = false
     const fd = new FormData()
     fd.append('score', file)
     try {
-        const { data } = await axios.post(`/api/admin/songs/${props.song.id}/score`, fd)
-        scoreImage.value = data.score_image
+        const { data } = await axios.post(`/api/admin/songs/${props.song.id}/scores`, fd)
+        scores.value.push(data.score)
         if (data.ocr_error) {
-            scoreOcrError.value = `圖片上傳成功，但 OCR 辨識失敗：${data.ocr_error}`
-        } else if (data.lines_draft?.length) {
-            scoreSuccess.value = true
-        } else {
-            scoreOcrError.value = '圖片上傳成功，但 OCR 未辨識出任何文字'
+            scoreError.value = `圖片上傳成功，但 OCR 辨識失敗：${data.ocr_error}`
         }
     } catch {
         scoreError.value = '上傳失敗，請稍後再試'
     } finally {
         scoreUploading.value = false
+        e.target.value = ''
     }
 }
 
-async function reOcr() {
-    reOcrLoading.value = true
-    reOcrSuccess.value = false
-    reOcrError.value = ''
+async function deleteScore(score) {
+    if (!confirm('確定刪除這張樂譜？')) return
     try {
-        await axios.post(`/api/admin/songs/${props.song.id}/score/reocr`)
-        reOcrSuccess.value = true
-    } catch (e) {
-        reOcrError.value = e.response?.data?.error ?? '重新辨識失敗，請稍後再試'
+        await axios.delete(`/api/admin/songs/${props.song.id}/scores/${score.id}`)
+        scores.value = scores.value.filter(s => s.id !== score.id)
+    } catch {
+        alert('刪除失敗，請稍後再試')
+    }
+}
+
+async function reOcr(score) {
+    reOcrLoadingId.value = score.id
+    reOcrSuccessId.value = null
+    reOcrErrorId.value = null
+    try {
+        const { data } = await axios.post(`/api/admin/songs/${props.song.id}/scores/${score.id}/reocr`)
+        const idx = scores.value.findIndex(s => s.id === score.id)
+        if (idx !== -1) scores.value[idx] = { ...scores.value[idx], ocr_raw: data.ocr_raw }
+        reOcrSuccessId.value = score.id
+    } catch {
+        reOcrErrorId.value = score.id
     } finally {
-        reOcrLoading.value = false
+        reOcrLoadingId.value = null
+    }
+}
+
+function onDragStart(idx) {
+    dragSrcIdx = idx
+}
+
+function onDrop(idx) {
+    if (dragSrcIdx === null || dragSrcIdx === idx) return
+    const arr = [...scores.value]
+    const [moved] = arr.splice(dragSrcIdx, 1)
+    arr.splice(idx, 0, moved)
+    scores.value = arr
+    dragSrcIdx = null
+    saveReorder()
+}
+
+async function saveReorder() {
+    try {
+        await axios.put(`/api/admin/songs/${props.song.id}/scores/reorder`, {
+            order: scores.value.map(s => s.id),
+        })
+    } catch {
+        alert('排序儲存失敗，請重新整理頁面')
     }
 }
 
@@ -87,20 +118,37 @@ async function uploadAudio(e) {
             <!-- 樂譜圖片 -->
             <section class="bg-white rounded-lg shadow p-6 space-y-4">
                 <h2 class="font-semibold text-lg">樂譜圖片（OCR 自動辨識歌詞）</h2>
-                <img v-if="scoreImage" :src="scoreImage" alt="樂譜" class="max-h-64 rounded border object-contain" />
-                <input type="file" accept="image/jpg,image/jpeg,image/png,image/webp"
-                    @change="uploadScore" :disabled="scoreUploading" class="block" />
-                <p v-if="scoreUploading" class="text-stone-500 text-sm">上傳中…</p>
-                <p v-if="scoreError" class="text-red-500 text-sm">{{ scoreError }}</p>
-                <p v-if="scoreOcrError" class="text-yellow-600 text-sm">⚠️ {{ scoreOcrError }}</p>
-                <p v-if="scoreSuccess" class="text-green-600 text-sm">✓ 上傳成功，歌詞已辨識，請前往歌詞編輯頁查看</p>
-                <div v-if="scoreImage" class="flex items-center gap-3">
-                    <button @click="reOcr" :disabled="reOcrLoading"
-                        class="text-sm text-blue-600 hover:underline disabled:opacity-50">
-                        {{ reOcrLoading ? '辨識中…' : '重新辨識歌詞' }}
-                    </button>
-                    <p v-if="reOcrSuccess" class="text-green-600 text-sm">✓ 辨識完成，請前往歌詞編輯頁查看</p>
-                    <p v-if="reOcrError" class="text-red-500 text-sm">{{ reOcrError }}</p>
+
+                <!-- 已上傳圖片列表（可拖曳排序） -->
+                <div v-if="scores.length" class="space-y-2">
+                    <div v-for="(score, idx) in scores" :key="score.id"
+                        draggable="true"
+                        @dragstart="onDragStart(idx)"
+                        @dragover.prevent
+                        @drop.prevent="onDrop(idx)"
+                        class="flex items-center gap-3 p-2 border rounded-lg bg-stone-50 cursor-grab">
+                        <span class="text-stone-400 font-mono text-xs w-5 text-center select-none">{{ idx + 1 }}</span>
+                        <img :src="score.image_url" alt="樂譜" class="h-16 w-16 object-cover rounded border" />
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs text-stone-500 truncate">{{ score.image_url }}</p>
+                            <p v-if="reOcrSuccessId === score.id" class="text-green-600 text-xs">✓ 辨識完成</p>
+                            <p v-if="reOcrErrorId === score.id" class="text-red-500 text-xs">辨識失敗</p>
+                        </div>
+                        <button @click="reOcr(score)" :disabled="reOcrLoadingId === score.id"
+                            class="text-xs text-blue-600 hover:underline disabled:opacity-50 shrink-0">
+                            {{ reOcrLoadingId === score.id ? '辨識中…' : '重新辨識' }}
+                        </button>
+                        <button @click="deleteScore(score)"
+                            class="text-xs text-red-400 hover:text-red-600 shrink-0">✕</button>
+                    </div>
+                    <p class="text-xs text-stone-400">拖曳可調整順序，調整後自動儲存</p>
+                </div>
+
+                <div>
+                    <input type="file" accept="image/jpg,image/jpeg,image/png,image/webp"
+                        @change="uploadScore" :disabled="scoreUploading" class="block" />
+                    <p v-if="scoreUploading" class="text-stone-500 text-sm mt-1">上傳中…</p>
+                    <p v-if="scoreError" class="text-yellow-600 text-sm mt-1">⚠️ {{ scoreError }}</p>
                 </div>
             </section>
 
