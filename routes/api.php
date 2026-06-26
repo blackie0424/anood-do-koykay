@@ -22,4 +22,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/songs/{song}/score', [Admin\MediaController::class, 'uploadScore']);
     Route::post('/admin/songs/{song}/score/reocr', [Admin\MediaController::class, 'reOcr']);
     Route::post('/admin/songs/{song}/audio', [Admin\MediaController::class, 'uploadAudio']);
+    Route::post('/admin/songs/{song}/scores', [Admin\ScoreController::class, 'store']);
+    Route::delete('/admin/songs/{song}/scores/{score}', [Admin\ScoreController::class, 'destroy']);
+    Route::put('/admin/songs/{song}/scores/reorder', [Admin\ScoreController::class, 'reorder']);
+    Route::post('/admin/songs/{song}/scores/{score}/reocr', [Admin\ScoreController::class, 'reOcr']);
 });
