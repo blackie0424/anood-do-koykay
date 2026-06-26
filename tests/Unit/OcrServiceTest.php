@@ -54,6 +54,32 @@ class OcrServiceTest extends TestCase
         $this->assertSame('ma-i ka-na', $result['lines'][1]['text_native']);
     }
 
+    public function test_raw_text_filters_out_symbol_and_number_only_lines(): void
+    {
+        Config::set('services.google.vision_api_key', 'test-key');
+
+        $rawInput = "ko tey-kak\n3 3 3 3\nF 4/4\n一切歌頌讚美\n| 5 — — |\nG\n· •\nma-i ka-na";
+
+        Http::fake([
+            'vision.googleapis.com/*' => Http::response([
+                'responses' => [[
+                    'fullTextAnnotation' => ['text' => $rawInput],
+                ]],
+            ], 200),
+        ]);
+
+        $file = UploadedFile::fake()->image('score.png');
+        $result = $this->service->extractLines($file);
+
+        // raw 只保留含拉丁字母或 CJK 字元的行
+        $this->assertStringContainsString('ko tey-kak', $result['raw']);
+        $this->assertStringContainsString('一切歌頌讚美', $result['raw']);
+        $this->assertStringContainsString('ma-i ka-na', $result['raw']);
+        $this->assertStringNotContainsString('3 3 3 3', $result['raw']);
+        $this->assertStringNotContainsString('| 5 — — |', $result['raw']);
+        $this->assertStringNotContainsString('· •', $result['raw']);
+    }
+
     public function test_throws_runtime_exception_on_api_failure(): void
     {
         Config::set('services.google.vision_api_key', 'test-key');
