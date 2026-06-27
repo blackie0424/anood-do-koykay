@@ -120,26 +120,29 @@ async function uploadAudio(e) {
                 <h2 class="font-semibold text-lg">樂譜圖片（OCR 自動辨識歌詞）</h2>
 
                 <!-- 已上傳圖片列表（可拖曳排序） -->
-                <div v-if="scores.length" class="space-y-2">
+                <div v-if="scores.length" class="space-y-3">
                     <div v-for="(score, idx) in scores" :key="score.id"
                         draggable="true"
                         @dragstart="onDragStart(idx)"
                         @dragover.prevent
                         @drop.prevent="onDrop(idx)"
-                        class="flex items-center gap-3 p-2 border rounded-lg bg-stone-50 cursor-grab">
-                        <span class="text-stone-400 font-mono text-xs w-5 text-center select-none">{{ idx + 1 }}</span>
-                        <img :src="score.image_url" alt="樂譜" class="h-16 w-16 object-cover rounded border" />
-                        <div class="flex-1 min-w-0">
-                            <p class="text-xs text-stone-500 truncate">{{ score.image_url }}</p>
-                            <p v-if="reOcrSuccessId === score.id" class="text-green-600 text-xs">✓ 辨識完成</p>
-                            <p v-if="reOcrErrorId === score.id" class="text-red-500 text-xs">辨識失敗</p>
+                        class="border rounded-lg bg-stone-50 cursor-grab overflow-hidden">
+                        <!-- 圖片 -->
+                        <img :src="score.image_url" alt="樂譜" class="w-full object-contain max-h-96 bg-white" />
+                        <!-- 操作列 -->
+                        <div class="flex items-center gap-3 px-3 py-2 border-t">
+                            <span class="text-stone-400 font-mono text-xs select-none">第 {{ idx + 1 }} 張</span>
+                            <div class="flex-1">
+                                <p v-if="reOcrSuccessId === score.id" class="text-green-600 text-xs">✓ 辨識完成</p>
+                                <p v-if="reOcrErrorId === score.id" class="text-red-500 text-xs">辨識失敗</p>
+                            </div>
+                            <button @click="reOcr(score)" :disabled="reOcrLoadingId === score.id"
+                                class="text-xs text-blue-600 hover:underline disabled:opacity-50">
+                                {{ reOcrLoadingId === score.id ? '辨識中…' : '重新辨識' }}
+                            </button>
+                            <button @click="deleteScore(score)"
+                                class="text-xs text-red-400 hover:text-red-600">✕ 刪除</button>
                         </div>
-                        <button @click="reOcr(score)" :disabled="reOcrLoadingId === score.id"
-                            class="text-xs text-blue-600 hover:underline disabled:opacity-50 shrink-0">
-                            {{ reOcrLoadingId === score.id ? '辨識中…' : '重新辨識' }}
-                        </button>
-                        <button @click="deleteScore(score)"
-                            class="text-xs text-red-400 hover:text-red-600 shrink-0">✕</button>
                     </div>
                     <p class="text-xs text-stone-400">拖曳可調整順序，調整後自動儲存</p>
                 </div>
