@@ -42,7 +42,7 @@ const modeLabel = computed(() => ({ both: '全部', native: '族語', zh: '中�
 
 <template>
     <PublicLayout>
-    <div class="min-h-screen bg-stone-50 p-4 pb-32">
+    <div class="min-h-screen bg-stone-50 p-3 pb-32">
         <div class="max-w-2xl mx-auto">
             <!-- 返回清單 -->
             <Link href="/" class="inline-flex items-center gap-1 text-stone-500 hover:text-stone-700 text-sm mb-4">
@@ -63,12 +63,12 @@ const modeLabel = computed(() => ({ both: '全部', native: '族語', zh: '中�
             <div class="space-y-2">
                 <div v-for="(line, idx) in song.lines" :key="line.id"
                     @click="playLine(line)"
-                    :class="['rounded-xl p-4 transition-colors cursor-pointer select-none',
+                    :class="['rounded-xl px-3 py-3 transition-colors cursor-pointer select-none',
                         idx === activeLineIndex ? 'bg-blue-100 border-2 border-blue-400' : 'bg-white border border-stone-200 hover:bg-stone-100']">
-                    <p v-if="displayMode !== 'zh'" class="font-semibold text-stone-800" style="font-size: clamp(1.5rem, 4vw, 2rem)">
+                    <p v-if="displayMode !== 'zh'" class="font-semibold text-stone-800 leading-snug" style="font-size: clamp(1.5rem, 4vw, 2rem)">
                         {{ line.text_native }}
                     </p>
-                    <p v-if="displayMode !== 'native'" class="text-stone-600" style="font-size: clamp(1.5rem, 3vw, 1.75rem)">
+                    <p v-if="displayMode !== 'native'" class="text-stone-600 leading-snug" style="font-size: clamp(1.5rem, 3vw, 1.75rem)">
                         {{ line.text_zh }}
                     </p>
                 </div>
