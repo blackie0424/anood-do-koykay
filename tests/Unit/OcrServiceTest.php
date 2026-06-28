@@ -92,7 +92,7 @@ class OcrServiceTest extends TestCase
         $this->assertStringContainsString('3 3', $result['raw']);
     }
 
-    public function test_skips_line_matching_song_title_in_parsed_lines(): void
+    public function test_latin_title_line_is_kept_in_parsed_lines(): void
     {
         Config::set('services.google.vision_api_key', 'test-key');
 
@@ -113,11 +113,11 @@ class OcrServiceTest extends TestCase
         ]);
 
         $file = UploadedFile::fake()->image('score.png');
-        $result = $this->service->extractLines($file, 'Apen mo');
+        $result = $this->service->extractLines($file);
 
-        // lines should not contain title
+        // title line is Latin text — should be kept (not filtered)
         $textNatives = array_column($result['lines'], 'text_native');
-        $this->assertNotContains('Apen mo', $textNatives);
+        $this->assertContains('Apen mo', $textNatives);
         $this->assertContains('ko tey-kak', $textNatives);
     }
 
