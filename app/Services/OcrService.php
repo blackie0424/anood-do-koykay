@@ -18,7 +18,7 @@ class OcrService
 
         $base64 = base64_encode(file_get_contents($file->getRealPath()));
 
-        return $this->callApi(['content' => $base64], $titleNative);
+        return $this->callApi(['content' => $base64]);
     }
 
     public function extractLinesFromUrl(string $url, string $titleNative = ''): array
@@ -30,10 +30,10 @@ class OcrService
             return ['raw' => '', 'lines' => []];
         }
 
-        return $this->callApi(['source' => ['imageUri' => $url]], $titleNative);
+        return $this->callApi(['source' => ['imageUri' => $url]]);
     }
 
-    private function callApi(array $image, string $titleNative): array
+    private function callApi(array $image): array
     {
         $apiKey = config('services.google.vision_api_key');
 
@@ -52,7 +52,7 @@ class OcrService
         $annotations = $response->json('responses.0.textAnnotations', []);
         $grouped = $this->groupByYCoordinate($annotations);
 
-        return ['raw' => implode("\n", $grouped), 'lines' => $this->parseLines($grouped, $titleNative)];
+        return ['raw' => implode("\n", $grouped), 'lines' => $this->parseLines($grouped)];
     }
 
     private function groupByYCoordinate(array $annotations): array
@@ -85,7 +85,7 @@ class OcrService
         return array_map(fn($g) => implode(' ', $g['words']), $groups);
     }
 
-    private function parseLines(array $lines, string $titleNative = ''): array
+    private function parseLines(array $lines): array
     {
         $result = [];
         $order = 1;
@@ -96,9 +96,6 @@ class OcrService
                 continue;
             }
             if ($this->isNotationOrChordLine($line)) {
-                continue;
-            }
-            if ($titleNative && str_contains(strtolower($line), strtolower($titleNative))) {
                 continue;
             }
             $result[] = [
