@@ -12,12 +12,6 @@ const titleSaving = ref(false)
 const titleSaved = ref(false)
 let titleSaveTimer = null
 
-const lines = ref(
-    props.song?.lines?.length
-        ? props.song.lines.map(l => ({ ...l }))
-        : [{ order: 1, text_native: '', text_zh: '', start_time: null, end_time: null }]
-)
-
 const CHORD_RE = /^[A-G](m|maj|dim|aug|min)?(maj7|m7|dim7|mmaj7|7|9|11|13|6|sus2|sus4|add9|add2)?(#|b)?(\/[A-G])?$/
 
 function isFilteredLine(line) {
@@ -32,6 +26,14 @@ function isFilteredLine(line) {
     if (numericCount / tokens.length > 0.4) return true
     return false
 }
+
+const lines = ref(
+    props.song?.lines?.length
+        ? props.song.lines
+            .filter(l => !isFilteredLine(l.text_native || ''))
+            .map((l, i) => ({ ...l, order: i + 1 }))
+        : [{ order: 1, text_native: '', text_zh: '', start_time: null, end_time: null }]
+)
 
 function filterOcrLines(ocrRaw) {
     if (!ocrRaw) return ''
