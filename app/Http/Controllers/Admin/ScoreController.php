@@ -8,6 +8,7 @@ use App\Models\SongScore;
 use App\Services\OcrService;
 use App\Services\StorageService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ScoreController extends Controller
 {
@@ -36,6 +37,14 @@ class ScoreController extends Controller
             $result = $this->ocr->extractLines($request->file('score'), $song->title_native ?? '');
             $ocrRaw = $result['raw'];
             $score->update(['ocr_raw' => $ocrRaw]);
+            if (!empty($result['lines'])) {
+                DB::transaction(function () use ($song, $result) {
+                    $song->lines()->delete();
+                    foreach ($result['lines'] as $line) {
+                        $song->lines()->create($line);
+                    }
+                });
+            }
         } catch (\RuntimeException $e) {
             $ocrError = $e->getMessage();
         }
@@ -73,7 +82,15 @@ class ScoreController extends Controller
 
         $result = $this->ocr->extractLinesFromUrl($score->image_url, $song->title_native ?? '');
         $score->update(['ocr_raw' => $result['raw']]);
+        if (!empty($result['lines'])) {
+            DB::transaction(function () use ($song, $result) {
+                $song->lines()->delete();
+                foreach ($result['lines'] as $line) {
+                    $song->lines()->create($line);
+                }
+            });
+        }
 
-        return response()->json(['ocr_raw' => $result['raw']]);
+        return response()->json(['ocr_raw' => $result['raw'], 'lines' => $result['lines']]);
     }
 }
