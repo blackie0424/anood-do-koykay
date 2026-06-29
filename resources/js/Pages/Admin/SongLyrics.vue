@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import axios from 'axios'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 
@@ -56,6 +56,28 @@ const filteredOcrRaw = computed(() => {
         const filtered = filterOcrLines(score.ocr_raw || '')
         return scores.length > 1 ? `--- 第${i + 1}張 ---\n${filtered}` : filtered
     }).filter(Boolean).join('\n\n')
+})
+
+const lightboxUrl = ref(null)
+
+function openLightbox(url) {
+    lightboxUrl.value = url
+}
+
+function closeLightbox() {
+    lightboxUrl.value = null
+}
+
+function onLightboxKey(e) {
+    if (e.key === 'Escape') closeLightbox()
+}
+
+watch(lightboxUrl, (url) => {
+    if (url) {
+        document.addEventListener('keydown', onLightboxKey)
+    } else {
+        document.removeEventListener('keydown', onLightboxKey)
+    }
 })
 
 const audioRef = ref(null)
@@ -187,11 +209,13 @@ async function saveLines() {
             <div class="flex flex-1 overflow-hidden">
                 <!-- Col 1: Score Images -->
                 <div class="w-1/3 border-r overflow-y-auto p-4 bg-stone-50">
-                    <p class="text-xs text-stone-400 mb-2 font-medium">原圖</p>
+                    <p class="text-xs text-stone-400 mb-2 font-medium">原圖（點擊放大）</p>
                     <template v-if="song.scores?.length">
                         <div v-for="(score, i) in song.scores" :key="score.id" class="mb-3">
                             <p v-if="song.scores.length > 1" class="text-xs text-stone-400 mb-1">第 {{ i + 1 }} 張</p>
-                            <img :src="score.image_url" alt="樂譜" class="w-full rounded border" />
+                            <img :src="score.image_url" alt="樂譜"
+                                class="w-full rounded border cursor-zoom-in hover:opacity-90 transition-opacity"
+                                @click="openLightbox(score.image_url)" />
                         </div>
                     </template>
                     <p v-else class="text-stone-400 text-center mt-8 text-sm">尚未上傳樂譜</p>
@@ -241,5 +265,18 @@ async function saveLines() {
                 </div>
             </div>
         </div>
+
+        <!-- Lightbox -->
+        <Teleport to="body">
+            <div v-if="lightboxUrl"
+                class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-zoom-out"
+                @click="closeLightbox"
+                @keydown="onLightboxKey"
+                tabindex="0">
+                <img :src="lightboxUrl" alt="樂譜放大"
+                    class="max-w-[95vw] max-h-[95vh] object-contain rounded shadow-2xl"
+                    @click.stop />
+            </div>
+        </Teleport>
     </AdminLayout>
 </template>
