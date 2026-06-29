@@ -128,6 +128,8 @@ async function saveLines() {
         saving.value = false
     }
 }
+
+const lightboxUrl = ref(null)
 </script>
 
 <template>
@@ -191,7 +193,9 @@ async function saveLines() {
                     <template v-if="song.scores?.length">
                         <div v-for="(score, i) in song.scores" :key="score.id" class="mb-3">
                             <p v-if="song.scores.length > 1" class="text-xs text-stone-400 mb-1">第 {{ i + 1 }} 張</p>
-                            <img :src="score.image_url" alt="樂譜" class="w-full rounded border" />
+                            <img :src="score.image_url" alt="樂譜"
+                                class="w-full rounded border cursor-zoom-in hover:opacity-90 transition-opacity"
+                                @click="lightboxUrl = score.image_url" />
                         </div>
                     </template>
                     <p v-else class="text-stone-400 text-center mt-8 text-sm">尚未上傳樂譜</p>
@@ -240,6 +244,17 @@ async function saveLines() {
                     </button>
                 </div>
             </div>
+        </div>
+
+        <!-- Lightbox -->
+        <div v-if="lightboxUrl"
+            class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+            @click="lightboxUrl = null">
+            <img :src="lightboxUrl" alt="樂譜放大"
+                class="max-w-full max-h-full object-contain rounded shadow-xl"
+                @click.stop />
+            <button class="absolute top-4 right-4 text-white text-3xl leading-none hover:text-stone-300"
+                @click="lightboxUrl = null">✕</button>
         </div>
     </AdminLayout>
 </template>
