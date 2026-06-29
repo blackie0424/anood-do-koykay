@@ -8,7 +8,6 @@ use App\Models\SongScore;
 use App\Services\OcrService;
 use App\Services\StorageService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class ScoreController extends Controller
 {
@@ -38,12 +37,16 @@ class ScoreController extends Controller
             $ocrRaw = $result['raw'];
             $score->update(['ocr_raw' => $ocrRaw]);
             if (!empty($result['lines'])) {
-                DB::transaction(function () use ($song, $result) {
-                    $song->lines()->delete();
-                    foreach ($result['lines'] as $line) {
-                        $song->lines()->create($line);
-                    }
-                });
+                $maxOrder = $song->lines()->max('order') ?? 0;
+                foreach ($result['lines'] as $line) {
+                    $song->lines()->create([
+                        'order'       => $maxOrder + $line['order'],
+                        'text_native' => $line['text_native'],
+                        'text_zh'     => $line['text_zh'] ?? '',
+                        'start_time'  => null,
+                        'end_time'    => null,
+                    ]);
+                }
             }
         } catch (\RuntimeException $e) {
             $ocrError = $e->getMessage();
