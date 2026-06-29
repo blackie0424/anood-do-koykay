@@ -36,6 +36,20 @@ class ScoreController extends Controller
             $result = $this->ocr->extractLines($request->file('score'), $song->title_native ?? '');
             $ocrRaw = $result['raw'];
             $score->update(['ocr_raw' => $ocrRaw]);
+
+            $ocrLines = $result['lines'] ?? [];
+            if (!empty($ocrLines)) {
+                $maxOrder = $song->lines()->max('order') ?? 0;
+                foreach ($ocrLines as $line) {
+                    $song->lines()->create([
+                        'order'       => $maxOrder + $line['order'],
+                        'text_native' => $line['text_native'],
+                        'text_zh'     => $line['text_zh'] ?? '',
+                        'start_time'  => null,
+                        'end_time'    => null,
+                    ]);
+                }
+            }
         } catch (\RuntimeException $e) {
             $ocrError = $e->getMessage();
         }

@@ -31,7 +31,13 @@ class ScoreControllerTest extends TestCase
 
         $this->mock(OcrService::class)
             ->shouldReceive('extractLines')->once()
-            ->andReturn(['raw' => "Azwain ta si Yeso\nko tey-kak", 'lines' => []]);
+            ->andReturn([
+                'raw' => "Azwain ta si Yeso\nko tey-kak",
+                'lines' => [
+                    ['order' => 1, 'text_native' => 'Azwain ta si Yeso', 'text_zh' => ''],
+                    ['order' => 2, 'text_native' => 'ko tey-kak', 'text_zh' => ''],
+                ],
+            ]);
 
         $response = $this->withHeaders($headers)
             ->postJson("/api/admin/songs/{$song->id}/scores", [
@@ -46,6 +52,41 @@ class ScoreControllerTest extends TestCase
             'image_url' => 'scores/1/score.png',
             'ocr_raw' => "Azwain ta si Yeso\nko tey-kak",
         ]);
+
+        $this->assertDatabaseHas('song_lines', ['song_id' => $song->id, 'order' => 1, 'text_native' => 'Azwain ta si Yeso']);
+        $this->assertDatabaseHas('song_lines', ['song_id' => $song->id, 'order' => 2, 'text_native' => 'ko tey-kak']);
+    }
+
+    public function test_upload_score_appends_ocr_lines_after_existing_lines(): void
+    {
+        $headers = $this->actingAsAdmin();
+        $song = Song::factory()->create(['title_native' => 'Azwain']);
+        $song->lines()->createMany([
+            ['order' => 1, 'text_native' => 'existing line 1', 'text_zh' => ''],
+            ['order' => 2, 'text_native' => 'existing line 2', 'text_zh' => ''],
+        ]);
+
+        $this->mock(StorageService::class)
+            ->shouldReceive('uploadFile')->once()->andReturn('scores/1/score2.png');
+
+        $this->mock(OcrService::class)
+            ->shouldReceive('extractLines')->once()
+            ->andReturn([
+                'raw' => "new line 1\nnew line 2",
+                'lines' => [
+                    ['order' => 1, 'text_native' => 'new line 1', 'text_zh' => ''],
+                    ['order' => 2, 'text_native' => 'new line 2', 'text_zh' => ''],
+                ],
+            ]);
+
+        $this->withHeaders($headers)
+            ->postJson("/api/admin/songs/{$song->id}/scores", [
+                'score' => UploadedFile::fake()->image('score.png'),
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('song_lines', ['song_id' => $song->id, 'order' => 3, 'text_native' => 'new line 1']);
+        $this->assertDatabaseHas('song_lines', ['song_id' => $song->id, 'order' => 4, 'text_native' => 'new line 2']);
     }
 
     public function test_upload_score_auto_increments_order(): void
