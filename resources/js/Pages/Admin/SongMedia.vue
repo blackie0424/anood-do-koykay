@@ -14,6 +14,7 @@ const audioError = ref('')
 const reOcrLoadingId = ref(null)
 const reOcrSuccessId = ref(null)
 const reOcrErrorId = ref(null)
+const lightboxUrl = ref(null)
 
 let dragSrcIdx = null
 
@@ -128,7 +129,9 @@ async function uploadAudio(e) {
                         @drop.prevent="onDrop(idx)"
                         class="border rounded-lg bg-stone-50 cursor-grab overflow-hidden">
                         <!-- 圖片 -->
-                        <img :src="score.image_url" alt="樂譜" class="w-full object-contain max-h-96 bg-white" />
+                        <img :src="score.image_url" alt="樂譜"
+                            class="w-full object-contain max-h-96 bg-white cursor-zoom-in hover:opacity-90 transition-opacity"
+                            @click="lightboxUrl = score.image_url" />
                         <!-- 操作列 -->
                         <div class="flex items-center gap-3 px-3 py-2 border-t">
                             <span class="text-stone-400 font-mono text-xs select-none">第 {{ idx + 1 }} 張</span>
@@ -171,6 +174,17 @@ async function uploadAudio(e) {
                     前往歌詞編輯 →
                 </a>
             </div>
+        </div>
+
+        <!-- Lightbox -->
+        <div v-if="lightboxUrl"
+            class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+            @click="lightboxUrl = null">
+            <img :src="lightboxUrl" alt="樂譜放大"
+                class="max-w-full max-h-full object-contain rounded shadow-xl"
+                @click.stop />
+            <button class="absolute top-4 right-4 text-white text-3xl leading-none hover:text-stone-300"
+                @click="lightboxUrl = null">✕</button>
         </div>
     </AdminLayout>
 </template>
