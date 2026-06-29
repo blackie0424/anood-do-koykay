@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import axios from 'axios'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 
@@ -130,6 +130,26 @@ async function saveLines() {
 }
 
 const lightboxUrl = ref(null)
+
+function openLightbox(url) {
+    lightboxUrl.value = url
+}
+
+function closeLightbox() {
+    lightboxUrl.value = null
+}
+
+function onLightboxKey(e) {
+    if (e.key === 'Escape') closeLightbox()
+}
+
+watch(lightboxUrl, (url) => {
+    if (url) {
+        document.addEventListener('keydown', onLightboxKey)
+    } else {
+        document.removeEventListener('keydown', onLightboxKey)
+    }
+})
 </script>
 
 <template>
@@ -189,13 +209,13 @@ const lightboxUrl = ref(null)
             <div class="flex flex-1 overflow-hidden">
                 <!-- Col 1: Score Images -->
                 <div class="w-1/3 border-r overflow-y-auto p-4 bg-stone-50">
-                    <p class="text-xs text-stone-400 mb-2 font-medium">原圖</p>
+                    <p class="text-xs text-stone-400 mb-2 font-medium">原圖（點擊放大）</p>
                     <template v-if="song.scores?.length">
                         <div v-for="(score, i) in song.scores" :key="score.id" class="mb-3">
                             <p v-if="song.scores.length > 1" class="text-xs text-stone-400 mb-1">第 {{ i + 1 }} 張</p>
                             <img :src="score.image_url" alt="樂譜"
                                 class="w-full rounded border cursor-zoom-in hover:opacity-90 transition-opacity"
-                                @click="lightboxUrl = score.image_url" />
+                                @click="openLightbox(score.image_url)" />
                         </div>
                     </template>
                     <p v-else class="text-stone-400 text-center mt-8 text-sm">尚未上傳樂譜</p>
@@ -247,14 +267,18 @@ const lightboxUrl = ref(null)
         </div>
 
         <!-- Lightbox -->
-        <div v-if="lightboxUrl"
-            class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-            @click="lightboxUrl = null">
-            <img :src="lightboxUrl" alt="樂譜放大"
-                class="max-w-full max-h-full object-contain rounded shadow-xl"
-                @click.stop />
-            <button class="absolute top-4 right-4 text-white text-3xl leading-none hover:text-stone-300"
-                @click="lightboxUrl = null">✕</button>
-        </div>
+        <Teleport to="body">
+            <div v-if="lightboxUrl"
+                class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-zoom-out"
+                @click="closeLightbox"
+                @keydown="onLightboxKey"
+                tabindex="0">
+                <img :src="lightboxUrl" alt="樂譜放大"
+                    class="max-w-[95vw] max-h-[95vh] object-contain rounded shadow-2xl"
+                    @click.stop />
+                <button class="absolute top-4 right-4 text-white text-3xl leading-none hover:text-stone-300"
+                    @click="closeLightbox">✕</button>
+            </div>
+        </Teleport>
     </AdminLayout>
 </template>
