@@ -1,25 +1,52 @@
 name: Promote develop → main
 
 on:
-  workflow_run:
-    workflows: [CI]
+  push:
     branches: [develop]
-    types: [completed]
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   promote:
-    # 只在 CI 成功時執行
-    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wait for CI to pass on this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.sha }}
+        run: |
+          echo "等待 CI 完成（SHA: $SHA）..."
+          for i in $(seq 1 30); do
+            STATUS=$(gh api repos/${{ github.repository }}/commits/$SHA/check-runs \
+              --jq '[.check_runs[] | select(.name == "ci")] | .[0] | {status: .status, conclusion: .conclusion}')
+            
+            RUN_STATUS=$(echo "$STATUS" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+            CONCLUSION=$(echo "$STATUS" | grep -o '"conclusion":"[^"]*"' | cut -d'"' -f4)
+            
+            echo "第 $i 次檢查：status=$RUN_STATUS conclusion=$CONCLUSION"
+            
+            if [ "$RUN_STATUS" = "completed" ]; then
+              if [ "$CONCLUSION" = "success" ]; then
+                echo "✅ CI 通過"
+                exit 0
+              else
+                echo "❌ CI 失敗（$CONCLUSION），停止 promote"
+                exit 1
+              fi
+            fi
+            
+            echo "CI 尚未完成，等待 20 秒..."
+            sleep 20
+          done
+          
+          echo "⏱ 等待逾時（10 分鐘）"
+          exit 1
 
       - name: Check if develop is ahead of main
         id: check
