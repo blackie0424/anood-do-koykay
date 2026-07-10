@@ -77,14 +77,14 @@ function onTimeUpdate() {
     if (previewLine.value !== null) {
         const line = lines.value[previewLine.value]
         if (line?.end_time != null && currentTime.value >= line.end_time) {
-            audioRef.value.pause()
+            audioRef.value?.pause()
             previewLine.value = null
         }
         return
     }
     const end = props.song?.audio_end
     if (useTrim.value && end != null && currentTime.value >= end) {
-        audioRef.value.pause()
+        audioRef.value?.pause()
     }
 }
 
