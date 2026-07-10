@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import axios from 'axios'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import { parseTime, secondsToMmss } from '@/utils/time'
 
 const props = defineProps({ song: Object })
 
@@ -24,23 +25,6 @@ const lightboxUrl = ref(null)
 
 let dragSrcIdx = null
 
-function secondsToMmss(sec) {
-    if (sec == null) return ''
-    const m = Math.floor(sec / 60)
-    const s = (sec % 60).toFixed(1)
-    return `${m}:${s.padStart(4, '0')}`
-}
-
-function parseTime(val) {
-    if (val == null || val === '') return null
-    const s = String(val).trim()
-    if (s.includes(':')) {
-        const [m, sec] = s.split(':')
-        return Math.round((parseInt(m) * 60 + parseFloat(sec)) * 10) / 10
-    }
-    const n = parseFloat(s)
-    return isNaN(n) ? null : Math.round(n * 10) / 10
-}
 
 async function uploadScore(e) {
     const file = e.target.files[0]
@@ -225,7 +209,7 @@ async function uploadAudio(e) {
                             :value="secondsToMmss(audioStart)"
                             placeholder="0:00.0"
                             class="w-24 border rounded px-2 py-1 text-xs font-mono"
-                            @change="e => { audioStart = parseTime(e.target.value) }" />
+                            @change="e => { audioStart.value = parseTime(e.target.value) }" />
                         <button @click="markTrimEnd"
                             class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded hover:bg-orange-200">
                             標記結束
@@ -234,7 +218,7 @@ async function uploadAudio(e) {
                             :value="secondsToMmss(audioEnd)"
                             placeholder="0:00.0"
                             class="w-24 border rounded px-2 py-1 text-xs font-mono"
-                            @change="e => { audioEnd = parseTime(e.target.value) }" />
+                            @change="e => { audioEnd.value = parseTime(e.target.value) }" />
                         <button @click="saveTrim" :disabled="trimSaving"
                             class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50">
                             {{ trimSaving ? '儲存中…' : '儲存區間' }}

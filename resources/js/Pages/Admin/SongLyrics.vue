@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import axios from 'axios'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
+import { parseTime, secondsToMmss } from '@/utils/time'
 
 const props = defineProps({ song: Object })
 
@@ -72,23 +73,6 @@ function formatTime(sec) {
     return `${m}:${s}`
 }
 
-function secondsToMmss(sec) {
-    if (sec == null) return ''
-    const m = Math.floor(sec / 60)
-    const s = (sec % 60).toFixed(1)
-    return `${m}:${s.padStart(4, '0')}`
-}
-
-function parseTime(val) {
-    if (val == null || val === '') return null
-    const s = String(val).trim()
-    if (s.includes(':')) {
-        const [m, sec] = s.split(':')
-        return Math.round((parseInt(m) * 60 + parseFloat(sec)) * 10) / 10
-    }
-    const n = parseFloat(s)
-    return isNaN(n) ? null : Math.round(n * 10) / 10
-}
 
 function onTimeUpdate() {
     currentTime.value = audioRef.value?.currentTime ?? 0
