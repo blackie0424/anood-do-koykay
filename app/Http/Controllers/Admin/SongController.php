@@ -31,7 +31,7 @@ class SongController extends Controller
         $song->load('scores');
         return Inertia::render('Admin/SongMedia', [
             'song' => array_merge(
-                $song->only('id', 'title_native', 'score_image', 'audio_full'),
+                $song->only('id', 'title_native', 'score_image', 'audio_full', 'audio_start', 'audio_end'),
                 ['scores' => $song->scores]
             ),
         ]);
@@ -77,6 +77,8 @@ class SongController extends Controller
             'title_native' => ['sometimes', 'string', 'max:255'],
             'title_zh' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', 'in:draft,published'],
+            'audio_start' => ['nullable', 'numeric', 'min:0'],
+            'audio_end' => ['nullable', 'numeric', 'min:0'],
         ]);
         $song->update($data);
         return response()->json($song);

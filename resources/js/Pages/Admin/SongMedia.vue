@@ -7,6 +7,12 @@ const props = defineProps({ song: Object })
 
 const scores = ref(props.song?.scores ?? [])
 const audioFull = ref(props.song?.audio_full ?? null)
+const audioStart = ref(props.song?.audio_start ?? null)
+const audioEnd = ref(props.song?.audio_end ?? null)
+const trimSaving = ref(false)
+const trimSaved = ref(false)
+const audioRef = ref(null)
+const audioCurrentTime = ref(0)
 const scoreUploading = ref(false)
 const audioUploading = ref(false)
 const scoreError = ref('')
@@ -89,6 +95,32 @@ async function saveReorder() {
     }
 }
 
+function onAudioTimeUpdate() {
+    audioCurrentTime.value = audioRef.value?.currentTime ?? 0
+}
+
+function markTrimStart() {
+    audioStart.value = Math.round(audioCurrentTime.value * 10) / 10
+}
+
+function markTrimEnd() {
+    audioEnd.value = Math.round(audioCurrentTime.value * 10) / 10
+}
+
+async function saveTrim() {
+    trimSaving.value = true
+    try {
+        await axios.put(`/api/admin/songs/${props.song.id}`, {
+            audio_start: audioStart.value,
+            audio_end: audioEnd.value,
+        })
+        trimSaved.value = true
+        setTimeout(() => { trimSaved.value = false }, 2000)
+    } finally {
+        trimSaving.value = false
+    }
+}
+
 async function uploadAudio(e) {
     const file = e.target.files[0]
     if (!file) return
@@ -161,7 +193,32 @@ async function uploadAudio(e) {
             <!-- 完整錄音 -->
             <section class="bg-white rounded-lg shadow p-6 space-y-4">
                 <h2 class="font-semibold text-lg">完整錄音</h2>
-                <audio v-if="audioFull" :src="audioFull" controls class="w-full" />
+                <audio v-if="audioFull" ref="audioRef" :src="audioFull" controls class="w-full"
+                    @timeupdate="onAudioTimeUpdate" />
+                <!-- 播放區間設定 -->
+                <div v-if="audioFull" class="border rounded-lg p-3 space-y-2 bg-stone-50">
+                    <p class="text-xs text-stone-500 font-medium">播放區間（跳過頭尾）</p>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button @click="markTrimStart"
+                            class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200">
+                            標記起始
+                        </button>
+                        <input v-model.number="audioStart" type="number" step="0.1" min="0" placeholder="起始秒數"
+                            class="w-24 border rounded px-2 py-1 text-xs" />
+                        <button @click="markTrimEnd"
+                            class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded hover:bg-orange-200">
+                            標記結束
+                        </button>
+                        <input v-model.number="audioEnd" type="number" step="0.1" min="0" placeholder="結束秒數"
+                            class="w-24 border rounded px-2 py-1 text-xs" />
+                        <button @click="saveTrim" :disabled="trimSaving"
+                            class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50">
+                            {{ trimSaving ? '儲存中…' : '儲存區間' }}
+                        </button>
+                        <span v-if="trimSaved" class="text-green-600 text-xs">✓ 已儲存</span>
+                    </div>
+                    <p class="text-xs text-stone-400">播放時自動從起始秒數開始，到結束秒數暫停。留空則從頭播到尾。</p>
+                </div>
                 <input type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac"
                     @change="uploadAudio" :disabled="audioUploading" class="block" />
                 <p v-if="audioUploading" class="text-stone-500 text-sm">上傳中…</p>

@@ -58,4 +58,26 @@ describe('SongPlayer', () => {
     const playButton = wrapper.find('button[aria-label="播放"], button[aria-label="暫停"]')
     expect(playButton.attributes('disabled')).toBeDefined()
   })
+
+  it('sets audio currentTime to audio_start on loadedmetadata', async () => {
+    const songWithTrim = { ...mockSong, audio_start: 5.0, audio_end: 30.0 }
+    const wrapper = mount(SongPlayer, { props: { song: songWithTrim } })
+    const audio = wrapper.find('audio')
+    const audioEl = audio.element
+    audioEl.currentTime = 0
+    await audio.trigger('loadedmetadata')
+    expect(audioEl.currentTime).toBe(5.0)
+  })
+
+  it('pauses audio when currentTime exceeds audio_end', async () => {
+    const songWithTrim = { ...mockSong, audio_start: 5.0, audio_end: 10.0 }
+    const wrapper = mount(SongPlayer, { props: { song: songWithTrim } })
+    const audio = wrapper.find('audio')
+    const audioEl = audio.element
+    let paused = false
+    audioEl.pause = () => { paused = true }
+    audioEl.currentTime = 10.5
+    await audio.trigger('timeupdate')
+    expect(paused).toBe(true)
+  })
 })
