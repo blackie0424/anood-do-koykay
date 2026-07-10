@@ -72,6 +72,24 @@ function formatTime(sec) {
     return `${m}:${s}`
 }
 
+function secondsToMmss(sec) {
+    if (sec == null) return ''
+    const m = Math.floor(sec / 60)
+    const s = (sec % 60).toFixed(1)
+    return `${m}:${s.padStart(4, '0')}`
+}
+
+function parseTime(val) {
+    if (val == null || val === '') return null
+    const s = String(val).trim()
+    if (s.includes(':')) {
+        const [m, sec] = s.split(':')
+        return Math.round((parseInt(m) * 60 + parseFloat(sec)) * 10) / 10
+    }
+    const n = parseFloat(s)
+    return isNaN(n) ? null : Math.round(n * 10) / 10
+}
+
 function onTimeUpdate() {
     currentTime.value = audioRef.value?.currentTime ?? 0
     if (previewLine.value !== null) {
@@ -295,15 +313,20 @@ watch(lightboxUrl, (url) => {
                                 class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded hover:bg-blue-200">
                                 標記起始
                             </button>
-                            <input v-model.number="line.start_time" type="number" step="0.1" placeholder="起始(秒)"
-                                class="w-20 border rounded px-2 py-0.5 text-xs" />
+                            <input type="text"
+                                :value="secondsToMmss(line.start_time)"
+                                placeholder="0:00.0"
+                                class="w-20 border rounded px-2 py-0.5 text-xs font-mono"
+                                @change="e => { line.start_time = parseTime(e.target.value) }" />
                             <button @click="markEnd(line, idx)"
                                 class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded hover:bg-orange-200">
                                 標記結束
                             </button>
-                            <input v-model.number="line.end_time" type="number" step="0.1" placeholder="結束(秒)"
-                                class="w-20 border rounded px-2 py-0.5 text-xs"
-                                @change="onEndTimeInput(line, idx)" />
+                            <input type="text"
+                                :value="secondsToMmss(line.end_time)"
+                                placeholder="0:00.0"
+                                class="w-20 border rounded px-2 py-0.5 text-xs font-mono"
+                                @change="e => { line.end_time = parseTime(e.target.value); onEndTimeInput(line, idx) }" />
                             <button v-if="line.start_time != null" @click="previewLineSegment(line, idx)"
                                 :class="['text-xs px-2 py-0.5 rounded transition-colors',
                                     previewLine.value === idx ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700 hover:bg-green-200']">
