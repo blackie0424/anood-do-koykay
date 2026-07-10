@@ -62,6 +62,7 @@ const audioRef = ref(null)
 const currentTime = ref(0)
 const saving = ref(false)
 const saveSuccess = ref(false)
+const useTrim = ref(true)
 
 function formatTime(sec) {
     if (sec == null) return ''
@@ -72,6 +73,17 @@ function formatTime(sec) {
 
 function onTimeUpdate() {
     currentTime.value = audioRef.value?.currentTime ?? 0
+    const end = props.song?.audio_end
+    if (useTrim.value && end != null && currentTime.value >= end) {
+        audioRef.value.pause()
+    }
+}
+
+function onAudioLoaded() {
+    const start = props.song?.audio_start
+    if (useTrim.value && start != null && audioRef.value) {
+        audioRef.value.currentTime = start
+    }
 }
 
 function onTitleInput() {
@@ -207,10 +219,16 @@ watch(lightboxUrl, (url) => {
             <!-- Audio Player -->
             <div v-if="song.audio_full" class="px-6 py-2 bg-stone-50 border-b flex items-center gap-4">
                 <audio ref="audioRef" :src="song.audio_full" controls
-                    @timeupdate="onTimeUpdate" class="flex-1 h-9" />
+                    @timeupdate="onTimeUpdate" @loadedmetadata="onAudioLoaded" class="flex-1 h-9" />
                 <span class="text-stone-600 font-mono text-sm w-16 text-right">
                     {{ formatTime(currentTime) }}
                 </span>
+                <button v-if="song.audio_start != null || song.audio_end != null"
+                    @click="useTrim = !useTrim"
+                    :class="['text-xs px-2 py-1 rounded border shrink-0 transition-colors',
+                        useTrim ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-stone-100 text-stone-500 border-stone-300']">
+                    {{ useTrim ? '依區間' : '完整播放' }}
+                </button>
             </div>
 
             <!-- Three-column Content -->

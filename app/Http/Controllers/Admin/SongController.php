@@ -42,7 +42,7 @@ class SongController extends Controller
         $song->load('lines', 'scores');
         return Inertia::render('Admin/SongLyrics', [
             'song' => array_merge(
-                $song->only('id', 'title_native', 'title_zh', 'audio_full'),
+                $song->only('id', 'title_native', 'title_zh', 'audio_full', 'audio_start', 'audio_end'),
                 ['lines' => $song->lines, 'scores' => $song->scores]
             ),
         ]);
