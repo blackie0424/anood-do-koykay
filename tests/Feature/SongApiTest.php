@@ -129,6 +129,32 @@ class SongApiTest extends TestCase
 
     // ── Song Lines ──────────────────────────────────────────────────
 
+    public function test_admin_can_update_audio_trim_points(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
+        $song = Song::factory()->create(['audio_start' => null, 'audio_end' => null]);
+
+        $this->withToken($token)
+            ->putJson("/api/admin/songs/{$song->id}", ['audio_start' => 3.5, 'audio_end' => 120.0])
+            ->assertOk();
+
+        $this->assertDatabaseHas('songs', ['id' => $song->id, 'audio_start' => 3.5, 'audio_end' => 120.0]);
+    }
+
+    public function test_admin_can_clear_audio_trim_points(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
+        $song = Song::factory()->create(['audio_start' => 3.5, 'audio_end' => 120.0]);
+
+        $this->withToken($token)
+            ->putJson("/api/admin/songs/{$song->id}", ['audio_start' => null, 'audio_end' => null])
+            ->assertOk();
+
+        $this->assertDatabaseHas('songs', ['id' => $song->id, 'audio_start' => null, 'audio_end' => null]);
+    }
+
     public function test_admin_can_batch_store_lines(): void
     {
         $user = User::factory()->create();
