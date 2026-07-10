@@ -63,6 +63,7 @@ const currentTime = ref(0)
 const saving = ref(false)
 const saveSuccess = ref(false)
 const useTrim = ref(true)
+const previewLine = ref(null)
 
 function formatTime(sec) {
     if (sec == null) return ''
@@ -73,6 +74,14 @@ function formatTime(sec) {
 
 function onTimeUpdate() {
     currentTime.value = audioRef.value?.currentTime ?? 0
+    if (previewLine.value !== null) {
+        const line = lines.value[previewLine.value]
+        if (line?.end_time != null && currentTime.value >= line.end_time) {
+            audioRef.value.pause()
+            previewLine.value = null
+        }
+        return
+    }
     const end = props.song?.audio_end
     if (useTrim.value && end != null && currentTime.value >= end) {
         audioRef.value.pause()
@@ -111,7 +120,20 @@ function markStart(line) {
 
 function markEnd(line, idx) {
     line.end_time = Math.round(currentTime.value * 10) / 10
-    if (lines.value[idx + 1]) lines.value[idx + 1].start_time = Math.round(currentTime.value * 10) / 10
+    if (lines.value[idx + 1]) lines.value[idx + 1].start_time = line.end_time
+}
+
+function onEndTimeInput(line, idx) {
+    if (line.end_time != null && lines.value[idx + 1]) {
+        lines.value[idx + 1].start_time = line.end_time
+    }
+}
+
+function previewLineSegment(line, idx) {
+    if (!audioRef.value || line.start_time == null) return
+    previewLine.value = idx
+    audioRef.value.currentTime = line.start_time
+    audioRef.value.play().catch(() => {})
 }
 
 function addLine() {
@@ -280,7 +302,13 @@ watch(lightboxUrl, (url) => {
                                 標記結束
                             </button>
                             <input v-model.number="line.end_time" type="number" step="0.1" placeholder="結束(秒)"
-                                class="w-20 border rounded px-2 py-0.5 text-xs" />
+                                class="w-20 border rounded px-2 py-0.5 text-xs"
+                                @change="onEndTimeInput(line, idx)" />
+                            <button v-if="line.start_time != null" @click="previewLineSegment(line, idx)"
+                                :class="['text-xs px-2 py-0.5 rounded transition-colors',
+                                    previewLine.value === idx ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700 hover:bg-green-200']">
+                                ▶ 試聽
+                            </button>
                         </div>
                     </div>
                     <!-- Insert between lines -->
