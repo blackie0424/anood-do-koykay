@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   promote:
@@ -15,34 +14,22 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check if develop is ahead of main
         id: check
         run: |
           git fetch origin main develop
-          AHEAD=$(git log origin/main..origin/develop --oneline | wc -l)
+          AHEAD=$(git log origin/main..origin/develop --oneline | wc -l | tr -d ' ')
           echo "ahead=$AHEAD" >> $GITHUB_OUTPUT
           echo "develop is $AHEAD commits ahead of main"
 
-      - name: Create PR and auto-merge develop → main
+      - name: Merge develop into main
         if: steps.check.outputs.ahead != '0'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 建立 PR（若已存在則略過）
-          gh pr create \
-            --base main \
-            --head develop \
-            --title "chore: promote develop → main" \
-            --body "由 workflow 自動建立，CI 通過後同步至 main。" \
-            2>/dev/null || echo "PR 已存在，略過建立"
-
-          # 取得 PR number
-          PR_NUM=$(gh pr list --base main --head develop --json number --jq '.[0].number')
-          echo "PR #$PR_NUM"
-
-          # 啟用 auto-merge（CI pass 後自動 merge）
-          gh pr merge "$PR_NUM" \
-            --merge \
-            --auto \
-            --delete-branch=false
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout main
+          git merge --ff-only origin/develop
+          git push origin main
+          echo "✅ develop → main merge 完成"
