@@ -162,7 +162,7 @@ async function uploadAudio(e) {
             <section class="bg-white rounded-lg shadow p-6 space-y-4">
                 <h2 class="font-semibold text-lg">完整錄音</h2>
                 <audio v-if="audioFull" :src="audioFull" controls class="w-full" />
-                <input type="file" accept="audio/mp3,audio/wav,audio/ogg,audio/m4a,audio/aac"
+                <input type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac"
                     @change="uploadAudio" :disabled="audioUploading" class="block" />
                 <p v-if="audioUploading" class="text-stone-500 text-sm">上傳中…</p>
                 <p v-if="audioError" class="text-red-500 text-sm">{{ audioError }}</p>
