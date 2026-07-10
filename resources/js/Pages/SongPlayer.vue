@@ -23,7 +23,21 @@ function togglePlay() {
     isPlaying.value ? audio.value.pause() : audio.value.play().catch(() => { hasError.value = true })
 }
 
-function onTimeUpdate() { currentTime.value = audio.value?.currentTime ?? 0 }
+function onTimeUpdate() {
+    currentTime.value = audio.value?.currentTime ?? 0
+    const end = props.song?.audio_end
+    if (end != null && currentTime.value >= end) {
+        audio.value.pause()
+    }
+}
+
+function onLoaded() {
+    const start = props.song?.audio_start
+    if (start != null && audio.value) {
+        audio.value.currentTime = start
+    }
+}
+
 function onError() { hasError.value = true; isPlaying.value = false }
 
 function playLine(line) {
@@ -76,7 +90,8 @@ const modeLabel = computed(() => ({ both: '全部', native: '族語', zh: '中�
         </div>
 
         <audio v-if="song.audio_full" ref="audio" :src="song.audio_full"
-            @timeupdate="onTimeUpdate" @play="isPlaying = true" @pause="isPlaying = false"
+            @timeupdate="onTimeUpdate" @loadedmetadata="onLoaded"
+            @play="isPlaying = true" @pause="isPlaying = false"
             @ended="isPlaying = false" @error="onError" />
 
         <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 p-4">

@@ -13,6 +13,8 @@ class SongFactory extends Factory
             'title_zh' => fake()->words(3, true),
             'score_image' => null,
             'audio_full' => null,
+            'audio_start' => null,
+            'audio_end' => null,
             'status' => 'draft',
         ];
     }
