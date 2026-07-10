@@ -115,6 +115,14 @@ function removeLine(idx) {
     lines.value.forEach((l, i) => { l.order = i + 1 })
 }
 
+function insertLine(idx) {
+    lines.value.splice(idx + 1, 0, {
+        order: 0, text_native: '', text_zh: '',
+        start_time: null, end_time: null,
+    })
+    lines.value.forEach((l, i) => { l.order = i + 1 })
+}
+
 async function saveLines() {
     saving.value = true
     saveSuccess.value = false
@@ -229,10 +237,10 @@ watch(lightboxUrl, (url) => {
                 </div>
 
                 <!-- Col 3: Lyrics Editor -->
-                <div class="w-1/3 overflow-y-auto p-4 space-y-3">
-                    <p class="text-xs text-stone-400 font-medium">歌詞編輯</p>
-                    <div v-for="(line, idx) in lines" :key="idx"
-                        class="bg-white rounded-lg border p-3 space-y-2">
+                <div class="w-1/3 overflow-y-auto p-4">
+                    <p class="text-xs text-stone-400 font-medium mb-3">歌詞編輯</p>
+                    <template v-for="(line, idx) in lines" :key="idx">
+                    <div class="bg-white rounded-lg border p-3 space-y-2">
                         <div class="flex items-start gap-2">
                             <span class="text-stone-400 font-mono text-xs w-5 mt-2">{{ idx + 1 }}</span>
                             <textarea v-model="line.text_native" placeholder="族語歌詞" rows="2"
@@ -257,6 +265,14 @@ watch(lightboxUrl, (url) => {
                                 class="w-20 border rounded px-2 py-0.5 text-xs" />
                         </div>
                     </div>
+                    <!-- Insert between lines -->
+                    <div class="group flex items-center my-1">
+                        <button @click="insertLine(idx)"
+                            class="w-full text-xs text-stone-300 hover:text-blue-500 hover:border-blue-400 border border-dashed border-transparent rounded py-0.5 transition-colors opacity-0 group-hover:opacity-100">
+                            + 在此插入一行
+                        </button>
+                    </div>
+                    </template>
 
                     <button @click="addLine"
                         class="w-full border-2 border-dashed border-stone-300 text-stone-400 rounded-lg py-2 text-sm hover:border-blue-400 hover:text-blue-500">
