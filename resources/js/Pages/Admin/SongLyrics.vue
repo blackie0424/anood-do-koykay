@@ -110,6 +110,15 @@ function addLine() {
     })
 }
 
+function insertLine(idx) {
+    lines.value.splice(idx + 1, 0, {
+        order: idx + 2,
+        text_native: '', text_zh: '',
+        start_time: null, end_time: null,
+    })
+    lines.value.forEach((l, i) => { l.order = i + 1 })
+}
+
 function removeLine(idx) {
     lines.value.splice(idx, 1)
     lines.value.forEach((l, i) => { l.order = i + 1 })
@@ -243,6 +252,10 @@ watch(lightboxUrl, (url) => {
                                 class="text-red-400 hover:text-red-600 text-xs px-1 mt-1">✕</button>
                         </div>
                         <div class="flex items-center gap-2 pl-7">
+                            <button @click="insertLine(idx)"
+                                class="text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded hover:bg-stone-200">
+                                + 插入下方
+                            </button>
                             <button @click="markStart(line)"
                                 class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded hover:bg-blue-200">
                                 標記起始
