@@ -72,6 +72,17 @@ function formatTime(sec) {
 
 function onTimeUpdate() {
     currentTime.value = audioRef.value?.currentTime ?? 0
+    const end = props.song?.audio_end
+    if (end != null && currentTime.value >= end) {
+        audioRef.value.pause()
+    }
+}
+
+function onAudioLoaded() {
+    const start = props.song?.audio_start
+    if (start != null && audioRef.value) {
+        audioRef.value.currentTime = start
+    }
 }
 
 function onTitleInput() {
@@ -207,7 +218,7 @@ watch(lightboxUrl, (url) => {
             <!-- Audio Player -->
             <div v-if="song.audio_full" class="px-6 py-2 bg-stone-50 border-b flex items-center gap-4">
                 <audio ref="audioRef" :src="song.audio_full" controls
-                    @timeupdate="onTimeUpdate" class="flex-1 h-9" />
+                    @timeupdate="onTimeUpdate" @loadedmetadata="onAudioLoaded" class="flex-1 h-9" />
                 <span class="text-stone-600 font-mono text-sm w-16 text-right">
                     {{ formatTime(currentTime) }}
                 </span>
