@@ -306,7 +306,7 @@ watch(lightboxUrl, (url) => {
                                 @change="onEndTimeInput(line, idx)" />
                             <button v-if="line.start_time != null" @click="previewLineSegment(line, idx)"
                                 :class="['text-xs px-2 py-0.5 rounded transition-colors',
-                                    previewLine === idx ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700 hover:bg-green-200']">
+                                    previewLine.value === idx ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700 hover:bg-green-200']">
                                 ▶ 試聽
                             </button>
                         </div>
