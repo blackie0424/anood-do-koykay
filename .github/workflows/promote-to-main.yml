@@ -62,6 +62,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout main
-          git merge --no-ff -X theirs origin/develop -m "chore: auto-merge develop → main (CI passed)"
+
+          # 產生這次帶入的 commit 清單（develop 比 main 多的部分）
+          COMMIT_LOG=$(git log origin/main..origin/develop --oneline --no-merges | sed 's/^/- /')
+          DEVELOP_SHA=$(git rev-parse --short origin/develop)
+
+          MERGE_MSG="chore: promote develop@${DEVELOP_SHA} → main
+
+Included commits:
+${COMMIT_LOG}"
+
+          git merge --no-ff -X theirs origin/develop -m "$MERGE_MSG"
           git push origin main
           echo "✅ develop → main merge 完成"
