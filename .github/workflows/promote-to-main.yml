@@ -24,33 +24,27 @@ jobs:
           echo "ahead=$AHEAD" >> $GITHUB_OUTPUT
           echo "develop is $AHEAD commits ahead of main"
 
-      - name: Create PR develop → main (if not exists)
+      - name: Open or update PR develop → main
         if: steps.check.outputs.ahead != '0'
-        id: pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 嘗試建立 PR，若已存在則取得現有 PR number
-          EXISTING=$(gh pr list --base main --head develop --state open --json number --jq '.[0].number // empty')
-          if [ -n "$EXISTING" ]; then
-            echo "PR #$EXISTING 已存在"
-            echo "number=$EXISTING" >> $GITHUB_OUTPUT
-          else
-            NEW=$(gh pr create \
+          # 找出現有的 open PR
+          PR_NUM=$(gh pr list --base main --head develop --state open --json number -q '.[0].number')
+
+          if [ -z "$PR_NUM" ]; then
+            # 沒有現有 PR，建立新的
+            PR_URL=$(gh pr create \
               --base main \
               --head develop \
-              --title "chore: auto-promote develop → main" \
-              --body "由 workflow 自動建立。CI 通過後將自動 merge 至 main。" \
-              --label "" 2>/dev/null | grep -oE '[0-9]+$')
-            echo "建立 PR #$NEW"
-            echo "number=$NEW" >> $GITHUB_OUTPUT
+              --title "chore: auto-promote develop to main" \
+              --body "由 workflow 自動建立，CI 通過後自動 merge 至 main。")
+            PR_NUM=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+            echo "建立 PR #$PR_NUM"
+          else
+            echo "PR #$PR_NUM 已存在"
           fi
 
-      - name: Enable auto-merge
-        if: steps.check.outputs.ahead != '0' && steps.pr.outputs.number != ''
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUM=${{ steps.pr.outputs.number }}
+          # 啟用 auto-merge
           gh pr merge "$PR_NUM" --merge --auto --delete-branch=false
-          echo "✅ PR #$PR_NUM auto-merge 已啟用，CI 通過後將自動 merge"
+          echo "✅ PR #$PR_NUM auto-merge 已啟用"
