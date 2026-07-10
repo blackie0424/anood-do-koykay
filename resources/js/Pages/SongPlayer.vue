@@ -91,7 +91,7 @@ const modeLabel = computed(() => ({ both: '全部', native: '族語', zh: '中�
 
         <audio v-if="song.audio_full" ref="audio" :src="song.audio_full"
             @timeupdate="onTimeUpdate" @loadedmetadata="onLoaded"
-            @play="isPlaying = true" @pause="isPlaying = false"
+            @playing="isPlaying = true" @pause="isPlaying = false"
             @ended="isPlaying = false" @error="onError" />
 
         <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 p-4">
