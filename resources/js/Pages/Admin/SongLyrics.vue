@@ -198,7 +198,7 @@ watch(lightboxUrl, (url) => {
 
 <template>
     <AdminLayout>
-        <div class="flex flex-col h-screen overflow-hidden">
+        <div class="flex flex-col h-full overflow-hidden">
             <!-- Step Navbar -->
             <div class="px-6 py-3 bg-white border-b shadow-sm">
                 <div class="flex items-center justify-between">
