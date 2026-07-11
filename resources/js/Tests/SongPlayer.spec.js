@@ -27,10 +27,30 @@ describe('SongPlayer', () => {
     expect(wrapper.text()).toContain('Anood')
   })
 
-  it('renders both native and zh text by default', () => {
+  it('renders both native and zh text when show_zh_lyrics is true', () => {
     const wrapper = mount(SongPlayer, { props: { song: mockSong } })
     expect(wrapper.text()).toContain('飛魚來了')
     expect(wrapper.text()).toContain('海浪')
+  })
+
+  it('hides zh text when show_zh_lyrics is false', () => {
+    const songWithoutZh = { ...mockSong, show_zh_lyrics: false }
+    const wrapper = mount(SongPlayer, { props: { song: songWithoutZh } })
+    expect(wrapper.text()).not.toContain('飛魚來了')
+    expect(wrapper.text()).not.toContain('海浪')
+  })
+
+  it('shows display mode toggle button when show_zh_lyrics is true and zh text exists', () => {
+    const wrapper = mount(SongPlayer, { props: { song: mockSong } })
+    expect(wrapper.text()).toContain('全部')
+  })
+
+  it('hides display mode toggle button when show_zh_lyrics is false', () => {
+    const songWithoutZh = { ...mockSong, show_zh_lyrics: false }
+    const wrapper = mount(SongPlayer, { props: { song: songWithoutZh } })
+    expect(wrapper.text()).not.toContain('全部')
+    expect(wrapper.text()).not.toContain('族語')
+    expect(wrapper.text()).not.toContain('中文')
   })
 
   it('cycles display mode on button click', async () => {
