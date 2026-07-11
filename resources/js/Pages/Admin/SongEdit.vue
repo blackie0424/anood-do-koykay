@@ -10,6 +10,7 @@ const form = ref({
     title_zh: props.song?.title_zh ?? '',
     status: props.song?.status ?? 'draft',
     show_zh_lyrics: props.song?.show_zh_lyrics ?? false,
+    book_number: props.song?.book_number ?? '',
 })
 const saving = ref(false)
 const saveError = ref('')
@@ -56,6 +57,11 @@ async function saveSong() {
                         <option value="draft">草稿</option>
                         <option value="published">已發布</option>
                     </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">書本頁碼</label>
+                    <input v-model="form.book_number" type="text" placeholder="例：175"
+                        class="w-full border rounded px-3 py-2" />
                 </div>
                 <div class="flex items-center gap-2">
                     <input id="show_zh_lyrics" v-model="form.show_zh_lyrics" type="checkbox"

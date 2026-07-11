@@ -11,7 +11,9 @@ class SongController extends Controller
     public function indexPage()
     {
         $songs = Song::where('status', 'published')
-            ->select('id', 'title_native', 'title_zh', 'audio_full')
+            ->select('id', 'title_native', 'title_zh', 'audio_full', 'book_number')
+            ->orderByRaw('book_number IS NULL ASC')
+            ->orderByRaw('CAST(book_number AS UNSIGNED) ASC')
             ->orderBy('id')
             ->get();
         return Inertia::render('SongList', ['songs' => $songs]);
@@ -28,7 +30,9 @@ class SongController extends Controller
     {
         return response()->json(
             Song::where('status', 'published')
-                ->select('id', 'title_native', 'title_zh', 'audio_full', 'status')
+                ->select('id', 'title_native', 'title_zh', 'audio_full', 'status', 'book_number')
+                ->orderByRaw('book_number IS NULL ASC')
+                ->orderByRaw('CAST(book_number AS UNSIGNED) ASC')
                 ->orderBy('id')
                 ->get()
         );
