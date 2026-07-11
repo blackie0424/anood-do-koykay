@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 
@@ -11,12 +11,51 @@ const isPlaying = ref(false)
 const hasError = ref(false)
 const displayMode = ref('both')
 
+// 歌詞行 DOM refs
+const lineRefs = ref([])
+
+// 自動捲動狀態
+const autoScroll = ref(true)
+const userScrolled = ref(false)
+let scrollTimeout = null
+
 const activeLineIndex = computed(() => {
     if (!props.song?.lines) return -1
     return props.song.lines.findLastIndex(
         (line) => line.start_time !== null && currentTime.value >= line.start_time
     )
 })
+
+// activeLineIndex 變化時自動捲動
+watch(activeLineIndex, (idx) => {
+    if (!autoScroll.value || idx < 0) return
+    // 播放到新的一行，清除 userScrolled（選項 A：下一句時恢復）
+    userScrolled.value = false
+    scrollToLine(idx)
+})
+
+function scrollToLine(idx) {
+    const el = lineRefs.value[idx]
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+function returnToCurrentLine() {
+    userScrolled.value = false
+    autoScroll.value = true
+    scrollToLine(activeLineIndex.value)
+}
+
+// 偵測用戶手動滾動
+function onUserScroll() {
+    if (scrollTimeout) clearTimeout(scrollTimeout)
+    // 短暫延遲避免 scrollIntoView 自身觸發
+    scrollTimeout = setTimeout(() => {
+        if (!autoScroll.value) return
+        userScrolled.value = true
+        autoScroll.value = false
+    }, 50)
+}
 
 function togglePlay() {
     if (!audio.value) return
@@ -56,7 +95,7 @@ const modeLabel = computed(() => ({ both: '全部', native: '族語', zh: '中�
 
 <template>
     <PublicLayout>
-    <div class="min-h-screen bg-stone-50 p-3 pb-32">
+    <div class="min-h-screen bg-stone-50 p-3 pb-32" @scroll.passive="onUserScroll">
         <div class="max-w-2xl mx-auto">
             <!-- 返回清單 -->
             <Link href="/" class="inline-flex items-center gap-1 text-stone-500 hover:text-stone-700 text-sm mb-4">
@@ -76,6 +115,7 @@ const modeLabel = computed(() => ({ both: '全部', native: '族語', zh: '中�
 
             <div class="space-y-2">
                 <div v-for="(line, idx) in song.lines" :key="line.id"
+                    :ref="el => lineRefs[idx] = el"
                     @click="playLine(line)"
                     :class="['rounded-xl px-3 py-3 transition-colors cursor-pointer select-none',
                         idx === activeLineIndex ? 'bg-blue-100 border-2 border-blue-400' : 'bg-white border border-stone-200 hover:bg-stone-100']">
@@ -88,6 +128,15 @@ const modeLabel = computed(() => ({ both: '全部', native: '族語', zh: '中�
                 </div>
             </div>
         </div>
+
+        <!-- 回到當前行浮動按鈕 -->
+        <Transition name="fade">
+            <button v-if="userScrolled && isPlaying"
+                @click="returnToCurrentLine"
+                class="fixed bottom-28 right-4 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-medium shadow-lg hover:bg-blue-700 active:scale-95 transition-all">
+                ↩ 回到當前行
+            </button>
+        </Transition>
 
         <audio v-if="song.audio_full" ref="audio" :src="song.audio_full"
             @timeupdate="onTimeUpdate" @loadedmetadata="onLoaded"
@@ -113,3 +162,15 @@ const modeLabel = computed(() => ({ both: '全部', native: '族語', zh: '中�
     </div>
     </PublicLayout>
 </template>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+    transform: translateY(8px);
+}
+</style>
