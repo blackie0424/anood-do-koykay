@@ -156,6 +156,7 @@ const modeLabel = computed(() => ({ both: '全部', native: '族語', zh: '中�
                     ← 返回清單
                 </Link>
                 <div class="text-center mb-4">
+                    <p v-if="song.book_number" class="font-mono text-stone-500 mb-1" style="font-size: clamp(1rem, 3vw, 1.25rem)">[{{ song.book_number }}]</p>
                     <h1 class="font-bold text-stone-800" style="font-size: clamp(1.5rem, 5vw, 2rem)">
                         {{ song.title_native }}
                     </h1>
