@@ -73,13 +73,15 @@ function togglePlay() {
 function onTimeUpdate() {
     currentTime.value = audio.value?.currentTime ?? 0
 
-    // 逐段播放：到達 end_time 時暫停
-    if (segmentMode.value && segmentLine.value) {
-        const line = segmentLine.value
-        const endTime = line.end_time ?? getNextLineStartTime(line)
-        if (endTime != null && currentTime.value >= endTime) {
-            audio.value.pause()
-            segmentLine.value = null
+    // 逐段播放模式
+    if (segmentMode.value) {
+        if (segmentLine.value) {
+            const line = segmentLine.value
+            const endTime = line.end_time ?? getNextLineStartTime(line)
+            if (endTime != null && currentTime.value >= endTime) {
+                audio.value.pause()
+                segmentLine.value = null
+            }
         }
         return
     }
