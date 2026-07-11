@@ -14,7 +14,7 @@ defineProps({ songs: Array })
                     class="bg-white rounded-xl shadow p-5 flex items-center justify-between">
                     <div>
                         <p class="text-2xl font-semibold text-stone-800" style="font-size: clamp(1.25rem, 4vw, 1.75rem)">
-                            {{ song.title_native }}
+                            <span v-if="song.book_number" class="text-stone-400 font-normal mr-2">{{ song.book_number }}</span>{{ song.title_native }}
                         </p>
                         <p v-if="song.title_zh" class="text-stone-500 mt-1">{{ song.title_zh }}</p>
                     </div>
