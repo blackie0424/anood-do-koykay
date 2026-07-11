@@ -23,7 +23,7 @@ class SongController extends Controller
 
     public function editPage(Song $song)
     {
-        return Inertia::render('Admin/SongEdit', ['song' => $song]);
+        return Inertia::render('Admin/SongEdit', ['song' => $song->only('id', 'title_native', 'title_zh', 'status', 'show_zh_lyrics')]);
     }
 
     public function mediaPage(Song $song)
@@ -77,6 +77,7 @@ class SongController extends Controller
             'title_native' => ['sometimes', 'string', 'max:255'],
             'title_zh' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', 'in:draft,published'],
+            'show_zh_lyrics' => ['sometimes', 'boolean'],
             'audio_start' => ['nullable', 'numeric', 'min:0'],
             'audio_end' => ['nullable', 'numeric', 'min:0'],
         ]);

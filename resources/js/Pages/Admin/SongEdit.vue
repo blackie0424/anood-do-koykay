@@ -9,6 +9,7 @@ const form = ref({
     title_native: props.song?.title_native ?? '',
     title_zh: props.song?.title_zh ?? '',
     status: props.song?.status ?? 'draft',
+    show_zh_lyrics: props.song?.show_zh_lyrics ?? false,
 })
 const saving = ref(false)
 const saveError = ref('')
@@ -55,6 +56,13 @@ async function saveSong() {
                         <option value="draft">草稿</option>
                         <option value="published">已發布</option>
                     </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input id="show_zh_lyrics" v-model="form.show_zh_lyrics" type="checkbox"
+                        class="w-4 h-4 rounded border-stone-300 text-blue-600" />
+                    <label for="show_zh_lyrics" class="text-sm font-medium">
+                        顯示中文字幕切換按鈕（前台播放頁開放用戶切換顯示/隱藏中文歌詞）
+                    </label>
                 </div>
                 <p v-if="saveError" class="text-red-500 text-sm">{{ saveError }}</p>
                 <div class="flex items-center gap-4">
