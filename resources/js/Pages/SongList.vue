@@ -13,9 +13,8 @@ defineProps({ songs: Array })
                 <div v-for="song in songs" :key="song.id"
                     class="bg-white rounded-xl shadow p-5 flex items-center justify-between">
                     <div>
-                        <p v-if="song.book_number" class="text-xs font-mono text-stone-600 mb-0.5">[{{ song.book_number }}]</p>
                         <p class="font-semibold text-stone-900 leading-snug" style="font-size: clamp(1.4rem, 4vw, 1.9rem)">
-                            {{ song.title_native }}
+                            <span v-if="song.book_number" class="font-mono text-stone-600 mr-2">[{{ song.book_number }}]</span>{{ song.title_native }}
                         </p>
                         <p v-if="song.title_zh" class="text-stone-500 mt-1">{{ song.title_zh }}</p>
                     </div>
