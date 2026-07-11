@@ -10,43 +10,14 @@ permissions:
 jobs:
   promote:
     runs-on: ubuntu-latest
+    # CI 在 PR 階段已跑過，develop 上的 commit 都是通過驗證的
+    # 不需要在這裡再等 CI，避免 race condition 與 check-run 查詢不穩定的問題
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Wait for CI to pass on this commit
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SHA: ${{ github.sha }}
-        run: |
-          echo "等待 CI 完成（SHA: $SHA）..."
-          for i in $(seq 1 30); do
-            STATUS=$(gh api repos/${{ github.repository }}/commits/$SHA/check-runs \
-              --jq '[.check_runs[] | select(.name == "ci")] | .[0] | {status: .status, conclusion: .conclusion}')
-            
-            RUN_STATUS=$(echo "$STATUS" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
-            CONCLUSION=$(echo "$STATUS" | grep -o '"conclusion":"[^"]*"' | cut -d'"' -f4)
-            
-            echo "第 $i 次檢查：status=$RUN_STATUS conclusion=$CONCLUSION"
-            
-            if [ "$RUN_STATUS" = "completed" ]; then
-              if [ "$CONCLUSION" = "success" ]; then
-                echo "✅ CI 通過"
-                exit 0
-              else
-                echo "❌ CI 失敗（$CONCLUSION），停止 promote"
-                exit 1
-              fi
-            fi
-            
-            echo "CI 尚未完成，等待 20 秒..."
-            sleep 20
-          done
-          
-          echo "⏱ 等待逾時（10 分鐘）"
-          exit 1
+          # 使用 PAT 而非 GITHUB_TOKEN，確保 push to main 能觸發後續 workflow
+          token: ${{ secrets.DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Check if develop is ahead of main
         id: check
@@ -63,7 +34,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout main
 
-          # 產生這次帶入的 commit 清單（develop 比 main 多的部分）
           COMMIT_LOG=$(git log origin/main..origin/develop --oneline --no-merges | sed 's/^/- /')
           DEVELOP_SHA=$(git rev-parse --short origin/develop)
 
