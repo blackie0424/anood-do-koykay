@@ -7,14 +7,15 @@ defineProps({ songs: Array })
 
 <template>
     <PublicLayout>
-        <div class="min-h-screen bg-stone-50 p-4">
+        <div class="min-h-screen bg-amber-50 p-4">
             <h1 class="text-3xl font-bold text-center text-stone-800 mb-6">達悟族語歌謠</h1>
             <div class="max-w-2xl mx-auto space-y-4">
                 <div v-for="song in songs" :key="song.id"
                     class="bg-white rounded-xl shadow p-5 flex items-center justify-between">
                     <div>
-                        <p class="text-2xl font-semibold text-stone-800" style="font-size: clamp(1.25rem, 4vw, 1.75rem)">
-                            <span v-if="song.book_number" class="text-stone-400 font-normal mr-2">{{ song.book_number }}</span>{{ song.title_native }}
+                        <p v-if="song.book_number" class="text-xs font-mono text-stone-600 mb-0.5">[{{ song.book_number }}]</p>
+                        <p class="font-semibold text-stone-900 leading-snug" style="font-size: clamp(1.4rem, 4vw, 1.9rem)">
+                            {{ song.title_native }}
                         </p>
                         <p v-if="song.title_zh" class="text-stone-500 mt-1">{{ song.title_zh }}</p>
                     </div>
