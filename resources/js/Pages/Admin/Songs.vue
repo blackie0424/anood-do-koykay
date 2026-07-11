@@ -23,6 +23,7 @@ async function deleteSong(id) {
             <table class="w-full">
                 <thead class="bg-stone-50 border-b">
                     <tr>
+                        <th class="text-left p-4 font-medium text-stone-600 w-20">頁碼</th>
                         <th class="text-left p-4 font-medium text-stone-600">族語名稱</th>
                         <th class="text-left p-4 font-medium text-stone-600">中文名稱</th>
                         <th class="text-left p-4 font-medium text-stone-600">狀態</th>
@@ -31,6 +32,7 @@ async function deleteSong(id) {
                 </thead>
                 <tbody class="divide-y">
                     <tr v-for="song in songs" :key="song.id" class="hover:bg-stone-50">
+                        <td class="p-4 font-mono text-stone-500 text-sm">{{ song.book_number || '—' }}</td>
                         <td class="p-4">{{ song.title_native }}</td>
                         <td class="p-4 text-stone-600">{{ song.title_zh || '—' }}</td>
                         <td class="p-4">
@@ -47,7 +49,7 @@ async function deleteSong(id) {
                         </td>
                     </tr>
                     <tr v-if="!songs?.length">
-                        <td colspan="4" class="p-8 text-center text-stone-400">尚無歌曲</td>
+                        <td colspan="5" class="p-8 text-center text-stone-400">尚無歌曲</td>
                     </tr>
                 </tbody>
             </table>

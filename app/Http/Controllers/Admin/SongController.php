@@ -11,8 +11,11 @@ class SongController extends Controller
 {
     public function indexPage()
     {
-        $songs = Song::select('id', 'title_native', 'title_zh', 'status', 'created_at')
-            ->orderByDesc('id')->get();
+        $songs = Song::select('id', 'title_native', 'title_zh', 'status', 'book_number', 'created_at')
+            ->orderByRaw('book_number IS NULL ASC')
+            ->orderByRaw('CAST(book_number AS UNSIGNED) ASC')
+            ->orderBy('id')
+            ->get();
         return Inertia::render('Admin/Songs', ['songs' => $songs]);
     }
 
@@ -51,8 +54,11 @@ class SongController extends Controller
     public function index()
     {
         return response()->json(
-            Song::select('id', 'title_native', 'title_zh', 'status', 'created_at')
-                ->orderByDesc('id')->get()
+            Song::select('id', 'title_native', 'title_zh', 'status', 'book_number', 'created_at')
+                ->orderByRaw('book_number IS NULL ASC')
+                ->orderByRaw('CAST(book_number AS UNSIGNED) ASC')
+                ->orderBy('id')
+                ->get()
         );
     }
 
