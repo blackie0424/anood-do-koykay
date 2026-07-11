@@ -1,4 +1,4 @@
-name: Promote develop → main
+name: Promote develop to main
 
 on:
   push:
@@ -10,13 +10,10 @@ permissions:
 jobs:
   promote:
     runs-on: ubuntu-latest
-    # CI 在 PR 階段已跑過，develop 上的 commit 都是通過驗證的
-    # 不需要在這裡再等 CI，避免 race condition 與 check-run 查詢不穩定的問題
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          # 使用 PAT 而非 GITHUB_TOKEN，確保 push to main 能觸發後續 workflow
           token: ${{ secrets.DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Check if develop is ahead of main
@@ -33,15 +30,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout main
-
-          COMMIT_LOG=$(git log origin/main..origin/develop --oneline --no-merges | sed 's/^/- /')
           DEVELOP_SHA=$(git rev-parse --short origin/develop)
-
-          MERGE_MSG="chore: promote develop@${DEVELOP_SHA} → main
-
-Included commits:
-${COMMIT_LOG}"
-
-          git merge --no-ff -X theirs origin/develop -m "$MERGE_MSG"
+          git merge --no-ff -X theirs origin/develop -m "chore: promote develop@${DEVELOP_SHA} to main"
           git push origin main
-          echo "✅ develop → main merge 完成"
+          echo "promote done"
