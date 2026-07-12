@@ -120,6 +120,8 @@ function onLoaded() {
 
 function onError() { hasError.value = true; isPlaying.value = false }
 
+function onPause() { if (audio.value?.paused) isPlaying.value = false }
+
 function playLine(line) {
     if (!audio.value || line.start_time === null) return
     if (segmentMode.value) {
@@ -205,7 +207,7 @@ const modeLabel = computed(() => ({ both: '全部', native: '族語', zh: '中�
 
         <audio v-if="song.audio_full" ref="audio" :src="song.audio_full"
             @timeupdate="onTimeUpdate" @loadedmetadata="onLoaded"
-            @playing="isPlaying = true" @pause="if (audio?.paused) isPlaying = false"
+            @playing="isPlaying = true" @pause="onPause"
             @ended="onEnded" @error="onError" />
 
         <!-- 底部控制列 -->
