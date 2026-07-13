@@ -20,7 +20,7 @@ async function deleteSong(id) {
     <div class="p-6">
         <div class="flex items-center justify-between mb-6">
             <h1 class="text-2xl font-bold">歌曲管理</h1>
-            <Link href="/admin/songs/create" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">新增歌曲</Link>
+            <Link v-if="isAdmin" href="/admin/songs/create" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">新增歌曲</Link>
         </div>
         <div class="bg-white rounded-lg shadow overflow-hidden">
             <table class="w-full">
@@ -46,10 +46,13 @@ async function deleteSong(id) {
                         </td>
                         <td class="p-4">
                             <div class="flex gap-2 justify-end">
-                                <!-- 編輯者：直接進樂譜上傳 -->
-                                <Link :href="`/admin/songs/${song.id}/media`"
+                                <Link v-if="isAdmin" :href="`/admin/songs/${song.id}/media`"
                                     class="text-blue-600 hover:underline text-sm">
-                                    {{ isAdmin ? '編輯' : '上傳樂譜' }}
+                                    編輯
+                                </Link>
+                                <Link v-else :href="`/admin/songs/${song.id}/lyrics`"
+                                    class="text-blue-600 hover:underline text-sm">
+                                    查看歌詞
                                 </Link>
                                 <button v-if="isAdmin" @click="deleteSong(song.id)" class="text-red-500 hover:underline text-sm">刪除</button>
                             </div>
