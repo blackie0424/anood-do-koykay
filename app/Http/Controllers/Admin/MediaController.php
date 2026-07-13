@@ -70,7 +70,7 @@ class MediaController extends Controller
     public function uploadAudio(Request $request, Song $song)
     {
         $request->validate([
-            'audio' => ['required', 'file', 'mimetypes:audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac,audio/mp3', 'max:81920'],
+            'audio' => ['required', 'file', 'mimetypes:audio/mpeg,audio/wav,audio/x-wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac,audio/mp3', 'max:81920'],
             'type' => ['required', 'in:full,line'],
             'line_id' => ['nullable', 'integer', 'exists:song_lines,id'],
         ]);
