@@ -1,10 +1,13 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import axios from 'axios'
+import { usePage } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { parseTime, secondsToMmss } from '@/utils/time'
 
 const props = defineProps({ song: Object })
+
+const isAdmin = usePage().props.auth?.user?.role === 'admin'
 
 const titleNative = ref(props.song?.title_native ?? '')
 const titleZh = ref(props.song?.title_zh ?? '')
@@ -217,11 +220,11 @@ watch(lightboxUrl, (url) => {
                             <span v-else-if="titleSaved" class="text-green-600 text-xs ml-1">✓</span>
                         </template>
                         <span class="shrink-0">)</span>
-                        <span class="font-semibold text-stone-800 ml-1 shrink-0">歌詞編輯</span>
-                        <button @click="titleEditing = !titleEditing"
+                        <span class="font-semibold text-stone-800 ml-1 shrink-0">{{ isAdmin ? '歌詞編輯' : 'OCR 結果查看' }}</span>
+                        <button v-if="isAdmin" @click="titleEditing = !titleEditing"
                             class="ml-1 text-stone-400 hover:text-blue-500 text-xs px-1 shrink-0" title="編輯歌曲名稱">✏️</button>
                     </nav>
-                    <div class="flex items-center gap-3 shrink-0">
+                    <div v-if="isAdmin" class="flex items-center gap-3 shrink-0">
                         <span v-if="saveSuccess" class="text-green-600 text-sm">✓ 已儲存</span>
                         <button @click="saveLines" :disabled="saving"
                             class="bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700 disabled:opacity-50 text-sm">
@@ -269,19 +272,20 @@ watch(lightboxUrl, (url) => {
                     <p v-else class="text-stone-400 text-center mt-8 text-sm">尚無 OCR 資料</p>
                 </div>
 
-                <!-- Col 3: Lyrics Editor -->
+                <!-- Col 3: Lyrics Editor / Viewer -->
                 <div class="w-1/3 overflow-y-auto p-4">
-                    <p class="text-xs text-stone-400 font-medium mb-3">歌詞編輯</p>
+                    <p class="text-xs text-stone-400 font-medium mb-3">{{ isAdmin ? '歌詞編輯' : '歌詞查看（可複製）' }}</p>
                     <template v-for="(line, idx) in lines" :key="idx">
                     <div class="bg-white rounded-lg border p-3 space-y-2">
                         <div class="flex items-start gap-2">
                             <span class="text-stone-400 font-mono text-xs w-5 mt-2">{{ idx + 1 }}</span>
-                            <textarea v-model="line.text_native" placeholder="族語歌詞" rows="2"
+                            <textarea v-if="isAdmin" v-model="line.text_native" placeholder="族語歌詞" rows="2"
                                 class="flex-1 border rounded px-2 py-1 text-sm resize-y" />
-                            <button @click="removeLine(idx)"
+                            <p v-else class="flex-1 text-sm py-1 select-text cursor-text whitespace-pre-wrap">{{ line.text_native }}</p>
+                            <button v-if="isAdmin" @click="removeLine(idx)"
                                 class="text-red-400 hover:text-red-600 text-xs px-1 mt-1">✕</button>
                         </div>
-                        <div class="flex items-center gap-2 pl-7">
+                        <div v-if="isAdmin" class="flex items-center gap-2 pl-7">
                             <button @click="markStart(line)"
                                 class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded hover:bg-blue-200">
                                 標記起始
@@ -307,8 +311,8 @@ watch(lightboxUrl, (url) => {
                             </button>
                         </div>
                     </div>
-                    <!-- Insert between lines -->
-                    <div class="group flex items-center my-1">
+                    <!-- Insert between lines (admin only) -->
+                    <div v-if="isAdmin" class="group flex items-center my-1">
                         <button @click="insertLine(idx)"
                             class="w-full text-xs text-stone-300 hover:text-blue-500 hover:border-blue-400 border border-dashed border-transparent rounded py-0.5 transition-colors opacity-0 group-hover:opacity-100">
                             + 在此插入一行
@@ -316,7 +320,7 @@ watch(lightboxUrl, (url) => {
                     </div>
                     </template>
 
-                    <button @click="addLine"
+                    <button v-if="isAdmin" @click="addLine"
                         class="w-full border-2 border-dashed border-stone-300 text-stone-400 rounded-lg py-2 text-sm hover:border-blue-400 hover:text-blue-500">
                         + 新增一行
                     </button>
