@@ -24,9 +24,12 @@ Route::middleware(['auth:sanctum', 'editor.or.admin'])->group(function () {
     Route::post('/admin/songs/{song}/score', [Admin\MediaController::class, 'uploadScore']);
     Route::post('/admin/songs/{song}/score/reocr', [Admin\MediaController::class, 'reOcr']);
 
+    // editor + admin: create song
+    Route::post('/admin/songs', [Admin\SongController::class, 'store']);
+
     // admin only
     Route::middleware('admin.only')->group(function () {
-        Route::apiResource('admin/songs', Admin\SongController::class);
+        Route::apiResource('admin/songs', Admin\SongController::class)->except(['store']);
         Route::post('/admin/songs/{song}/lines/batch', [Admin\SongLineController::class, 'batchStore']);
         Route::put('/admin/songs/{song}/lines/{line}/mark-time', [Admin\SongLineController::class, 'markTime']);
         Route::post('/admin/songs/{song}/audio', [Admin\MediaController::class, 'uploadAudio']);
