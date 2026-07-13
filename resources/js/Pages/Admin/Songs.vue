@@ -1,12 +1,34 @@
 <script setup>
+import { ref, computed } from 'vue'
 import { Link, router, usePage } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import axios from 'axios'
 
-defineProps({ songs: Array })
+const props = defineProps({ songs: Array })
 
 const page = usePage()
 const isAdmin = page.props.auth?.user?.role === 'admin'
+
+const filter = ref('all')
+
+const filteredSongs = computed(() => {
+    if (!props.songs) return []
+    switch (filter.value) {
+        case 'no-audio': return props.songs.filter(s => !s.audio_full)
+        case 'no-score': return props.songs.filter(s => s.scores_count === 0)
+        case 'draft':    return props.songs.filter(s => s.status !== 'published')
+        case 'published': return props.songs.filter(s => s.status === 'published')
+        default: return props.songs
+    }
+})
+
+const filters = [
+    { key: 'all',       label: '全部' },
+    { key: 'no-audio',  label: '無音訊' },
+    { key: 'no-score',  label: '無歌譜' },
+    { key: 'draft',     label: '草稿' },
+    { key: 'published', label: '已發布' },
+]
 
 async function deleteSong(id) {
     if (!confirm('確定要刪除這首歌嗎？')) return
@@ -18,10 +40,23 @@ async function deleteSong(id) {
 <template>
     <AdminLayout>
     <div class="p-6">
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center justify-between mb-4">
             <h1 class="text-2xl font-bold">歌曲管理</h1>
             <Link v-if="isAdmin" href="/admin/songs/create" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">新增歌曲</Link>
         </div>
+
+        <!-- 篩選列 -->
+        <div class="flex items-center gap-2 mb-4">
+            <button v-for="f in filters" :key="f.key"
+                @click="filter = f.key"
+                :class="['px-3 py-1 rounded-full text-sm transition-colors',
+                    filter === f.key
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200']">
+                {{ f.label }}
+            </button>
+        </div>
+
         <div class="bg-white rounded-lg shadow overflow-hidden">
             <table class="w-full">
                 <thead class="bg-stone-50 border-b">
@@ -29,15 +64,22 @@ async function deleteSong(id) {
                         <th class="text-left p-4 font-medium text-stone-600 w-20">頁碼</th>
                         <th class="text-left p-4 font-medium text-stone-600">族語名稱</th>
                         <th class="text-left p-4 font-medium text-stone-600">中文名稱</th>
+                        <th class="text-left p-4 font-medium text-stone-600 w-16">媒體</th>
                         <th v-if="isAdmin" class="text-left p-4 font-medium text-stone-600">狀態</th>
                         <th class="p-4"></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y">
-                    <tr v-for="song in songs" :key="song.id" class="hover:bg-stone-50">
+                    <tr v-for="song in filteredSongs" :key="song.id" class="hover:bg-stone-50">
                         <td class="p-4 font-mono text-stone-500 text-sm">{{ song.book_number || '—' }}</td>
                         <td class="p-4">{{ song.title_native }}</td>
                         <td class="p-4 text-stone-600">{{ song.title_zh || '—' }}</td>
+                        <td class="p-4">
+                            <span class="flex items-center gap-1.5">
+                                <span :class="song.audio_full ? 'text-base' : 'text-stone-300 text-base'" :title="song.audio_full ? '有音訊' : '無音訊'">🎵</span>
+                                <span :class="song.scores_count > 0 ? 'text-base' : 'text-stone-300 text-base'" :title="song.scores_count > 0 ? '有歌譜' : '無歌譜'">📄</span>
+                            </span>
+                        </td>
                         <td v-if="isAdmin" class="p-4">
                             <span :class="['px-2 py-1 rounded text-sm font-medium',
                                 song.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-600']">
@@ -58,8 +100,8 @@ async function deleteSong(id) {
                             </div>
                         </td>
                     </tr>
-                    <tr v-if="!songs?.length">
-                        <td :colspan="isAdmin ? 5 : 4" class="p-8 text-center text-stone-400">尚無歌曲</td>
+                    <tr v-if="!filteredSongs.length">
+                        <td :colspan="isAdmin ? 6 : 5" class="p-8 text-center text-stone-400">尚無歌曲</td>
                     </tr>
                 </tbody>
             </table>

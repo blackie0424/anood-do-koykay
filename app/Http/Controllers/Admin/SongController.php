@@ -11,7 +11,8 @@ class SongController extends Controller
 {
     public function indexPage()
     {
-        $songs = Song::select('id', 'title_native', 'title_zh', 'status', 'book_number', 'created_at')
+        $songs = Song::select('id', 'title_native', 'title_zh', 'status', 'book_number', 'created_at', 'audio_full')
+            ->withCount('scores')
             ->orderByRaw('book_number IS NULL ASC')
             ->orderByRaw('CAST(book_number AS UNSIGNED) ASC')
             ->orderBy('id')
