@@ -15,7 +15,6 @@ class SongLineFactory extends Factory
             'song_id' => Song::factory(),
             'order' => $order,
             'text_native' => fake()->sentence(4),
-            'text_zh' => fake()->sentence(4),
             'start_time' => ($order - 1) * 3.5,
             'end_time' => $order * 3.5,
             'audio_line' => null,
