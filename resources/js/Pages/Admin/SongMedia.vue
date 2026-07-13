@@ -130,21 +130,36 @@ async function saveTrim() {
     }
 }
 
+const audioUploadPercent = ref(0)
+
 async function uploadAudio(e) {
     const file = e.target.files[0]
     if (!file) return
     audioUploading.value = true
+    audioUploadPercent.value = 0
     audioError.value = ''
     const fd = new FormData()
     fd.append('audio', file)
     fd.append('type', 'full')
     try {
-        const { data } = await axios.post(`/api/admin/songs/${props.song.id}/audio`, fd)
+        const { data } = await axios.post(`/api/admin/songs/${props.song.id}/audio`, fd, {
+            onUploadProgress(event) {
+                if (event.total) {
+                    audioUploadPercent.value = Math.round((event.loaded / event.total) * 100)
+                }
+            },
+        })
         audioFull.value = data.path
-    } catch {
-        audioError.value = '上傳失敗，請稍後再試'
+    } catch (err) {
+        const status = err?.response?.status
+        if (!status || status === 524 || err?.code === 'ECONNABORTED') {
+            audioError.value = '上傳逾時，檔案可能太大，請稍後重試'
+        } else {
+            audioError.value = err?.response?.data?.message ?? '上傳失敗，請稍後再試'
+        }
     } finally {
         audioUploading.value = false
+        audioUploadPercent.value = 0
     }
 }
 </script>
@@ -245,7 +260,9 @@ async function uploadAudio(e) {
                 </div>
                 <input type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac"
                     @change="uploadAudio" :disabled="audioUploading" class="block" />
-                <p v-if="audioUploading" class="text-stone-500 text-sm">上傳中…</p>
+                <p v-if="audioUploading" class="text-stone-500 text-sm">
+                    上傳中… {{ audioUploadPercent > 0 ? audioUploadPercent + '%' : '' }}
+                </p>
                 <p v-if="audioError" class="text-red-500 text-sm">{{ audioError }}</p>
             </section>
 
