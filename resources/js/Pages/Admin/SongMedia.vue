@@ -1,10 +1,13 @@
 <script setup>
 import { ref } from 'vue'
 import axios from 'axios'
+import { usePage } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { parseTime, secondsToMmss } from '@/utils/time'
 
 const props = defineProps({ song: Object })
+
+const isAdmin = usePage().props.auth?.user?.role === 'admin'
 
 const scores = ref(props.song?.scores ?? [])
 const audioFull = ref(props.song?.audio_full ?? null)
@@ -146,7 +149,7 @@ async function uploadAudio(e) {
     <AdminLayout>
         <div class="p-6 max-w-2xl mx-auto space-y-6">
             <div class="flex items-center gap-4">
-                <a :href="`/admin/songs/${song.id}/edit`" class="text-blue-600 hover:underline">← 返回基本資料</a>
+                <a v-if="isAdmin" :href="`/admin/songs/${song.id}/edit`" class="text-blue-600 hover:underline">← 返回基本資料</a>
                 <h1 class="text-2xl font-bold">上傳媒體 — {{ song.title_native }}</h1>
             </div>
 
@@ -166,18 +169,27 @@ async function uploadAudio(e) {
                         <img :src="score.image_url" alt="樂譜"
                             class="w-full object-contain max-h-96 bg-white cursor-zoom-in hover:opacity-90 transition-opacity"
                             @click="lightboxUrl = score.image_url" />
+                        <!-- 辨識中提示 -->
+                        <div v-if="reOcrLoadingId === score.id"
+                            class="flex items-center justify-center gap-2 px-3 py-3 bg-blue-50 border-t border-blue-100 text-blue-700 text-sm font-medium">
+                            <svg class="animate-spin h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                            </svg>
+                            辨識中，請稍候…
+                        </div>
                         <!-- 操作列 -->
-                        <div class="flex items-center gap-3 px-3 py-2 border-t">
+                        <div v-else class="flex items-center gap-3 px-3 py-2 border-t">
                             <span class="text-stone-400 font-mono text-xs select-none">第 {{ idx + 1 }} 張</span>
                             <div class="flex-1">
                                 <p v-if="reOcrSuccessId === score.id" class="text-green-600 text-xs">✓ 辨識完成</p>
                                 <p v-if="reOcrErrorId === score.id" class="text-red-500 text-xs">辨識失敗</p>
                             </div>
-                            <button @click="reOcr(score)" :disabled="reOcrLoadingId === score.id"
-                                class="text-xs text-blue-600 hover:underline disabled:opacity-50">
-                                {{ reOcrLoadingId === score.id ? '辨識中…' : '重新辨識' }}
+                            <button @click="reOcr(score)"
+                                class="text-xs text-blue-600 hover:underline">
+                                重新辨識
                             </button>
-                            <button @click="deleteScore(score)"
+                            <button v-if="isAdmin" @click="deleteScore(score)"
                                 class="text-xs text-red-400 hover:text-red-600">✕ 刪除</button>
                         </div>
                     </div>
@@ -197,8 +209,8 @@ async function uploadAudio(e) {
                 <h2 class="font-semibold text-lg">完整錄音</h2>
                 <audio v-if="audioFull" ref="audioRef" :src="audioFull" controls class="w-full"
                     @timeupdate="onAudioTimeUpdate" />
-                <!-- 播放區間設定 -->
-                <div v-if="audioFull" class="border rounded-lg p-3 space-y-2 bg-stone-50">
+                <!-- 播放區間設定（管理者限定） -->
+                <div v-if="isAdmin && audioFull" class="border rounded-lg p-3 space-y-2 bg-stone-50">
                     <p class="text-xs text-stone-500 font-medium">播放區間（跳過頭尾）</p>
                     <div class="flex flex-wrap items-center gap-2">
                         <button @click="markTrimStart"
@@ -227,13 +239,16 @@ async function uploadAudio(e) {
                     </div>
                     <p class="text-xs text-stone-400">播放時自動從起始秒數開始，到結束秒數暫停。留空則從頭播到尾。</p>
                 </div>
-                <input type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac"
-                    @change="uploadAudio" :disabled="audioUploading" class="block" />
-                <p v-if="audioUploading" class="text-stone-500 text-sm">上傳中…</p>
-                <p v-if="audioError" class="text-red-500 text-sm">{{ audioError }}</p>
+                <!-- 音訊上傳（管理者限定） -->
+                <template v-if="isAdmin">
+                    <input type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac"
+                        @change="uploadAudio" :disabled="audioUploading" class="block" />
+                    <p v-if="audioUploading" class="text-stone-500 text-sm">上傳中…</p>
+                    <p v-if="audioError" class="text-red-500 text-sm">{{ audioError }}</p>
+                </template>
             </section>
 
-            <div class="flex justify-end">
+            <div v-if="isAdmin" class="flex justify-end">
                 <a :href="`/admin/songs/${song.id}/lyrics`"
                     class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
                     前往歌詞編輯 →
