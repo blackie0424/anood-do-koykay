@@ -26,25 +26,32 @@ const lightboxUrl = ref(null)
 let dragSrcIdx = null
 
 
+const scoreUploadProgress = ref('')
+
 async function uploadScore(e) {
-    const file = e.target.files[0]
-    if (!file) return
+    const files = Array.from(e.target.files)
+    if (!files.length) return
     scoreUploading.value = true
     scoreError.value = ''
-    const fd = new FormData()
-    fd.append('score', file)
-    try {
-        const { data } = await axios.post(`/api/admin/songs/${props.song.id}/scores`, fd)
-        scores.value.push(data.score)
-        if (data.ocr_error) {
-            scoreError.value = `圖片上傳成功，但 OCR 辨識失敗：${data.ocr_error}`
+    const errors = []
+    for (let i = 0; i < files.length; i++) {
+        scoreUploadProgress.value = files.length > 1 ? `上傳第 ${i + 1} / ${files.length} 張…` : '上傳中…'
+        const fd = new FormData()
+        fd.append('score', files[i])
+        try {
+            const { data } = await axios.post(`/api/admin/songs/${props.song.id}/scores`, fd)
+            scores.value.push(data.score)
+            if (data.ocr_error) {
+                errors.push(`第 ${i + 1} 張 OCR 失敗：${data.ocr_error}`)
+            }
+        } catch {
+            errors.push(`第 ${i + 1} 張上傳失敗`)
         }
-    } catch {
-        scoreError.value = '上傳失敗，請稍後再試'
-    } finally {
-        scoreUploading.value = false
-        e.target.value = ''
     }
+    scoreUploading.value = false
+    scoreUploadProgress.value = ''
+    scoreError.value = errors.join('；')
+    e.target.value = ''
 }
 
 async function deleteScore(score) {
@@ -195,8 +202,8 @@ async function uploadAudio(e) {
 
                 <div>
                     <input type="file" accept="image/jpg,image/jpeg,image/png,image/webp"
-                        @change="uploadScore" :disabled="scoreUploading" class="block" />
-                    <p v-if="scoreUploading" class="text-stone-500 text-sm mt-1">上傳中…</p>
+                        multiple @change="uploadScore" :disabled="scoreUploading" class="block" />
+                    <p v-if="scoreUploading" class="text-stone-500 text-sm mt-1">{{ scoreUploadProgress }}</p>
                     <p v-if="scoreError" class="text-yellow-600 text-sm mt-1">⚠️ {{ scoreError }}</p>
                 </div>
             </section>
