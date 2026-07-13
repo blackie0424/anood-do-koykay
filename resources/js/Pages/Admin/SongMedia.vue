@@ -248,10 +248,10 @@ async function uploadAudio(e) {
                 </template>
             </section>
 
-            <div v-if="isAdmin" class="flex justify-end">
+            <div class="flex justify-end">
                 <a :href="`/admin/songs/${song.id}/lyrics`"
                     class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
-                    前往歌詞編輯 →
+                    {{ isAdmin ? '前往歌詞編輯 →' : '查看 OCR 結果 →' }}
                 </a>
             </div>
         </div>
