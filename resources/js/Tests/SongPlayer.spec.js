@@ -7,10 +7,9 @@ const mockSong = {
   title_native: 'Do Koykay',
   title_zh: '飛魚之歌',
   audio_full: '/audio/1.mp3',
-  show_zh_lyrics: true,
   lines: [
-    { id: 1, order: 1, text_native: 'Maomaw do koykay', text_zh: '飛魚來了', start_time: 0, end_time: 3.5 },
-    { id: 2, order: 2, text_native: 'Anood', text_zh: '海浪', start_time: 3.5, end_time: 7.0 },
+    { id: 1, order: 1, text_native: 'Maomaw do koykay', start_time: 0, end_time: 3.5 },
+    { id: 2, order: 2, text_native: 'Anood', start_time: 3.5, end_time: 7.0 },
   ],
 }
 
@@ -25,52 +24,6 @@ describe('SongPlayer', () => {
     const wrapper = mount(SongPlayer, { props: { song: mockSong } })
     expect(wrapper.text()).toContain('Maomaw do koykay')
     expect(wrapper.text()).toContain('Anood')
-  })
-
-  it('renders both native and zh text when show_zh_lyrics is true', () => {
-    const wrapper = mount(SongPlayer, { props: { song: mockSong } })
-    expect(wrapper.text()).toContain('飛魚來了')
-    expect(wrapper.text()).toContain('海浪')
-  })
-
-  it('hides zh text when show_zh_lyrics is false', () => {
-    const songWithoutZh = { ...mockSong, show_zh_lyrics: false }
-    const wrapper = mount(SongPlayer, { props: { song: songWithoutZh } })
-    expect(wrapper.text()).not.toContain('飛魚來了')
-    expect(wrapper.text()).not.toContain('海浪')
-  })
-
-  it('shows display mode toggle button when show_zh_lyrics is true and zh text exists', () => {
-    const wrapper = mount(SongPlayer, { props: { song: mockSong } })
-    expect(wrapper.text()).toContain('全部')
-  })
-
-  it('hides display mode toggle button when show_zh_lyrics is false', () => {
-    const songWithoutZh = { ...mockSong, show_zh_lyrics: false }
-    const wrapper = mount(SongPlayer, { props: { song: songWithoutZh } })
-    expect(wrapper.text()).not.toContain('全部')
-    expect(wrapper.text()).not.toContain('族語')
-    expect(wrapper.text()).not.toContain('中文')
-  })
-
-  it('cycles display mode on button click', async () => {
-    const wrapper = mount(SongPlayer, { props: { song: mockSong } })
-    const modeButton = wrapper.find('button:last-child')
-
-    expect(wrapper.text()).toContain('全部')
-    await modeButton.trigger('click')
-    expect(wrapper.text()).toContain('族語')
-    await modeButton.trigger('click')
-    expect(wrapper.text()).toContain('中文')
-    await modeButton.trigger('click')
-    expect(wrapper.text()).toContain('全部')
-  })
-
-  it('hides zh text and mode button when show_zh_lyrics is false', () => {
-    const songWithoutZh = { ...mockSong, show_zh_lyrics: false }
-    const wrapper = mount(SongPlayer, { props: { song: songWithoutZh } })
-    expect(wrapper.text()).not.toContain('飛魚來了')
-    expect(wrapper.text()).not.toContain('全部')
   })
 
   it('shows error notice when audio element emits error', async () => {

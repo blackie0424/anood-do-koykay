@@ -9,7 +9,7 @@ class SongLine extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['song_id', 'order', 'text_native', 'text_zh', 'start_time', 'end_time', 'audio_line'];
+    protected $fillable = ['song_id', 'order', 'text_native', 'start_time', 'end_time', 'audio_line'];
 
     public function song()
     {

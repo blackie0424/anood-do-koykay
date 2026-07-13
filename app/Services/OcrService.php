@@ -101,7 +101,6 @@ class OcrService
             $result[] = [
                 'order' => $order++,
                 'text_native' => $line,
-                'text_zh' => '',
             ];
         }
 
