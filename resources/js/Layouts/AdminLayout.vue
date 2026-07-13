@@ -4,6 +4,7 @@ import { usePage } from '@inertiajs/vue3'
 
 const page = usePage()
 const user = () => page.props.auth?.user
+const isAdmin = () => user()?.role === 'admin'
 
 function logout() {
     router.post('/logout')
@@ -23,6 +24,10 @@ function logout() {
                     <Link href="/admin/songs"
                         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-stone-700 hover:bg-stone-100 text-sm font-medium">
                         🎵 歌曲管理
+                    </Link>
+                    <Link v-if="isAdmin()" href="/admin/users"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-stone-500 hover:bg-stone-100 text-sm">
+                        👤 使用者
                     </Link>
                     <Link href="/"
                         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-stone-500 hover:bg-stone-100 text-sm">

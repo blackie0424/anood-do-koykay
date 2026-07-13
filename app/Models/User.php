@@ -11,7 +11,10 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'email', 'password'];
+    protected $fillable = ['name', 'email', 'password', 'role'];
+
+    public function isAdmin(): bool { return $this->role === 'admin'; }
+    public function isEditor(): bool { return $this->role === 'editor'; }
 
     protected $hidden = ['password', 'remember_token'];
 
