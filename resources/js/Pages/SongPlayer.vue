@@ -130,6 +130,15 @@ function playLine(line) {
     audio.value.play().catch(() => { hasError.value = true })
 }
 
+const showPlayOverlay = ref(true)
+
+function startPlayFromOverlay() {
+    showPlayOverlay.value = false
+    if (audio.value && props.song?.audio_full && !hasError.value) {
+        audio.value.play().catch(() => { hasError.value = true })
+    }
+}
+
 const isMobile = computed(() => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent))
 const copied = ref(false)
 
@@ -144,7 +153,7 @@ async function copyLink() {
 
 <template>
     <PublicLayout>
-    <div class="min-h-dvh flex flex-col bg-stone-50">
+    <div class="min-h-dvh flex flex-col bg-stone-50 relative">
         <!-- 標頭 -->
         <div class="px-3 pt-3 flex-shrink-0">
             <div class="max-w-2xl mx-auto">
@@ -222,6 +231,23 @@ async function copyLink() {
             </div>
         </div>
     </div>
+
+    <!-- 進入頁面播放提示覆蓋層 -->
+    <Transition name="overlay">
+        <div v-if="showPlayOverlay && song.audio_full && !hasError"
+            class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/60 cursor-pointer"
+            @click="startPlayFromOverlay"
+            role="button"
+            aria-label="點擊開始播放">
+            <div class="flex flex-col items-center gap-6 select-none">
+                <div class="w-36 h-36 rounded-full bg-white/20 border-4 border-white flex items-center justify-center shadow-2xl">
+                    <span class="text-7xl text-white ml-3">▶</span>
+                </div>
+                <p class="text-white text-2xl font-bold tracking-wide drop-shadow-lg">點擊開始播放</p>
+                <p class="text-white/70 text-lg">{{ song.title_native }}</p>
+            </div>
+        </div>
+    </Transition>
     </PublicLayout>
 </template>
 
@@ -234,5 +260,11 @@ async function copyLink() {
 .fade-leave-to {
     opacity: 0;
     transform: translateY(8px);
+}
+.overlay-leave-active {
+    transition: opacity 0.3s ease;
+}
+.overlay-leave-to {
+    opacity: 0;
 }
 </style>
