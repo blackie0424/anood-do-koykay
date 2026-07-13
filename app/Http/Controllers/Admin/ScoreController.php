@@ -42,7 +42,6 @@ class ScoreController extends Controller
                     $song->lines()->create([
                         'order'       => $maxOrder + $line['order'],
                         'text_native' => $line['text_native'],
-                        'text_zh'     => $line['text_zh'] ?? '',
                         'start_time'  => null,
                         'end_time'    => null,
                     ]);

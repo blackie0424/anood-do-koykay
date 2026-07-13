@@ -16,7 +16,6 @@ class SongFactory extends Factory
             'audio_start' => null,
             'audio_end' => null,
             'status' => 'draft',
-            'show_zh_lyrics' => false,
         ];
     }
 
