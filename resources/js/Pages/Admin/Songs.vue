@@ -75,9 +75,9 @@ async function deleteSong(id) {
                         <td class="p-4">{{ song.title_native }}</td>
                         <td class="p-4 text-stone-600">{{ song.title_zh || '—' }}</td>
                         <td class="p-4">
-                            <span class="flex items-center gap-1.5">
-                                <span :class="song.audio_full ? 'text-base' : 'text-stone-300 text-base'" :title="song.audio_full ? '有音訊' : '無音訊'">🎵</span>
-                                <span :class="song.scores_count > 0 ? 'text-base' : 'text-stone-300 text-base'" :title="song.scores_count > 0 ? '有歌譜' : '無歌譜'">📄</span>
+                            <span class="flex items-center gap-1">
+                                <span v-if="song.audio_full" class="px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700">音訊</span>
+                                <span v-if="song.scores_count > 0" class="px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700">歌譜</span>
                             </span>
                         </td>
                         <td v-if="isAdmin" class="p-4">
