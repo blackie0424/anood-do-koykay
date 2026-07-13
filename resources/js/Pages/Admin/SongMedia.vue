@@ -242,11 +242,19 @@ async function uploadAudio(e) {
                 <p v-if="audioError" class="text-red-500 text-sm">{{ audioError }}</p>
             </section>
 
-            <div class="flex justify-end">
-                <a :href="`/admin/songs/${song.id}/lyrics`"
+            <div class="flex flex-col items-end gap-2">
+                <p v-if="scoreUploading || audioUploading" class="text-sm text-amber-600">
+                    上傳中，請完成後再前往
+                </p>
+                <a v-if="!scoreUploading && !audioUploading"
+                    :href="`/admin/songs/${song.id}/lyrics`"
                     class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
                     前往歌詞編輯 →
                 </a>
+                <span v-else
+                    class="bg-green-600/40 text-white px-6 py-2 rounded cursor-not-allowed select-none">
+                    前往歌詞編輯 →
+                </span>
             </div>
         </div>
 
