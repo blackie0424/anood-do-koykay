@@ -16,7 +16,6 @@ class SongLineController extends Controller
             'lines' => ['required', 'array'],
             'lines.*.order' => ['required', 'integer', 'min:1'],
             'lines.*.text_native' => ['nullable', 'string'],
-            'lines.*.text_zh' => ['nullable', 'string'],
             'lines.*.start_time' => ['nullable', 'numeric', 'min:0'],
             'lines.*.end_time' => ['nullable', 'numeric', 'min:0'],
         ]);

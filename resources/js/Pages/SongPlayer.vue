@@ -9,7 +9,6 @@ const audio = ref(null)
 const currentTime = ref(0)
 const isPlaying = ref(false)
 const hasError = ref(false)
-const displayMode = ref('both')
 
 // 歌詞捲動
 const lyricsContainer = ref(null)
@@ -131,22 +130,6 @@ function playLine(line) {
     audio.value.play().catch(() => { hasError.value = true })
 }
 
-// 中文字幕切換按鈕：需後台開啟且有實際中文字幕才顯示
-const showZhButton = computed(() =>
-    props.song?.show_zh_lyrics === true &&
-    (props.song?.lines ?? []).some(l => l.text_zh)
-)
-
-// 按鈕隱藏時固定顯示族語
-const effectiveMode = computed(() => showZhButton.value ? displayMode.value : 'native')
-
-function cycleDisplayMode() {
-    const modes = ['both', 'native', 'zh']
-    displayMode.value = modes[(modes.indexOf(displayMode.value) + 1) % modes.length]
-}
-
-const modeLabel = computed(() => ({ both: '全部', native: '族語', zh: '中文' }[displayMode.value]))
-
 const isMobile = computed(() => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent))
 const copied = ref(false)
 
@@ -202,11 +185,8 @@ async function copyLink() {
                      @click="playLine(line)"
                      :class="['rounded-xl px-3 py-3 transition-colors cursor-pointer select-none',
                          idx === activeLineIndex ? 'bg-blue-100 border-2 border-blue-400' : 'bg-white border border-stone-200 hover:bg-stone-100']">
-                    <p v-if="effectiveMode !== 'zh'" class="font-semibold text-stone-800 leading-snug" style="font-size: clamp(1.5rem, 4vw, 2rem)">
+                    <p class="font-semibold text-stone-800 leading-snug" style="font-size: clamp(1.5rem, 4vw, 2rem)">
                         {{ line.text_native }}
-                    </p>
-                    <p v-if="effectiveMode !== 'native'" class="text-stone-600 leading-snug" style="font-size: clamp(1.5rem, 3vw, 1.75rem)">
-                        {{ line.text_zh }}
                     </p>
                 </div>
             </div>
@@ -239,10 +219,6 @@ async function copyLink() {
                     <span v-if="segmentMode">▶ 點選歌詞播放</span>
                     <span v-else-if="isPlaying">播放中…</span>
                 </div>
-                <button v-if="showZhButton" @click="cycleDisplayMode"
-                    class="px-4 py-2 rounded-lg border border-stone-300 text-stone-700 font-medium hover:bg-stone-50">
-                    {{ modeLabel }}
-                </button>
             </div>
         </div>
     </div>

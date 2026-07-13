@@ -33,7 +33,7 @@ const lines = ref(
         ? props.song.lines
             .filter(l => !isFilteredLine(l.text_native || ''))
             .map((l, i) => ({ ...l, order: i + 1 }))
-        : [{ order: 1, text_native: '', text_zh: '', start_time: null, end_time: null }]
+        : [{ order: 1, text_native: '', start_time: null, end_time: null }]
 )
 
 function filterOcrLines(ocrRaw) {
@@ -141,7 +141,7 @@ function previewLineSegment(line, idx) {
 function addLine() {
     lines.value.push({
         order: lines.value.length + 1,
-        text_native: '', text_zh: '',
+        text_native: '',
         start_time: null, end_time: null,
     })
 }
@@ -153,7 +153,7 @@ function removeLine(idx) {
 
 function insertLine(idx) {
     lines.value.splice(idx + 1, 0, {
-        order: 0, text_native: '', text_zh: '',
+        order: 0, text_native: '',
         start_time: null, end_time: null,
     })
     lines.value.forEach((l, i) => { l.order = i + 1 })
@@ -286,8 +286,6 @@ watch(lightboxUrl, (url) => {
                         <div class="flex items-start gap-2">
                             <span class="text-stone-400 font-mono text-xs w-5 mt-2">{{ idx + 1 }}</span>
                             <textarea v-model="line.text_native" placeholder="族語歌詞" rows="2"
-                                class="flex-1 border rounded px-2 py-1 text-sm resize-y" />
-                            <textarea v-model="line.text_zh" placeholder="中文翻譯" rows="2"
                                 class="flex-1 border rounded px-2 py-1 text-sm resize-y" />
                             <button @click="removeLine(idx)"
                                 class="text-red-400 hover:text-red-600 text-xs px-1 mt-1">✕</button>
