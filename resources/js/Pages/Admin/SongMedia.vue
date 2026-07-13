@@ -26,25 +26,32 @@ const lightboxUrl = ref(null)
 let dragSrcIdx = null
 
 
+const scoreUploadProgress = ref('')
+
 async function uploadScore(e) {
-    const file = e.target.files[0]
-    if (!file) return
+    const files = Array.from(e.target.files)
+    if (!files.length) return
     scoreUploading.value = true
     scoreError.value = ''
-    const fd = new FormData()
-    fd.append('score', file)
-    try {
-        const { data } = await axios.post(`/api/admin/songs/${props.song.id}/scores`, fd)
-        scores.value.push(data.score)
-        if (data.ocr_error) {
-            scoreError.value = `圖片上傳成功，但 OCR 辨識失敗：${data.ocr_error}`
+    const errors = []
+    for (let i = 0; i < files.length; i++) {
+        scoreUploadProgress.value = files.length > 1 ? `上傳第 ${i + 1} / ${files.length} 張…` : '上傳中…'
+        const fd = new FormData()
+        fd.append('score', files[i])
+        try {
+            const { data } = await axios.post(`/api/admin/songs/${props.song.id}/scores`, fd)
+            scores.value.push(data.score)
+            if (data.ocr_error) {
+                errors.push(`第 ${i + 1} 張 OCR 失敗：${data.ocr_error}`)
+            }
+        } catch {
+            errors.push(`第 ${i + 1} 張上傳失敗`)
         }
-    } catch {
-        scoreError.value = '上傳失敗，請稍後再試'
-    } finally {
-        scoreUploading.value = false
-        e.target.value = ''
     }
+    scoreUploading.value = false
+    scoreUploadProgress.value = ''
+    scoreError.value = errors.join('；')
+    e.target.value = ''
 }
 
 async function deleteScore(score) {
@@ -123,21 +130,36 @@ async function saveTrim() {
     }
 }
 
+const audioUploadPercent = ref(0)
+
 async function uploadAudio(e) {
     const file = e.target.files[0]
     if (!file) return
     audioUploading.value = true
+    audioUploadPercent.value = 0
     audioError.value = ''
     const fd = new FormData()
     fd.append('audio', file)
     fd.append('type', 'full')
     try {
-        const { data } = await axios.post(`/api/admin/songs/${props.song.id}/audio`, fd)
+        const { data } = await axios.post(`/api/admin/songs/${props.song.id}/audio`, fd, {
+            onUploadProgress(event) {
+                if (event.total) {
+                    audioUploadPercent.value = Math.round((event.loaded / event.total) * 100)
+                }
+            },
+        })
         audioFull.value = data.path
-    } catch {
-        audioError.value = '上傳失敗，請稍後再試'
+    } catch (err) {
+        const status = err?.response?.status
+        if (!status || status === 524 || err?.code === 'ECONNABORTED') {
+            audioError.value = '上傳逾時，檔案可能太大，請稍後重試'
+        } else {
+            audioError.value = err?.response?.data?.message ?? '上傳失敗，請稍後再試'
+        }
     } finally {
         audioUploading.value = false
+        audioUploadPercent.value = 0
     }
 }
 </script>
@@ -195,8 +217,8 @@ async function uploadAudio(e) {
 
                 <div>
                     <input type="file" accept="image/jpg,image/jpeg,image/png,image/webp"
-                        @change="uploadScore" :disabled="scoreUploading" class="block" />
-                    <p v-if="scoreUploading" class="text-stone-500 text-sm mt-1">上傳中…</p>
+                        multiple @change="uploadScore" :disabled="scoreUploading" class="block" />
+                    <p v-if="scoreUploading" class="text-stone-500 text-sm mt-1">{{ scoreUploadProgress }}</p>
                     <p v-if="scoreError" class="text-yellow-600 text-sm mt-1">⚠️ {{ scoreError }}</p>
                 </div>
             </section>
@@ -238,15 +260,25 @@ async function uploadAudio(e) {
                 </div>
                 <input type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac"
                     @change="uploadAudio" :disabled="audioUploading" class="block" />
-                <p v-if="audioUploading" class="text-stone-500 text-sm">上傳中…</p>
+                <p v-if="audioUploading" class="text-stone-500 text-sm">
+                    上傳中… {{ audioUploadPercent > 0 ? audioUploadPercent + '%' : '' }}
+                </p>
                 <p v-if="audioError" class="text-red-500 text-sm">{{ audioError }}</p>
             </section>
 
-            <div class="flex justify-end">
-                <a :href="`/admin/songs/${song.id}/lyrics`"
+            <div class="flex flex-col items-end gap-2">
+                <p v-if="scoreUploading || audioUploading" class="text-sm text-amber-600">
+                    上傳中，請完成後再前往
+                </p>
+                <a v-if="!scoreUploading && !audioUploading"
+                    :href="`/admin/songs/${song.id}/lyrics`"
                     class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
                     前往歌詞編輯 →
                 </a>
+                <span v-else
+                    class="bg-green-600/40 text-white px-6 py-2 rounded cursor-not-allowed select-none">
+                    前往歌詞編輯 →
+                </span>
             </div>
         </div>
 
