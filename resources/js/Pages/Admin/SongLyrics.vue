@@ -13,19 +13,10 @@ const titleSaving = ref(false)
 const titleSaved = ref(false)
 let titleSaveTimer = null
 
-const CHORD_RE = /^[A-G](m|maj|dim|aug|min)?(maj7|m7|dim7|mmaj7|7|9|11|13|6|sus2|sus4|add9|add2)?(#|b)?(\/[A-G])?$/
-
 function isFilteredLine(line) {
     const t = line.trim()
     if (!t) return true
-    if (/^[\d\s\-\.|·•:]+$/.test(t)) return true
-    const tokens = t.split(/\s+/).filter(Boolean)
-    if (tokens.length === 0) return true
-    const chordCount = tokens.filter(tok => CHORD_RE.test(tok)).length
-    const numericCount = tokens.filter(tok => /^\d+$/.test(tok)).length
-    if (chordCount / tokens.length > 0.6) return true
-    if (numericCount / tokens.length > 0.4) return true
-    return false
+    return /^[\d\s\-\.|·•:]+$/.test(t)
 }
 
 const lines = ref(

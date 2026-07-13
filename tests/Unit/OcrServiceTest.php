@@ -153,8 +153,8 @@ class OcrServiceTest extends TestCase
         $textNatives = array_column($result['lines'], 'text_native');
         // "Azwain ta si Yeso" is NOT a chord line — should be kept
         $this->assertContains('Azwain ta si Yeso', $textNatives);
-        // "G Am C" IS a chord line — should be filtered
-        $this->assertNotContains('G Am C', $textNatives);
+        // "G Am C" IS a chord line — now kept per new spec
+        $this->assertContains('G Am C', $textNatives);
         // lyrics kept
         $this->assertContains('ko tey-kak', $textNatives);
     }
@@ -257,13 +257,13 @@ class OcrServiceTest extends TestCase
                         $w('|', 10, 550), $w(':', 30, 550), $w('6', 50, 550), $w('6', 70, 550),
                         $w('6', 90, 550), $w('3', 110, 550), $w('2', 130, 550), $w('12', 150, 550),
                         $w('2', 170, 550), $w('1', 190, 550), $w('1', 210, 550), $w('|', 230, 550), $w('6', 250, 550),
-                        // y=650: Dm EN C7 Dm (filtered — chord ratio 75%)
+                        // y=650: Dm EN C7 Dm (kept — chord lines are now preserved)
                         $w('Dm', 10, 650), $w('EN', 50, 650), $w('C7', 80, 650), $w('Dm', 110, 650),
-                        // y=750: Dm 3/4 syaman (kept — chord ratio 33%)
+                        // y=750: Dm 3/4 syaman (kept — mixed content)
                         $w('Dm', 10, 750), $w('3/4', 50, 750), $w('syaman', 80, 750),
-                        // y=850: C7 Dm Dm -TO (filtered — chord ratio 75%)
+                        // y=850: C7 Dm Dm -TO (kept — chord lines are now preserved)
                         $w('C7', 10, 850), $w('Dm', 50, 850), $w('Dm', 80, 850), $w('-TO', 110, 850),
-                        // y=950: G Am C (filtered — chord ratio 100%)
+                        // y=950: G Am C (kept — chord lines are now preserved)
                         $w('G', 10, 950), $w('Am', 40, 950), $w('C', 70, 950),
                     ],
                 ]],
@@ -279,11 +279,11 @@ class OcrServiceTest extends TestCase
         $this->assertContains('作詞 :', $textNatives);
         $this->assertContains('macinanao', $textNatives);
         $this->assertContains('Dm 3/4 syaman', $textNatives);
+        $this->assertContains('Dm EN C7 Dm', $textNatives);
+        $this->assertContains('C7 Dm Dm -TO', $textNatives);
+        $this->assertContains('G Am C', $textNatives);
 
         $this->assertNotContains('9', $textNatives);
         $this->assertNotContains('| : 6 6 6 3 2 12 2 1 1 | 6', $textNatives);
-        $this->assertNotContains('Dm EN C7 Dm', $textNatives);
-        $this->assertNotContains('C7 Dm Dm -TO', $textNatives);
-        $this->assertNotContains('G Am C', $textNatives);
     }
 }
