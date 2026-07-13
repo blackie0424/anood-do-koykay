@@ -20,7 +20,7 @@ async function deleteSong(id) {
     <div class="p-6">
         <div class="flex items-center justify-between mb-6">
             <h1 class="text-2xl font-bold">歌曲管理</h1>
-            <Link v-if="isAdmin" href="/admin/songs/create" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">新增歌曲</Link>
+            <Link href="/admin/songs/create" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">新增歌曲</Link>
         </div>
         <div class="bg-white rounded-lg shadow overflow-hidden">
             <table class="w-full">
