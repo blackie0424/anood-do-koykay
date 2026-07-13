@@ -162,8 +162,8 @@ class SongApiTest extends TestCase
         $song = Song::factory()->create();
 
         $lines = [
-            ['order' => 1, 'text_native' => 'Maomaw do koykay', 'text_zh' => '飛魚來了', 'start_time' => 0, 'end_time' => 3.5],
-            ['order' => 2, 'text_native' => 'Anood', 'text_zh' => '海浪', 'start_time' => 3.5, 'end_time' => 7.0],
+            ['order' => 1, 'text_native' => 'Maomaw do koykay', 'start_time' => 0, 'end_time' => 3.5],
+            ['order' => 2, 'text_native' => 'Anood', 'start_time' => 3.5, 'end_time' => 7.0],
         ];
 
         $this->withToken($token)
