@@ -11,7 +11,7 @@ class SongController extends Controller
 {
     public function indexPage()
     {
-        $songs = Song::select('id', 'title_native', 'title_zh', 'status', 'book_number', 'created_at', 'audio_full')
+        $songs = Song::select('id', 'title_native', 'title_zh', 'status', 'book_number', 'created_at', 'audio_full', 'audio_duration')
             ->withCount('scores')
             ->orderByRaw('book_number IS NULL ASC')
             ->orderByRaw('CAST(book_number AS UNSIGNED) ASC')
@@ -87,6 +87,7 @@ class SongController extends Controller
             'book_number' => ['nullable', 'string', 'max:20'],
             'audio_start' => ['nullable', 'numeric', 'min:0'],
             'audio_end' => ['nullable', 'numeric', 'min:0'],
+            'audio_duration' => ['nullable', 'integer', 'min:0'],
         ]);
         $song->update($data);
         return response()->json($song);

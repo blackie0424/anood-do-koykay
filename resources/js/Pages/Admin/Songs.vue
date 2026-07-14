@@ -30,6 +30,13 @@ const filters = [
     { key: 'published', label: '已發布' },
 ]
 
+function formatDuration(seconds) {
+    if (!seconds) return ''
+    const m = Math.floor(seconds / 60)
+    const s = String(seconds % 60).padStart(2, '0')
+    return `${m}:${s}`
+}
+
 async function deleteSong(id) {
     if (!confirm('確定要刪除這首歌嗎？')) return
     await axios.delete(`/api/admin/songs/${id}`)
@@ -76,7 +83,7 @@ async function deleteSong(id) {
                         <td class="p-4 text-stone-600">{{ song.title_zh || '—' }}</td>
                         <td class="p-4">
                             <span class="flex items-center gap-1">
-                                <span v-if="song.audio_full" class="px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700">音訊</span>
+                                <span v-if="song.audio_full" class="px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700">音訊{{ song.audio_duration ? ' ' + formatDuration(song.audio_duration) : '' }}</span>
                                 <span v-if="song.scores_count > 0" class="px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700">歌譜</span>
                             </span>
                         </td>
