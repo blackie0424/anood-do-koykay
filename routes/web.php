@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [SongController::class, 'indexPage']);
 Route::get('/songs/{song}', [SongController::class, 'showPage']);
+Route::get('/songs/{song}/reader', [SongController::class, 'readerPage']);
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'webLogin']);
