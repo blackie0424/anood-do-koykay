@@ -60,11 +60,11 @@ async function copyLink(song) {
                             :aria-label="copiedId === song.id ? '已複製' : '複製連結'">
                             {{ copiedId === song.id ? '✓' : '🔗' }}
                         </button>
-                        <Link :href="`/songs/${song.id}`"
+                        <Link v-if="song.audio_full" :href="`/songs/${song.id}`"
                             class="w-16 h-16 rounded-full flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-transform flex-col gap-0.5"
-                            aria-label="進入歌曲">
-                            <span class="text-2xl leading-none">♪</span>
-                            <span class="text-xs leading-none font-medium">查看</span>
+                            aria-label="聆聽音樂">
+                            <span class="text-2xl leading-none">▶</span>
+                            <span class="text-xs leading-none font-medium">聆聽</span>
                         </Link>
                     </div>
                 </div>
