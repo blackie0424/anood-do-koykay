@@ -94,16 +94,20 @@ async function deleteSong(id) {
                             </span>
                         </td>
                         <td class="p-4">
-                            <div class="flex gap-2 justify-end">
-                                <Link v-if="isAdmin" :href="`/admin/songs/${song.id}/media`"
-                                    class="text-blue-600 hover:underline text-sm">
-                                    編輯
-                                </Link>
+                            <div class="flex gap-2 justify-end flex-wrap">
+                                <template v-if="isAdmin">
+                                    <Link :href="`/admin/songs/${song.id}/edit`"
+                                        class="text-blue-600 hover:underline text-sm">基本資料</Link>
+                                    <Link :href="`/admin/songs/${song.id}/media`"
+                                        class="text-blue-600 hover:underline text-sm">媒體上傳</Link>
+                                    <Link :href="`/admin/songs/${song.id}/lyrics`"
+                                        class="text-blue-600 hover:underline text-sm">歌詞編輯</Link>
+                                    <button @click="deleteSong(song.id)" class="text-red-500 hover:underline text-sm">刪除</button>
+                                </template>
                                 <Link v-else :href="`/admin/songs/${song.id}/lyrics`"
                                     class="text-blue-600 hover:underline text-sm">
                                     查看歌詞
                                 </Link>
-                                <button v-if="isAdmin" @click="deleteSong(song.id)" class="text-red-500 hover:underline text-sm">刪除</button>
                             </div>
                         </td>
                     </tr>
