@@ -33,11 +33,11 @@ describe('SongList', () => {
         expect(wrapper.text()).toContain('尚無歌曲')
     })
 
-    it('renders a play link for each song', () => {
+    it('renders listen link only for songs with audio', () => {
         const wrapper = mount(SongList, {
             props: { songs: mockSongs },
-            global: { stubs: { Link: { template: '<a><slot /></a>' } } },
+            global: { stubs: { Link: { template: '<a :aria-label="$attrs[\'aria-label\']"><slot /></a>' } } },
         })
-        expect(wrapper.findAll('a[aria-label="進入歌曲"]')).toHaveLength(2)
+        expect(wrapper.findAll('a[aria-label="聆聽音樂"]')).toHaveLength(1)
     })
 })
