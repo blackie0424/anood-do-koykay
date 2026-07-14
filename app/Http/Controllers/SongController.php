@@ -26,6 +26,13 @@ class SongController extends Controller
         return Inertia::render('SongPlayer', ['song' => $song]);
     }
 
+    public function readerPage(Song $song)
+    {
+        abort_if($song->status !== 'published', 404);
+        $song->load('lines');
+        return Inertia::render('SongReader', ['song' => $song]);
+    }
+
     public function index()
     {
         return response()->json(
