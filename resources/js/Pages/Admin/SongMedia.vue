@@ -131,6 +131,21 @@ async function saveTrim() {
 }
 
 const audioUploadPercent = ref(0)
+const audioDuration = ref(props.song?.audio_duration ?? null)
+const durationSaving = ref(false)
+const durationSaved = ref(false)
+
+function readAudioDuration(file) {
+    return new Promise((resolve) => {
+        const audio = new Audio()
+        audio.src = URL.createObjectURL(file)
+        audio.onloadedmetadata = () => {
+            URL.revokeObjectURL(audio.src)
+            resolve(isFinite(audio.duration) ? audio.duration : null)
+        }
+        audio.onerror = () => resolve(null)
+    })
+}
 
 async function uploadAudio(e) {
     const file = e.target.files[0]
@@ -141,6 +156,10 @@ async function uploadAudio(e) {
     const fd = new FormData()
     fd.append('audio', file)
     fd.append('type', 'full')
+    const dur = await readAudioDuration(file)
+    if (dur !== null) {
+        fd.append('duration', Math.round(dur))
+    }
     try {
         const { data } = await axios.post(`/api/admin/songs/${props.song.id}/audio`, fd, {
             onUploadProgress(event) {
@@ -150,6 +169,9 @@ async function uploadAudio(e) {
             },
         })
         audioFull.value = data.path
+        if (dur !== null) {
+            audioDuration.value = Math.round(dur)
+        }
     } catch (err) {
         const status = err?.response?.status
         if (!status || status === 524 || err?.code === 'ECONNABORTED') {
@@ -160,6 +182,19 @@ async function uploadAudio(e) {
     } finally {
         audioUploading.value = false
         audioUploadPercent.value = 0
+    }
+}
+
+async function saveDuration() {
+    durationSaving.value = true
+    try {
+        await axios.put(`/api/admin/songs/${props.song.id}`, {
+            audio_duration: audioDuration.value != null ? parseInt(audioDuration.value) : null,
+        })
+        durationSaved.value = true
+        setTimeout(() => { durationSaved.value = false }, 2000)
+    } finally {
+        durationSaving.value = false
     }
 }
 </script>
@@ -257,6 +292,20 @@ async function uploadAudio(e) {
                         <span v-if="trimSaved" class="text-green-600 text-xs">✓ 已儲存</span>
                     </div>
                     <p class="text-xs text-stone-400">播放時自動從起始秒數開始，到結束秒數暫停。留空則從頭播到尾。</p>
+                </div>
+                <!-- 時間長度 -->
+                <div class="border rounded-lg p-3 space-y-2 bg-stone-50">
+                    <p class="text-xs text-stone-500 font-medium">時間長度（秒）</p>
+                    <div class="flex items-center gap-2">
+                        <input type="number" v-model.number="audioDuration" min="0" placeholder="秒數"
+                            class="w-28 border rounded px-2 py-1 text-sm font-mono" />
+                        <button @click="saveDuration" :disabled="durationSaving"
+                            class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50">
+                            {{ durationSaving ? '儲存中…' : '儲存' }}
+                        </button>
+                        <span v-if="durationSaved" class="text-green-600 text-xs">✓ 已儲存</span>
+                    </div>
+                    <p class="text-xs text-stone-400">上傳音訊時自動讀取，也可手動填入。</p>
                 </div>
                 <input type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac"
                     @change="uploadAudio" :disabled="audioUploading" class="block" />

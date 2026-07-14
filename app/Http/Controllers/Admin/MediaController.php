@@ -73,6 +73,7 @@ class MediaController extends Controller
             'audio' => ['required', 'file', 'mimetypes:audio/mpeg,audio/wav,audio/x-wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac,audio/mp3', 'max:81920'],
             'type' => ['required', 'in:full,line'],
             'line_id' => ['nullable', 'integer', 'exists:song_lines,id'],
+            'duration' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $folder = $request->input('type') === 'full'
@@ -82,7 +83,11 @@ class MediaController extends Controller
         $path = $this->storage->uploadFile($request->file('audio'), $folder);
 
         if ($request->input('type') === 'full') {
-            $song->update(['audio_full' => $path]);
+            $updates = ['audio_full' => $path];
+            if ($request->filled('duration')) {
+                $updates['audio_duration'] = (int) round((float) $request->input('duration'));
+            }
+            $song->update($updates);
         } else {
             $song->lines()->where('id', $request->input('line_id'))->update(['audio_line' => $path]);
         }
