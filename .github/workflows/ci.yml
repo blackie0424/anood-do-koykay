@@ -30,3 +30,12 @@ jobs:
       - run: npm run build
       - run: php artisan test
       - run: LARAVEL_BYPASS_ENV_CHECK=1 npm run test -- --run
+      - name: Notify Discord on failure
+        if: failure()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.ANOOD_DISCORD_URL }}
+          status: ${{ job.status }}
+          title: "CI 失敗 - ${{ github.ref_name }}"
+          description: "Commit: ${{ github.sha }}\n${{ github.event.head_commit.message }}"
+          color: 0xff0000
