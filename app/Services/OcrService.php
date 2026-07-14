@@ -98,6 +98,9 @@ class OcrService
             if ($this->isNotationOrChordLine($line)) {
                 continue;
             }
+            if ($this->isChordOnlyLine($line)) {
+                continue;
+            }
             $result[] = [
                 'order' => $order++,
                 'text_native' => $line,
@@ -111,5 +114,18 @@ class OcrService
     {
         // 只過濾純數字行、純符號行（空白已在 parseLines 處理）
         return (bool) preg_match('/^[\d\s\-\.\|·•:]+$/', $line);
+    }
+
+    private function isChordOnlyLine(string $line): bool
+    {
+        $tokens = array_values(array_filter(preg_split('/\s+/', trim($line))));
+        if (empty($tokens)) return false;
+        $chordCount = array_reduce($tokens, fn($c, $t) => $c + ($this->isChordToken($t) ? 1 : 0), 0);
+        return $chordCount / count($tokens) > 0.6;
+    }
+
+    private function isChordToken(string $token): bool
+    {
+        return (bool) preg_match('/^[A-G](m|maj|dim|aug|min)?(maj7|m7|dim7|mmaj7|7|9|11|13|6|sus2|sus4|add9|add2)?(#|b)?(\/[A-G])?$/', $token);
     }
 }
