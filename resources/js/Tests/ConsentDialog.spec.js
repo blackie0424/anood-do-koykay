@@ -1,12 +1,12 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import ConsentDialog from '../components/ConsentDialog.vue'
+import ConsentModal from '../Components/ConsentModal.vue'
 
 function overlay() {
     return document.querySelector('[data-testid="consent-overlay"]')
 }
 
-describe('ConsentDialog', () => {
+describe('ConsentModal', () => {
     let wrapper
 
     beforeEach(() => {
@@ -18,24 +18,24 @@ describe('ConsentDialog', () => {
     })
 
     it('shows dialog when no consent in sessionStorage', async () => {
-        wrapper = mount(ConsentDialog, { attachTo: document.body })
+        wrapper = mount(ConsentModal, { attachTo: document.body })
         await wrapper.vm.$nextTick()
         expect(overlay()).not.toBeNull()
     })
 
     it('hides dialog when consent already stored', async () => {
-        sessionStorage.setItem('anood_consent_accepted', '1')
-        wrapper = mount(ConsentDialog, { attachTo: document.body })
+        sessionStorage.setItem('consent_accepted', '1')
+        wrapper = mount(ConsentModal, { attachTo: document.body })
         await wrapper.vm.$nextTick()
         expect(overlay()).toBeNull()
     })
 
     it('hides dialog and sets sessionStorage on accept', async () => {
-        wrapper = mount(ConsentDialog, { attachTo: document.body })
+        wrapper = mount(ConsentModal, { attachTo: document.body })
         await wrapper.vm.$nextTick()
         overlay().querySelector('[data-testid="consent-accept"]').click()
         await wrapper.vm.$nextTick()
-        expect(sessionStorage.getItem('anood_consent_accepted')).toBe('1')
+        expect(sessionStorage.getItem('consent_accepted')).toBe('1')
         expect(overlay()).toBeNull()
     })
 
@@ -44,7 +44,7 @@ describe('ConsentDialog', () => {
         delete window.location
         window.location = { href: '' }
 
-        wrapper = mount(ConsentDialog, { attachTo: document.body })
+        wrapper = mount(ConsentModal, { attachTo: document.body })
         await wrapper.vm.$nextTick()
         overlay().querySelector('[data-testid="consent-decline"]').click()
         expect(window.location.href).toBe('about:blank')

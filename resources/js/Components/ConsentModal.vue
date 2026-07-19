@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 
-const SESSION_KEY = 'anood_consent_accepted'
+const SESSION_KEY = 'consent_accepted'
 
 const visible = ref(false)
 
@@ -25,11 +25,12 @@ function decline() {
     <Teleport to="body">
         <div
             v-if="visible"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+            class="fixed inset-0 z-50 flex items-center justify-center"
             data-testid="consent-overlay"
         >
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div
-                class="mx-4 max-w-lg rounded-2xl bg-white p-8 shadow-2xl"
+                class="relative mx-4 max-w-lg rounded-2xl bg-white p-8 shadow-2xl"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="consent-title"

@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
-import ConsentDialog from '@/components/ConsentDialog.vue'
+import ConsentModal from '@/Components/ConsentModal.vue'
 import { useContentProtection } from '@/composables/useContentProtection'
 
 const { enable, disable } = useContentProtection()
@@ -11,7 +11,7 @@ onUnmounted(disable)
 
 <template>
     <div class="select-none">
-        <ConsentDialog />
+        <ConsentModal />
         <slot />
     </div>
 </template>
