@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { Link, router, usePage } from '@inertiajs/vue3'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import axios from 'axios'
@@ -9,7 +9,24 @@ const props = defineProps({ songs: Array })
 const page = usePage()
 const isAdmin = page.props.auth?.user?.role === 'admin'
 
+const VALID_TABS = ['all', 'no-audio', 'no-score', 'draft', 'published']
+
 const filter = ref('all')
+
+onMounted(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab')
+    if (tab && VALID_TABS.includes(tab)) filter.value = tab
+})
+
+watch(filter, (tab) => {
+    const url = new URL(window.location.href)
+    if (tab === 'all') {
+        url.searchParams.delete('tab')
+    } else {
+        url.searchParams.set('tab', tab)
+    }
+    window.history.replaceState({}, '', url.toString())
+})
 
 const filteredSongs = computed(() => {
     if (!props.songs) return []
