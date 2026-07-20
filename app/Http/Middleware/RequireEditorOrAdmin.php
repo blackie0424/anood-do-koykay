@@ -11,6 +11,9 @@ class RequireEditorOrAdmin
     {
         $user = $request->user();
         if (!$user || !in_array($user->role, ['admin', 'editor'])) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
             return redirect('/login');
         }
         return $next($request);
