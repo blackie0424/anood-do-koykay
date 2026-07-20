@@ -20,4 +20,9 @@ class Song extends Model
     {
         return $this->hasMany(SongScore::class)->orderBy('order');
     }
+
+    public function reports()
+    {
+        return $this->hasMany(SongReport::class);
+    }
 }

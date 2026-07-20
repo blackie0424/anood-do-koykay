@@ -9,6 +9,7 @@ Route::get('/health-check', fn() => response()->json(['status' => 'ok']));
 
 Route::get('/songs', [SongController::class, 'index']);
 Route::get('/songs/{song}', [SongController::class, 'show']);
+Route::post('/songs/{song}/reports', [Admin\ReportController::class, 'store']);
 
 Route::post('/admin/login', [AuthController::class, 'login']);
 
@@ -29,5 +30,6 @@ Route::middleware(['auth:sanctum', 'editor.or.admin'])->group(function () {
         Route::put('/admin/songs/{song}/lines/{line}/mark-time', [Admin\SongLineController::class, 'markTime']);
         Route::post('/admin/songs/{song}/audio', [Admin\MediaController::class, 'uploadAudio']);
         Route::post('/admin/users', [Admin\UserController::class, 'store']);
+        Route::patch('/admin/reports/{report}', [Admin\ReportController::class, 'updateResolved']);
     });
 });
