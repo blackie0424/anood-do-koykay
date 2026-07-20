@@ -132,6 +132,31 @@ function previewLineSegment(line, idx) {
     audioRef.value.play().catch(() => {})
 }
 
+const duplicateFrom = ref(1)
+const duplicateTo = ref(1)
+const duplicateError = ref('')
+
+function duplicateLines() {
+    const from = duplicateFrom.value
+    const to = duplicateTo.value
+    const total = lines.value.length
+
+    if (from < 1 || to < from || to > total) {
+        duplicateError.value = `請輸入有效範圍（1 ～ ${total}）`
+        return
+    }
+    duplicateError.value = ''
+
+    const copies = lines.value.slice(from - 1, to).map(l => ({
+        text_native: l.text_native,
+        start_time: null,
+        end_time: null,
+        order: 0,
+    }))
+    lines.value.push(...copies)
+    lines.value.forEach((l, i) => { l.order = i + 1 })
+}
+
 function addLine() {
     lines.value.push({
         order: lines.value.length + 1,
@@ -320,8 +345,42 @@ watch(lightboxUrl, (url) => {
                     </div>
                     </template>
 
+                    <!-- Duplicate lines range (admin only) -->
+                    <div v-if="isAdmin" class="mt-3 p-3 bg-stone-50 border rounded-lg space-y-2">
+                        <p class="text-xs text-stone-500 font-medium">複製段落</p>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="text-xs text-stone-600">複製第</span>
+                            <input
+                                v-model.number="duplicateFrom"
+                                type="number"
+                                min="1"
+                                class="w-14 border rounded px-2 py-0.5 text-xs text-center"
+                                data-testid="duplicate-from"
+                            />
+                            <span class="text-xs text-stone-600">至第</span>
+                            <input
+                                v-model.number="duplicateTo"
+                                type="number"
+                                min="1"
+                                class="w-14 border rounded px-2 py-0.5 text-xs text-center"
+                                data-testid="duplicate-to"
+                            />
+                            <span class="text-xs text-stone-600">行</span>
+                            <button
+                                @click="duplicateLines"
+                                class="text-xs bg-blue-600 text-white px-3 py-0.5 rounded hover:bg-blue-700"
+                                data-testid="duplicate-btn"
+                            >
+                                複製並加在最後
+                            </button>
+                        </div>
+                        <p v-if="duplicateError" class="text-xs text-red-500" data-testid="duplicate-error">
+                            {{ duplicateError }}
+                        </p>
+                    </div>
+
                     <button v-if="isAdmin" @click="addLine"
-                        class="w-full border-2 border-dashed border-stone-300 text-stone-400 rounded-lg py-2 text-sm hover:border-blue-400 hover:text-blue-500">
+                        class="w-full border-2 border-dashed border-stone-300 text-stone-400 rounded-lg py-2 text-sm hover:border-blue-400 hover:text-blue-500 mt-2">
                         + 新增一行
                     </button>
                 </div>
