@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\SongReport;
 
 class Song extends Model
 {
@@ -19,5 +20,10 @@ class Song extends Model
     public function scores()
     {
         return $this->hasMany(SongScore::class)->orderBy('order');
+    }
+
+    public function reports()
+    {
+        return $this->hasMany(SongReport::class);
     }
 }
