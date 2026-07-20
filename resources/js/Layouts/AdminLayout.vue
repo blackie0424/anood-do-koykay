@@ -29,6 +29,10 @@ function logout() {
                         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-stone-500 hover:bg-stone-100 text-sm">
                         👤 使用者
                     </Link>
+                    <Link v-if="isAdmin()" href="/admin/reports"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-stone-500 hover:bg-stone-100 text-sm">
+                        ⚑ 問題回報
+                    </Link>
                     <Link href="/"
                         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-stone-500 hover:bg-stone-100 text-sm">
                         👁 查看前台

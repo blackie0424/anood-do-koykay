@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
+import ReportModal from '@/Components/ReportModal.vue'
 
 const props = defineProps({ song: Object })
 
@@ -183,6 +184,7 @@ async function copyLink() {
                             aria-label="歌詞閱讀模式">
                             📖 歌詞
                         </a>
+                        <ReportModal :song-id="song.id" />
                     </div>
                 </div>
                 <div v-if="hasError" class="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-4 text-center text-lg">
