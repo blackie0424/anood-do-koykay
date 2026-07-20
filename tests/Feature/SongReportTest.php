@@ -57,10 +57,11 @@ class SongReportTest extends TestCase
     public function test_admin_can_toggle_resolved(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
+        $token = $admin->createToken('test')->plainTextToken;
         $song = Song::factory()->published()->create();
         $report = SongReport::factory()->create(['song_id' => $song->id, 'resolved' => false]);
 
-        $this->actingAs($admin)->patchJson("/api/admin/reports/{$report->id}")
+        $this->withToken($token)->patchJson("/api/admin/reports/{$report->id}")
             ->assertOk()
             ->assertJson(['resolved' => true]);
 
@@ -70,10 +71,11 @@ class SongReportTest extends TestCase
     public function test_toggle_resolved_flips_back_to_false(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
+        $token = $admin->createToken('test')->plainTextToken;
         $song = Song::factory()->published()->create();
         $report = SongReport::factory()->create(['song_id' => $song->id, 'resolved' => true]);
 
-        $this->actingAs($admin)->patchJson("/api/admin/reports/{$report->id}")
+        $this->withToken($token)->patchJson("/api/admin/reports/{$report->id}")
             ->assertOk()
             ->assertJson(['resolved' => false]);
     }
