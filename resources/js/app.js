@@ -1,4 +1,8 @@
 import './bootstrap'
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+}
 import { createApp, h } from 'vue'
 import { createInertiaApp } from '@inertiajs/vue3'
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers'
