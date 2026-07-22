@@ -15,3 +15,7 @@ createInertiaApp({
             .mount(el)
     },
 })
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+}
