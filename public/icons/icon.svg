@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#292524"/>
+  <!-- 十字架 -->
+  <rect x="236" y="80" width="40" height="200" fill="white"/>
+  <rect x="156" y="130" width="200" height="40" fill="white"/>
+  <!-- 音符 -->
+  <text x="256" y="420" font-size="160" text-anchor="middle" fill="white" font-family="serif">♪</text>
+</svg>
