@@ -9,7 +9,7 @@ const props = defineProps({ songs: Array })
 const page = usePage()
 const isAdmin = page.props.auth?.user?.role === 'admin'
 
-const VALID_TABS = ['all', 'no-audio', 'no-score', 'draft', 'published']
+const VALID_TABS = ['all', 'no-audio', 'no-score', 'draft', 'ready', 'published']
 
 const filter = ref('all')
 
@@ -34,6 +34,7 @@ const filteredSongs = computed(() => {
         case 'no-audio': return props.songs.filter(s => !s.audio_full)
         case 'no-score': return props.songs.filter(s => s.scores_count === 0)
         case 'draft':    return props.songs.filter(s => s.status !== 'published')
+        case 'ready':    return props.songs.filter(s => s.status !== 'published' && s.audio_full && s.scores_count > 0)
         case 'published': return props.songs.filter(s => s.status === 'published')
         default: return props.songs
     }
@@ -44,6 +45,7 @@ const filters = [
     { key: 'no-audio',  label: '無音訊' },
     { key: 'no-score',  label: '無歌譜' },
     { key: 'draft',     label: '草稿' },
+    { key: 'ready',     label: '待發布' },
     { key: 'published', label: '已發布' },
 ]
 
