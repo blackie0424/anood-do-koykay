@@ -24,5 +24,6 @@ Route::middleware(['auth', 'editor.or.admin'])->prefix('admin')->group(function 
         Route::get('/songs/{song}/edit', [Admin\SongController::class, 'editPage'])->name('admin.songs.edit');
         Route::get('/users', [Admin\UserController::class, 'indexPage'])->name('admin.users.index');
         Route::get('/reports', [Admin\ReportController::class, 'index'])->name('admin.reports.index');
+        Route::get('/batch-import', [Admin\BatchImportController::class, 'page'])->name('admin.batch-import');
     });
 });

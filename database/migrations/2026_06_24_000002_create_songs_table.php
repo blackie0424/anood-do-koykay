@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('title_zh')->nullable();
             $table->string('score_image')->nullable();
             $table->string('audio_full')->nullable();
-            $table->enum('status', ['draft', 'published'])->default('draft');
+            $table->string('status')->default('draft');
             $table->timestamps();
         });
     }
