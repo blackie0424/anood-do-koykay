@@ -37,27 +37,7 @@ class BatchImportController extends Controller
             array_push($allLines, ...$rawLines);
         }
 
-        $entries = $this->parseToc($allLines);
-
-        return response()->json(['entries' => $entries]);
-    }
-
-    public function uploadScores(Request $request): \Illuminate\Http\JsonResponse
-    {
-        $request->validate([
-            'images'   => 'required|array|min:1|max:30',
-            'images.*' => 'required|image|max:20480',
-            'pages'    => 'required|array|min:1|max:30',
-            'pages.*'  => 'required|integer|min:1',
-        ]);
-
-        $results = [];
-        foreach ($request->file('images') as $i => $image) {
-            $url = $this->storage->uploadFile($image, 'scores');
-            $results[] = ['page' => $request->input("pages.{$i}"), 'url' => $url];
-        }
-
-        return response()->json(['uploads' => $results]);
+        return response()->json(['entries' => $this->parseToc($allLines)]);
     }
 
     public function createSongs(Request $request): \Illuminate\Http\JsonResponse
@@ -66,40 +46,80 @@ class BatchImportController extends Controller
             'songs'              => 'required|array|min:1',
             'songs.*.title'      => 'required|string|max:255',
             'songs.*.start_page' => 'required|integer|min:1',
-            'songs.*.end_page'   => 'required|integer|min:1',
-            'score_urls'         => 'required|array',
-            'score_urls.*.page'  => 'required|integer|min:1',
-            'score_urls.*.url'   => 'required|url',
         ]);
 
-        $urlMap = collect($request->input('score_urls'))->keyBy('page');
         $created = 0;
 
-        DB::transaction(function () use ($request, $urlMap, &$created) {
+        DB::transaction(function () use ($request, &$created) {
             foreach ($request->input('songs') as $entry) {
-                $song = Song::create([
+                Song::create([
                     'title_native' => $entry['title'],
                     'book_number'  => (string) $entry['start_page'],
                     'status'       => 'pending_review',
                 ]);
-
-                $order = 1;
-                for ($page = $entry['start_page']; $page <= $entry['end_page']; $page++) {
-                    if (!$urlMap->has($page)) continue;
-
-                    $score = $song->scores()->create([
-                        'image_url' => $urlMap[$page]['url'],
-                        'order'     => $order++,
-                    ]);
-
-                    $this->triggerOcr($song, $score);
-                }
-
                 $created++;
             }
         });
 
         return response()->json(['created' => $created]);
+    }
+
+    public function uploadScoreByPage(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'image' => 'required|image|max:20480',
+            'page'  => 'required|integer|min:1',
+        ]);
+
+        $url   = $this->storage->uploadFile($request->file('image'), 'scores');
+        $songs = Song::where('book_number', (string) $request->integer('page'))
+            ->get(['id', 'title_native']);
+
+        if ($songs->isEmpty()) {
+            return response()->json([
+                'url'           => $url,
+                'matched_songs' => [],
+                'auto_attached' => false,
+            ]);
+        }
+
+        if ($songs->count() === 1) {
+            $song  = $songs->first();
+            $score = $song->scores()->create([
+                'image_url' => $url,
+                'order'     => $song->scores()->count() + 1,
+            ]);
+            $this->triggerOcr($song, $score);
+
+            return response()->json([
+                'url'           => $url,
+                'matched_songs' => [['id' => $song->id, 'title_native' => $song->title_native]],
+                'auto_attached' => true,
+            ]);
+        }
+
+        return response()->json([
+            'url'           => $url,
+            'matched_songs' => $songs->map(fn($s) => ['id' => $s->id, 'title_native' => $s->title_native]),
+            'auto_attached' => false,
+        ]);
+    }
+
+    public function attachScore(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'song_id' => 'required|integer|exists:songs,id',
+            'url'     => 'required|url',
+        ]);
+
+        $song  = Song::findOrFail($request->integer('song_id'));
+        $score = $song->scores()->create([
+            'image_url' => $request->input('url'),
+            'order'     => $song->scores()->count() + 1,
+        ]);
+        $this->triggerOcr($song, $score);
+
+        return response()->json(['attached' => true]);
     }
 
     private function triggerOcr(Song $song, SongScore $score): void
@@ -112,7 +132,7 @@ class BatchImportController extends Controller
                 $song->lines()->createMany($result['lines']);
             }
         } catch (\Throwable) {
-            // OCR 失敗不阻斷匯入，待人工補充
+            // OCR 失敗不阻斷，待人工補充
         }
     }
 
@@ -123,7 +143,6 @@ class BatchImportController extends Controller
             $line = trim($line);
             if (!$line) continue;
 
-            // 嘗試從行末萃取頁碼（數字，前面可能有點或空格）
             if (preg_match('/^(.+?)[.\s·]+(\d+)\s*$/', $line, $m)) {
                 $title = trim($m[1]);
                 $page  = (int) $m[2];
