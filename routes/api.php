@@ -32,7 +32,8 @@ Route::middleware(['auth:sanctum', 'editor.or.admin'])->group(function () {
         Route::post('/admin/users', [Admin\UserController::class, 'store']);
         Route::patch('/admin/reports/{report}', [Admin\ReportController::class, 'updateResolved']);
         Route::post('/admin/batch-import/ocr-toc', [Admin\BatchImportController::class, 'ocrToc']);
-        Route::post('/admin/batch-import/upload-scores', [Admin\BatchImportController::class, 'uploadScores']);
         Route::post('/admin/batch-import/create-songs', [Admin\BatchImportController::class, 'createSongs']);
+        Route::post('/admin/batch-import/upload-score-by-page', [Admin\BatchImportController::class, 'uploadScoreByPage']);
+        Route::post('/admin/batch-import/attach-score', [Admin\BatchImportController::class, 'attachScore']);
     });
 });
