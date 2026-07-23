@@ -33,6 +33,10 @@ function logout() {
                         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-stone-500 hover:bg-stone-100 text-sm">
                         ⚑ 問題回報
                     </Link>
+                    <Link v-if="isAdmin()" href="/admin/batch-import"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-stone-500 hover:bg-stone-100 text-sm">
+                        📥 批次匯入
+                    </Link>
                     <Link href="/"
                         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-stone-500 hover:bg-stone-100 text-sm">
                         👁 查看前台
