@@ -52,7 +52,9 @@ const uploadError = ref('')
 const BATCH = 30
 
 function onScoreFiles(e) {
-    scoreFiles.value = Array.from(e.target.files)
+    scoreFiles.value = Array.from(e.target.files).sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+    )
     uploadProgress.value = 0
     uploadedUrls.value = []
     uploadError.value = ''
@@ -80,8 +82,12 @@ async function uploadScores() {
             uploadProgress.value = Math.round(((b + 1) / totalBatches.value) * 100)
         }
         step.value = 3
-    } catch {
-        uploadError.value = '上傳失敗，請重試'
+    } catch (err) {
+        const status = err.response?.status
+        const msg = err.response?.data?.message
+        uploadError.value = status
+            ? `上傳失敗（HTTP ${status}${msg ? '：' + msg : ''}），請重試`
+            : '上傳失敗，請重試'
     } finally {
         uploading.value = false
     }
