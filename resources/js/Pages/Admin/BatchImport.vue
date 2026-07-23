@@ -49,7 +49,7 @@ const uploadProgress = ref(0)  // 0–100
 const uploading = ref(false)
 const uploadedUrls = ref([])  // [{page, url}]
 const uploadError = ref('')
-const BATCH = 30
+const BATCH = 20  // PHP max_file_uploads 預設 20；需 50 時設 PHP_MAX_FILE_UPLOADS=50
 
 function onScoreFiles(e) {
     scoreFiles.value = Array.from(e.target.files).sort((a, b) =>
