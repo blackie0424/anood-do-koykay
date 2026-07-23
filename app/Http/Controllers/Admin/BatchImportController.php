@@ -79,6 +79,7 @@ class BatchImportController extends Controller
             foreach ($request->input('songs') as $entry) {
                 $song = Song::create([
                     'title_native' => $entry['title'],
+                    'book_number'  => (string) $entry['start_page'],
                     'status'       => 'pending_review',
                 ]);
 
