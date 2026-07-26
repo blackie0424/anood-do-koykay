@@ -137,8 +137,15 @@ function startPlayFromOverlay() {
     showPlayOverlay.value = false
     if (audio.value && props.song?.audio_full && !hasError.value) {
         const start = props.song?.audio_start
-        if (start != null) audio.value.currentTime = start
-        audio.value.play().catch(() => { hasError.value = true })
+        const doPlay = () => {
+            if (start != null) audio.value.currentTime = start
+            audio.value.play().catch(() => { hasError.value = true })
+        }
+        if (audio.value.readyState >= 2) {
+            doPlay()
+        } else {
+            audio.value.addEventListener('canplay', doPlay, { once: true })
+        }
     }
 }
 
