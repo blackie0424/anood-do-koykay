@@ -136,6 +136,8 @@ const showPlayOverlay = ref(true)
 function startPlayFromOverlay() {
     showPlayOverlay.value = false
     if (audio.value && props.song?.audio_full && !hasError.value) {
+        const start = props.song?.audio_start
+        if (start != null) audio.value.currentTime = start
         audio.value.play().catch(() => { hasError.value = true })
     }
 }

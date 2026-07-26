@@ -275,7 +275,7 @@ async function saveDuration() {
                             :value="secondsToMmss(audioStart)"
                             placeholder="0:00.0"
                             class="w-24 border rounded px-2 py-1 text-xs font-mono"
-                            @change="e => { audioStart.value = parseTime(e.target.value) }" />
+                            @change="e => { audioStart = parseTime(e.target.value) }" />
                         <button @click="markTrimEnd"
                             class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded hover:bg-orange-200">
                             標記結束
@@ -284,7 +284,7 @@ async function saveDuration() {
                             :value="secondsToMmss(audioEnd)"
                             placeholder="0:00.0"
                             class="w-24 border rounded px-2 py-1 text-xs font-mono"
-                            @change="e => { audioEnd.value = parseTime(e.target.value) }" />
+                            @change="e => { audioEnd = parseTime(e.target.value) }" />
                         <button @click="saveTrim" :disabled="trimSaving"
                             class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50">
                             {{ trimSaving ? '儲存中…' : '儲存區間' }}
