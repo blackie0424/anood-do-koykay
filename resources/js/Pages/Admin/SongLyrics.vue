@@ -192,6 +192,20 @@ async function saveLines() {
     }
 }
 
+const lyricsCopied = ref(false)
+const lyricsCopyFailed = ref(false)
+
+async function copyLyrics() {
+    const text = lines.value.map(l => l.text_native ?? '').join('\n')
+    try {
+        await navigator.clipboard.writeText(text)
+        lyricsCopied.value = true
+        setTimeout(() => { lyricsCopied.value = false }, 2000)
+    } catch {
+        lyricsCopyFailed.value = true
+    }
+}
+
 const lightboxUrl = ref(null)
 
 function openLightbox(url) {
@@ -299,7 +313,15 @@ watch(lightboxUrl, (url) => {
 
                 <!-- Col 3: Lyrics Editor / Viewer -->
                 <div class="w-1/3 overflow-y-auto p-4">
-                    <p class="text-xs text-stone-400 font-medium mb-3">{{ isAdmin ? '歌詞編輯' : '歌詞查看（可複製）' }}</p>
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-xs text-stone-400 font-medium">{{ isAdmin ? '歌詞編輯' : '歌詞查看（可複製）' }}</p>
+                        <button @click="copyLyrics"
+                            :class="['text-xs px-2 py-0.5 rounded transition-colors',
+                                lyricsCopyFailed ? 'text-red-500' : lyricsCopied ? 'text-green-600' : 'text-stone-400 hover:text-stone-600']"
+                            data-testid="copy-lyrics-btn">
+                            {{ lyricsCopyFailed ? '複製失敗' : lyricsCopied ? '已複製 ✓' : '複製歌詞' }}
+                        </button>
+                    </div>
                     <template v-for="(line, idx) in lines" :key="idx">
                     <div class="bg-white rounded-lg border p-3 space-y-2">
                         <div class="flex items-start gap-2">
