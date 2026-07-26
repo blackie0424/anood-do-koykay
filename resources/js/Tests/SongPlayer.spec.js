@@ -61,4 +61,36 @@ describe('SongPlayer', () => {
     await audio.trigger('timeupdate')
     expect(paused).toBe(true)
   })
+
+  it('startPlayFromOverlay: readyState >= 2 時直接設定 currentTime 並播放', async () => {
+    const songWithTrim = { ...mockSong, audio_start: 5.0 }
+    const wrapper = mount(SongPlayer, { props: { song: songWithTrim } })
+    const audioEl = wrapper.find('audio').element
+    let played = false
+    audioEl.play = async () => { played = true }
+    Object.defineProperty(audioEl, 'readyState', { value: 2, configurable: true })
+
+    await wrapper.find('[aria-label="點擊開始播放"]').trigger('click')
+
+    expect(audioEl.currentTime).toBe(5.0)
+    expect(played).toBe(true)
+  })
+
+  it('startPlayFromOverlay: readyState < 2 時等待 canplay 後才播放', async () => {
+    const songWithTrim = { ...mockSong, audio_start: 8.0 }
+    const wrapper = mount(SongPlayer, { props: { song: songWithTrim } })
+    const audioEl = wrapper.find('audio').element
+    let played = false
+    audioEl.play = async () => { played = true }
+    Object.defineProperty(audioEl, 'readyState', { value: 0, configurable: true })
+
+    await wrapper.find('[aria-label="點擊開始播放"]').trigger('click')
+    expect(played).toBe(false)
+
+    audioEl.dispatchEvent(new Event('canplay'))
+    await wrapper.vm.$nextTick()
+
+    expect(audioEl.currentTime).toBe(8.0)
+    expect(played).toBe(true)
+  })
 })
