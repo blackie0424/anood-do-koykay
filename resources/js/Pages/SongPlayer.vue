@@ -66,7 +66,15 @@ function togglePlay() {
         audio.value.currentTime = props.song?.audio_start ?? 0
         audio.value.play().catch(() => { hasError.value = true })
     } else {
-        isPlaying.value ? audio.value.pause() : audio.value.play().catch(() => { hasError.value = true })
+        if (isPlaying.value) {
+            audio.value.pause()
+        } else {
+            const start = props.song?.audio_start
+            if (start != null && audio.value.currentTime < 0.3) {
+                audio.value.currentTime = start
+            }
+            audio.value.play().catch(() => { hasError.value = true })
+        }
     }
 }
 

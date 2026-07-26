@@ -93,4 +93,32 @@ describe('SongPlayer', () => {
     expect(audioEl.currentTime).toBe(8.0)
     expect(played).toBe(true)
   })
+
+  it('togglePlay: currentTime 在 0 附近時套用 audio_start 再播放', async () => {
+    const songWithTrim = { ...mockSong, audio_start: 5.0 }
+    const wrapper = mount(SongPlayer, { props: { song: songWithTrim } })
+    const audioEl = wrapper.find('audio').element
+    let played = false
+    audioEl.play = async () => { played = true }
+    audioEl.currentTime = 0
+
+    await wrapper.find('button[aria-label="播放"]').trigger('click')
+
+    expect(audioEl.currentTime).toBe(5.0)
+    expect(played).toBe(true)
+  })
+
+  it('togglePlay: currentTime 在播放中途時不重置 audio_start', async () => {
+    const songWithTrim = { ...mockSong, audio_start: 5.0 }
+    const wrapper = mount(SongPlayer, { props: { song: songWithTrim } })
+    const audioEl = wrapper.find('audio').element
+    let played = false
+    audioEl.play = async () => { played = true }
+    audioEl.currentTime = 15.0
+
+    await wrapper.find('button[aria-label="播放"]').trigger('click')
+
+    expect(audioEl.currentTime).toBe(15.0)
+    expect(played).toBe(true)
+  })
 })
