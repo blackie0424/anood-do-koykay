@@ -22,6 +22,17 @@ let programmaticScroll = false
 const segmentMode = ref(false)
 const segmentLine = ref(null)
 
+// 播放起止點：優先由歌詞時間推算，無歌詞時間則 fallback 到 audio_start/audio_end
+const effectiveStart = computed(() => {
+    const times = (props.song?.lines ?? []).map(l => l.start_time).filter(t => t != null)
+    return times.length > 0 ? Math.min(...times) : (props.song?.audio_start ?? 0)
+})
+
+const effectiveEnd = computed(() => {
+    const times = (props.song?.lines ?? []).map(l => l.end_time).filter(t => t != null)
+    return times.length > 0 ? Math.max(...times) : (props.song?.audio_end ?? null)
+})
+
 const activeLineIndex = computed(() => {
     if (!props.song?.lines) return -1
     return props.song.lines.findLastIndex(
@@ -58,15 +69,20 @@ function returnToCurrentLine() {
 function togglePlay() {
     if (!audio.value) return
     if (segmentMode.value) {
-        // 退出逐段模式，從 audio_start 播放整首
+        // 退出逐段模式，從 effectiveStart 播放整首
         segmentMode.value = false
         segmentLine.value = null
         autoScroll.value = true
         userScrolled.value = false
-        audio.value.currentTime = props.song?.audio_start ?? 0
+        audio.value.currentTime = effectiveStart.value
         audio.value.play().catch(() => { hasError.value = true })
     } else {
-        isPlaying.value ? audio.value.pause() : audio.value.play().catch(() => { hasError.value = true })
+        if (isPlaying.value) {
+            audio.value.pause()
+        } else {
+            if (audio.value.currentTime < 0.3) audio.value.currentTime = effectiveStart.value
+            audio.value.play().catch(() => { hasError.value = true })
+        }
     }
 }
 
@@ -86,8 +102,8 @@ function onTimeUpdate() {
         return
     }
 
-    // 整首播放：到達 audio_end 時進入逐段模式
-    const end = props.song?.audio_end
+    // 整首播放：到達 effectiveEnd 時進入逐段模式
+    const end = effectiveEnd.value
     if (end != null && currentTime.value >= end) {
         audio.value.pause()
         enterSegmentMode()
@@ -112,10 +128,7 @@ function onEnded() {
 }
 
 function onLoaded() {
-    const start = props.song?.audio_start
-    if (start != null && audio.value) {
-        audio.value.currentTime = start
-    }
+    if (audio.value) audio.value.currentTime = effectiveStart.value
 }
 
 function onError() { hasError.value = true; isPlaying.value = false }
@@ -136,9 +149,8 @@ const showPlayOverlay = ref(true)
 function startPlayFromOverlay() {
     showPlayOverlay.value = false
     if (audio.value && props.song?.audio_full && !hasError.value) {
-        const start = props.song?.audio_start
         const doPlay = () => {
-            if (start != null) audio.value.currentTime = start
+            audio.value.currentTime = effectiveStart.value
             audio.value.play().catch(() => { hasError.value = true })
         }
         if (audio.value.readyState >= 2) {
