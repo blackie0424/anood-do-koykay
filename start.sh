@@ -14,6 +14,14 @@ echo "max_input_time=300" >> "${PHP_CONF_DIR}/uploads.ini"
 # 提高 nginx proxy / fastcgi 逾時
 echo 'proxy_read_timeout 300s; proxy_send_timeout 300s; fastcgi_read_timeout 300s;' > /etc/nginx/conf.d/timeout.conf
 
+# 靜態資源長快取（Vite hash 檔名，安全設定 1 年）
+cat > /etc/nginx/conf.d/cache_headers.conf << 'EOF'
+location ~* ^/build/assets/.+\.(js|css)$ {
+    expires 1y;
+    add_header Cache-Control "public, max-age=31536000, immutable";
+}
+EOF
+
 php artisan migrate --force
 
 php-fpm -D
