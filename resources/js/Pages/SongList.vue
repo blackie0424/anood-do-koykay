@@ -56,7 +56,14 @@ async function share(song) {
                         <button @click="share(song)"
                             class="w-10 h-10 rounded-full flex items-center justify-center bg-stone-200 hover:bg-stone-300 active:scale-95 transition-transform text-stone-700 text-sm"
                             :aria-label="copiedId === song.id ? '已複製' : '分享'">
-                            {{ copiedId === song.id ? '✓' : '↑' }}
+                            <template v-if="copiedId === song.id">✓</template>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                class="w-5 h-5">
+                                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                                <polyline points="16 6 12 2 8 6" />
+                                <line x1="12" y1="2" x2="12" y2="15" />
+                            </svg>
                         </button>
                         <Link v-if="song.audio_full" :href="`/songs/${song.id}`"
                             class="w-16 h-16 rounded-full flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-transform flex-col gap-0.5"
