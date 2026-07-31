@@ -45,14 +45,14 @@ async function share(song) {
 
             <div class="max-w-2xl mx-auto space-y-4">
                 <div v-for="song in filteredSongs" :key="song.id"
-                    class="bg-white rounded-xl shadow p-5 flex items-center justify-between">
-                    <div>
+                    class="bg-white rounded-xl shadow p-6">
+                    <div class="mb-3">
                         <p class="font-semibold text-stone-900 leading-snug" style="font-size: clamp(1.4rem, 4vw, 1.9rem)">
                             <span v-if="song.book_number" class="font-mono text-stone-600 mr-2">[{{ song.book_number }}]</span>{{ song.title_native }}
                         </p>
                         <p v-if="song.title_zh" class="text-stone-500 mt-1">{{ song.title_zh }}</p>
                     </div>
-                    <div class="flex items-center gap-2 flex-shrink-0 ml-4">
+                    <div class="flex justify-end gap-3 items-center">
                         <button @click="share(song)"
                             class="w-10 h-10 rounded-full flex items-center justify-center bg-stone-200 hover:bg-stone-300 active:scale-95 transition-transform text-stone-700 text-sm"
                             :aria-label="copiedId === song.id ? '已複製' : '分享'">
@@ -66,10 +66,10 @@ async function share(song) {
                             </svg>
                         </button>
                         <Link v-if="song.audio_full" :href="`/songs/${song.id}`"
-                            class="w-16 h-16 rounded-full flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-transform flex-col gap-0.5"
+                            class="w-20 h-20 rounded-full flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-transform flex-col gap-0.5"
                             aria-label="聆聽音樂">
-                            <span class="text-2xl leading-none">▶</span>
-                            <span class="text-xs leading-none font-medium">聆聽</span>
+                            <span class="text-3xl leading-none">▶</span>
+                            <span class="text-sm leading-none font-medium">聆聽</span>
                         </Link>
                     </div>
                 </div>
