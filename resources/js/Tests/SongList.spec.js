@@ -36,7 +36,7 @@ describe('SongList', () => {
     it('renders listen link only for songs with audio', () => {
         const wrapper = mount(SongList, {
             props: { songs: mockSongs },
-            global: { stubs: { Link: { template: '<a :aria-label="$attrs[\'aria-label\']"><slot /></a>' } } },
+            global: { stubs: { Link: { inheritAttrs: false, template: '<a v-bind="$attrs"><slot /></a>' } } },
         })
         expect(wrapper.findAll('a[aria-label="聆聽音樂"]')).toHaveLength(1)
     })
