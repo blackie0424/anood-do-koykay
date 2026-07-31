@@ -77,6 +77,55 @@ describe('Admin Songs - tab memory', () => {
     })
 })
 
+describe('Admin Songs - search', () => {
+    it('按 title_native 搜尋過濾歌曲', async () => {
+        const wrapper = mountSongs()
+        await wrapper.vm.$nextTick()
+        wrapper.vm.search = 'Song A'
+        await wrapper.vm.$nextTick()
+        expect(wrapper.vm.filteredSongs).toHaveLength(1)
+        expect(wrapper.vm.filteredSongs[0].id).toBe(1)
+    })
+
+    it('按 book_number 搜尋過濾歌曲', async () => {
+        const wrapper = mountSongs()
+        await wrapper.vm.$nextTick()
+        wrapper.vm.search = '002'
+        await wrapper.vm.$nextTick()
+        expect(wrapper.vm.filteredSongs).toHaveLength(1)
+        expect(wrapper.vm.filteredSongs[0].id).toBe(2)
+    })
+
+    it('搜尋與 tab 篩選同時作用', async () => {
+        const wrapper = mountSongs()
+        await wrapper.vm.$nextTick()
+        wrapper.vm.filter = 'draft'
+        wrapper.vm.search = 'Song C'
+        await wrapper.vm.$nextTick()
+        // Song C 是草稿且符合搜尋
+        expect(wrapper.vm.filteredSongs).toHaveLength(1)
+        expect(wrapper.vm.filteredSongs[0].id).toBe(3)
+    })
+
+    it('從 URL ?q= 恢復搜尋關鍵字', async () => {
+        const wrapper = mountSongs('?q=Song+B')
+        await wrapper.vm.$nextTick()
+        expect(wrapper.vm.search).toBe('Song B')
+        expect(wrapper.vm.filteredSongs).toHaveLength(1)
+        expect(wrapper.vm.filteredSongs[0].id).toBe(2)
+    })
+
+    it('搜尋變更時更新 URL ?q= 參數', async () => {
+        const wrapper = mountSongs()
+        await wrapper.vm.$nextTick()
+        wrapper.vm.search = '歌 A'
+        await wrapper.vm.$nextTick()
+        expect(window.history.replaceState).toHaveBeenCalled()
+        const calledUrl = window.history.replaceState.mock.calls.at(-1)[2]
+        expect(calledUrl).toContain('q=')
+    })
+})
+
 describe('Admin Songs - ready filter', () => {
     it('shows only draft songs with audio and scores', async () => {
         const wrapper = mountSongs()

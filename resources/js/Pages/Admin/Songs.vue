@@ -12,10 +12,14 @@ const isAdmin = page.props.auth?.user?.role === 'admin'
 const VALID_TABS = ['all', 'no-audio', 'no-score', 'draft', 'ready', 'pending_review', 'published']
 
 const filter = ref('all')
+const search = ref('')
 
 onMounted(() => {
-    const tab = new URLSearchParams(window.location.search).get('tab')
+    const params = new URLSearchParams(window.location.search)
+    const tab = params.get('tab')
     if (tab && VALID_TABS.includes(tab)) filter.value = tab
+    const q = params.get('q')
+    if (q) search.value = q
 })
 
 watch(filter, (tab) => {
@@ -28,17 +32,36 @@ watch(filter, (tab) => {
     window.history.replaceState({}, '', url.toString())
 })
 
+watch(search, (q) => {
+    const url = new URL(window.location.href)
+    if (q) {
+        url.searchParams.set('q', q)
+    } else {
+        url.searchParams.delete('q')
+    }
+    window.history.replaceState({}, '', url.toString())
+})
+
 const filteredSongs = computed(() => {
     if (!props.songs) return []
+    let result = props.songs
     switch (filter.value) {
-        case 'no-audio': return props.songs.filter(s => !s.audio_full)
-        case 'no-score': return props.songs.filter(s => s.scores_count === 0)
-        case 'draft':    return props.songs.filter(s => s.status !== 'published')
-        case 'ready':          return props.songs.filter(s => s.status !== 'published' && s.audio_full && s.scores_count > 0)
-        case 'pending_review': return props.songs.filter(s => s.status === 'pending_review')
-        case 'published':      return props.songs.filter(s => s.status === 'published')
-        default: return props.songs
+        case 'no-audio': result = result.filter(s => !s.audio_full); break
+        case 'no-score': result = result.filter(s => s.scores_count === 0); break
+        case 'draft':    result = result.filter(s => s.status !== 'published'); break
+        case 'ready':          result = result.filter(s => s.status !== 'published' && s.audio_full && s.scores_count > 0); break
+        case 'pending_review': result = result.filter(s => s.status === 'pending_review'); break
+        case 'published':      result = result.filter(s => s.status === 'published'); break
     }
+    const q = search.value.trim().toLowerCase()
+    if (q) {
+        result = result.filter(s =>
+            s.book_number?.includes(q) ||
+            s.title_native?.toLowerCase().includes(q) ||
+            s.title_zh?.toLowerCase().includes(q)
+        )
+    }
+    return result
 })
 
 const filters = [
@@ -75,14 +98,12 @@ async function deleteSong(id) {
 
         <!-- 篩選列 -->
         <div class="flex items-center gap-2 mb-4">
-            <button v-for="f in filters" :key="f.key"
-                @click="filter = f.key"
-                :class="['px-3 py-1 rounded-full text-sm transition-colors',
-                    filter === f.key
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200']">
-                {{ f.label }}
-            </button>
+            <select v-model="filter" class="border rounded px-3 py-1.5 text-sm bg-white">
+                <option v-for="f in filters" :key="f.key" :value="f.key">{{ f.label }}</option>
+            </select>
+            <input v-model="search" type="search"
+                placeholder="搜尋頁碼、族語或中文歌名…"
+                class="border rounded px-3 py-1.5 text-sm bg-white flex-1 max-w-xs" />
         </div>
 
         <div class="bg-white rounded-lg shadow overflow-hidden">
