@@ -69,6 +69,7 @@ class SongController extends Controller
             'title_native' => ['required', 'string', 'max:255'],
             'title_zh' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', 'in:draft,published'],
+            'book_number' => ['nullable', 'string', 'max:20'],
         ]);
         return response()->json(Song::create($data), 201);
     }
