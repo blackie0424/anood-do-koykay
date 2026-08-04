@@ -17,7 +17,11 @@ function accept() {
 }
 
 function decline() {
-    window.location.href = 'about:blank'
+    window.close()
+    // 若無法關閉（非 JS 開啟的視窗），顯示提示
+    setTimeout(() => {
+        document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#555;font-size:1.1rem;">感謝您，您可以關閉此頁面。</div>'
+    }, 300)
 }
 </script>
 
