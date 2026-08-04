@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import ConsentModal from '../Components/ConsentModal.vue'
 
 function overlay() {
@@ -39,16 +39,21 @@ describe('ConsentModal', () => {
         expect(overlay()).toBeNull()
     })
 
-    it('navigates away on decline', async () => {
-        const originalLocation = window.location
-        delete window.location
-        window.location = { href: '' }
+    it('calls window.close on decline and shows fallback message after timeout', async () => {
+        const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => {})
+        vi.useFakeTimers()
 
         wrapper = mount(ConsentModal, { attachTo: document.body })
         await wrapper.vm.$nextTick()
         overlay().querySelector('[data-testid="consent-decline"]').click()
-        expect(window.location.href).toBe('about:blank')
+        expect(closeSpy).toHaveBeenCalled()
 
-        window.location = originalLocation
+        vi.advanceTimersByTime(300)
+        expect(document.body.innerHTML).toContain('感謝您，您可以關閉此頁面')
+
+        // body.innerHTML 已被覆蓋，Vue 元件不存在，跳過 unmount
+        wrapper = null
+        closeSpy.mockRestore()
+        vi.useRealTimers()
     })
 })
