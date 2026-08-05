@@ -11,6 +11,21 @@
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <meta name="apple-mobile-web-app-title" content="Anood">
         <link rel="apple-touch-icon" href="/icons/icon-180.png">
+        {{-- iOS PWA startup image：系統在 WebView 啟動前就顯示，不依賴瀏覽器渲染 --}}
+        {{-- iPhone SE (3rd) --}}
+        <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" href="/icons/splash/splash-750x1334.png">
+        {{-- iPhone 12 / 13 / 14 --}}
+        <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" href="/icons/splash/splash-1170x2532.png">
+        {{-- iPhone 14 Plus --}}
+        <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)" href="/icons/splash/splash-1284x2778.png">
+        {{-- iPhone 14 Pro / 15 / 15 Pro --}}
+        <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)" href="/icons/splash/splash-1179x2556.png">
+        {{-- iPhone 14 Pro Max / 15 Plus / 15 Pro Max --}}
+        <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)" href="/icons/splash/splash-1290x2796.png">
+        {{-- iPad Air / iPad Pro 11" --}}
+        <link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)" href="/icons/splash/splash-1668x2388.png">
+        {{-- iPad Pro 12.9" --}}
+        <link rel="apple-touch-startup-image" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)" href="/icons/splash/splash-2048x2732.png">
         <style>
             #app-splash {
                 position: fixed;
