@@ -77,7 +77,9 @@
                 to   { opacity: 1; transform: translateY(0); }
             }
         </style>
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        <link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'" href="{{ \Illuminate\Support\Facades\Vite::asset('resources/css/app.css') }}">
+        <noscript><link rel="stylesheet" href="{{ \Illuminate\Support\Facades\Vite::asset('resources/css/app.css') }}"></noscript>
+        @vite(['resources/js/app.js'])
         @inertiaHead
     </head>
     <body style="-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale">
