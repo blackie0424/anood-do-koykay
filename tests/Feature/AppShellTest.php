@@ -2,10 +2,14 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class AppShellTest extends TestCase
 {
+    use RefreshDatabase;
+
+
     public function test_html_element_has_inline_background_color(): void
     {
         $this->get('/')
