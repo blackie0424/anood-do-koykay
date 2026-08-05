@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" style="background-color:#fffbeb">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -82,7 +82,7 @@
         @vite(['resources/js/app.js'])
         @inertiaHead
     </head>
-    <body class="antialiased">
+    <body style="-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale">
         {{-- App Shell 載入動畫：Vue 掛載後自動移除 --}}
         <div id="app-splash" aria-hidden="true" aria-label="載入中">
             <div class="splash-icon-wrap">
