@@ -1,7 +1,7 @@
-export const CACHE_VERSION = 'v1'
-export const CACHE_NAME = `anood-cache-${CACHE_VERSION}`
+const CACHE_VERSION = 'v1'
+const CACHE_NAME = `anood-cache-${CACHE_VERSION}`
 
-export const PRECACHE_URLS = [
+const PRECACHE_URLS = [
     '/',
     '/icons/icon-192.png',
     '/icons/icon-512.png',
@@ -10,15 +10,26 @@ export const PRECACHE_URLS = [
 
 const STATIC_ASSET_EXTENSIONS = ['.js', '.css', '.png', '.svg']
 
-export function isStaticAssetRequest(url) {
+function isStaticAssetRequest(url) {
     const { pathname } = new URL(url)
     return STATIC_ASSET_EXTENSIONS.some((ext) => pathname.endsWith(ext))
 }
 
-export function isApiRequest(url) {
+function isApiRequest(url) {
     return new URL(url).pathname.startsWith('/api/')
 }
 
-export function isNavigationRequest(request) {
+function isNavigationRequest(request) {
     return request.mode === 'navigate'
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        CACHE_VERSION,
+        CACHE_NAME,
+        PRECACHE_URLS,
+        isStaticAssetRequest,
+        isApiRequest,
+        isNavigationRequest,
+    }
 }

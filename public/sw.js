@@ -1,10 +1,4 @@
-import {
-    CACHE_NAME,
-    PRECACHE_URLS,
-    isStaticAssetRequest,
-    isApiRequest,
-    isNavigationRequest,
-} from './sw-strategy.js'
+importScripts('./sw-strategy.js')
 
 self.addEventListener('install', (event) => {
     event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS)))
