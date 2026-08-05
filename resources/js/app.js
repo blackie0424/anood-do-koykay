@@ -10,9 +10,18 @@ createInertiaApp({
             import.meta.glob('./Pages/**/*.vue', { eager: false }),
         ),
     setup({ el, App, props, plugin }) {
-        createApp({ render: () => h(App, props) })
+        const app = createApp({ render: () => h(App, props) })
             .use(plugin)
             .mount(el)
+
+        // Vue 掛載完成後淡出並移除 splash screen
+        const splash = document.getElementById('app-splash')
+        if (splash) {
+            splash.classList.add('splash-hidden')
+            splash.addEventListener('transitionend', () => splash.remove(), { once: true })
+        }
+
+        return app
     },
 })
 
