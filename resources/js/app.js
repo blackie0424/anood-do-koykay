@@ -2,6 +2,7 @@ import './bootstrap'
 import { createApp, h } from 'vue'
 import { createInertiaApp } from '@inertiajs/vue3'
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers'
+import { hideSplash } from './utils/splash'
 
 createInertiaApp({
     resolve: (name) =>
@@ -10,9 +11,13 @@ createInertiaApp({
             import.meta.glob('./Pages/**/*.vue', { eager: false }),
         ),
     setup({ el, App, props, plugin }) {
-        createApp({ render: () => h(App, props) })
+        const app = createApp({ render: () => h(App, props) })
             .use(plugin)
             .mount(el)
+
+        hideSplash()
+
+        return app
     },
 })
 
