@@ -22,10 +22,16 @@ describe('manifest.json', () => {
         expect(manifest.id).toBe('/')
     })
 
-    it('每個 icon 都有 any maskable purpose', () => {
-        expect(manifest.icons.length).toBeGreaterThan(0)
-        for (const icon of manifest.icons) {
+    it('PNG icon 標 any maskable purpose', () => {
+        const pngIcons = manifest.icons.filter((icon) => icon.type === 'image/png')
+        expect(pngIcons.length).toBeGreaterThan(0)
+        for (const icon of pngIcons) {
             expect(icon.purpose).toBe('any maskable')
         }
+    })
+
+    it('SVG icon（內嵌點陣圖，非真正向量）不標 maskable，避免 safe zone 裁切', () => {
+        const svgIcon = manifest.icons.find((icon) => icon.type === 'image/svg+xml')
+        expect(svgIcon.purpose).toBe('any')
     })
 })
