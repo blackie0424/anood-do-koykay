@@ -23,6 +23,29 @@ function isNavigationRequest(request) {
     return request.mode === 'navigate'
 }
 
+async function cacheFirst(request) {
+    const cached = await caches.match(request)
+    if (cached) return cached
+
+    const response = await fetch(request)
+    const cache = await caches.open(CACHE_NAME)
+    cache.put(request, response.clone())
+    return response
+}
+
+async function networkFirst(request) {
+    try {
+        const response = await fetch(request)
+        const cache = await caches.open(CACHE_NAME)
+        cache.put(request, response.clone())
+        return response
+    } catch (error) {
+        const cached = await caches.match(request)
+        if (cached) return cached
+        throw error
+    }
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         CACHE_VERSION,
@@ -31,5 +54,7 @@ if (typeof module !== 'undefined' && module.exports) {
         isStaticAssetRequest,
         isApiRequest,
         isNavigationRequest,
+        cacheFirst,
+        networkFirst,
     }
 }
