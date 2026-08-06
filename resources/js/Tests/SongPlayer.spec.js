@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
+import { Link } from '@inertiajs/vue3'
 import SongPlayer from '../Pages/SongPlayer.vue'
 
 const BASE_SONG = {
@@ -61,6 +62,17 @@ describe('SongPlayer — 基本渲染', () => {
     const wrapper = mount(SongPlayer, { props: { song: { ...BASE_SONG, audio_full: null, lines: [] } } })
     const btn = wrapper.find('button[aria-label="播放"], button[aria-label="暫停"]')
     expect(btn.attributes('disabled')).toBeDefined()
+  })
+})
+
+describe('SongPlayer — 返回清單連結快取', () => {
+  it('返回清單連結用 mount 觸發 prefetch，快取 5 分鐘', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const backLink = wrapper.findComponent(Link)
+
+    expect(backLink.props('href')).toBe('/')
+    expect(backLink.props('prefetch')).toBe('mount')
+    expect(backLink.props('cacheFor')).toBe('5m')
   })
 })
 

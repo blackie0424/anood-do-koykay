@@ -185,7 +185,7 @@ async function share() {
         <!-- 標頭 -->
         <div class="px-3 pt-3 flex-shrink-0">
             <div class="max-w-2xl mx-auto">
-                <Link href="/" class="inline-flex items-center gap-1 text-stone-500 hover:text-stone-700 text-sm mb-4">
+                <Link href="/" prefetch="mount" cache-for="5m" class="inline-flex items-center gap-1 text-stone-500 hover:text-stone-700 text-sm mb-4">
                     ← 返回清單
                 </Link>
                 <div class="text-center mb-4">
