@@ -15,7 +15,7 @@ class SongController extends Controller
             ->orderByRaw('book_number IS NULL ASC')
             ->orderByRaw('CAST(book_number AS UNSIGNED) ASC')
             ->orderBy('id')
-            ->get();
+            ->paginate(20);
         return Inertia::render('SongList', ['songs' => $songs]);
     }
 
@@ -33,16 +33,27 @@ class SongController extends Controller
         return Inertia::render('SongReader', ['song' => $song]);
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(
-            Song::where('status', 'published')
-                ->select('id', 'title_native', 'title_zh', 'audio_full', 'status', 'book_number')
-                ->orderByRaw('book_number IS NULL ASC')
-                ->orderByRaw('CAST(book_number AS UNSIGNED) ASC')
-                ->orderBy('id')
-                ->get()
-        );
+        $query = Song::where('status', 'published')
+            ->select('id', 'title_native', 'title_zh', 'audio_full', 'book_number')
+            ->orderByRaw('book_number IS NULL ASC')
+            ->orderByRaw('CAST(book_number AS UNSIGNED) ASC')
+            ->orderBy('id');
+
+        $keyword = trim((string) $request->query('q', ''));
+
+        if ($keyword !== '') {
+            $query->where(function ($q) use ($keyword) {
+                $q->where('book_number', 'like', "%{$keyword}%")
+                    ->orWhere('title_native', 'like', "%{$keyword}%")
+                    ->orWhere('title_zh', 'like', "%{$keyword}%");
+            });
+
+            return response()->json($query->paginate(100));
+        }
+
+        return response()->json($query->paginate(20));
     }
 
     public function show(Song $song)
