@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import SongList from '../Pages/SongList.vue'
 
 const mockSongs = [
@@ -7,10 +7,26 @@ const mockSongs = [
     { id: 2, title_native: 'Anood', title_zh: '海浪', audio_full: null },
 ]
 
+function paginated(data, overrides = {}) {
+    return {
+        data,
+        meta: { current_page: 1, last_page: 1, total: data.length, per_page: 20, ...overrides },
+        links: {},
+    }
+}
+
 describe('SongList', () => {
+    beforeEach(() => {
+        global.IntersectionObserver = class {
+            observe() {}
+            unobserve() {}
+            disconnect() {}
+        }
+    })
+
     it('renders song titles', () => {
         const wrapper = mount(SongList, {
-            props: { songs: mockSongs },
+            props: { songs: paginated(mockSongs) },
             global: { stubs: { Link: { template: '<a><slot /></a>' } } },
         })
         expect(wrapper.text()).toContain('Do Koykay')
@@ -19,7 +35,7 @@ describe('SongList', () => {
 
     it('renders chinese titles', () => {
         const wrapper = mount(SongList, {
-            props: { songs: mockSongs },
+            props: { songs: paginated(mockSongs) },
             global: { stubs: { Link: { template: '<a><slot /></a>' } } },
         })
         expect(wrapper.text()).toContain('飛魚之歌')
@@ -27,7 +43,7 @@ describe('SongList', () => {
 
     it('shows empty message when no songs', () => {
         const wrapper = mount(SongList, {
-            props: { songs: [] },
+            props: { songs: paginated([]) },
             global: { stubs: { Link: { template: '<a><slot /></a>' } } },
         })
         expect(wrapper.text()).toContain('尚無歌曲')
@@ -35,7 +51,7 @@ describe('SongList', () => {
 
     it('renders listen link only for songs with audio', () => {
         const wrapper = mount(SongList, {
-            props: { songs: mockSongs },
+            props: { songs: paginated(mockSongs) },
             global: { stubs: { Link: { inheritAttrs: false, template: '<a v-bind="$attrs"><slot /></a>' } } },
         })
         expect(wrapper.findAll('a[aria-label="聆聽音樂"]')).toHaveLength(1)

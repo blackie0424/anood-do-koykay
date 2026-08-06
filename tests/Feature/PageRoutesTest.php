@@ -26,6 +26,21 @@ class PageRoutesTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->component('SongList'));
     }
 
+    public function test_index_page_provides_paginated_songs_prop(): void
+    {
+        Song::factory()->published()->count(25)->create();
+
+        $this->get('/')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('SongList')
+                ->has('songs.data', 20)
+                ->where('songs.meta.current_page', 1)
+                ->where('songs.meta.last_page', 2)
+                ->where('songs.meta.total', 25)
+            );
+    }
+
     public function test_song_show_page_renders_song_player(): void
     {
         $song = Song::factory()->published()->create();
