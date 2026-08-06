@@ -3,9 +3,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import SongList from '../Pages/SongList.vue'
 import SongPlayer from '../Pages/SongPlayer.vue'
 
-const SONGS = [
-    { id: 1, title_native: 'Do Koykay', title_zh: '飛魚之歌', book_number: '001', audio_full: '/audio/1.mp3' },
-]
+const SONGS = {
+    data: [
+        { id: 1, title_native: 'Do Koykay', title_zh: '飛魚之歌', book_number: '001', audio_full: '/audio/1.mp3' },
+    ],
+    meta: { current_page: 1, last_page: 1, total: 1, per_page: 20 },
+    links: {},
+}
 
 const SONG = {
     id: 1,
@@ -16,6 +20,14 @@ const SONG = {
 }
 
 describe('SongList — Web Share API 分享按鈕', () => {
+    beforeEach(() => {
+        global.IntersectionObserver = class {
+            observe() {}
+            unobserve() {}
+            disconnect() {}
+        }
+    })
+
     afterEach(() => { vi.restoreAllMocks() })
 
     it('navigator.share 存在時呼叫 Web Share API', async () => {

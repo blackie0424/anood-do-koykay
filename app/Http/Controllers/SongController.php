@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Song;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -15,8 +16,8 @@ class SongController extends Controller
             ->orderByRaw('book_number IS NULL ASC')
             ->orderByRaw('CAST(book_number AS UNSIGNED) ASC')
             ->orderBy('id')
-            ->get();
-        return Inertia::render('SongList', ['songs' => $songs]);
+            ->paginate(20);
+        return Inertia::render('SongList', ['songs' => $this->paginatorToArray($songs)]);
     }
 
     public function showPage(Song $song)
@@ -33,16 +34,49 @@ class SongController extends Controller
         return Inertia::render('SongReader', ['song' => $song]);
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(
-            Song::where('status', 'published')
-                ->select('id', 'title_native', 'title_zh', 'audio_full', 'status', 'book_number')
-                ->orderByRaw('book_number IS NULL ASC')
-                ->orderByRaw('CAST(book_number AS UNSIGNED) ASC')
-                ->orderBy('id')
-                ->get()
-        );
+        $query = Song::where('status', 'published')
+            ->select('id', 'title_native', 'title_zh', 'audio_full', 'book_number')
+            ->orderByRaw('book_number IS NULL ASC')
+            ->orderByRaw('CAST(book_number AS UNSIGNED) ASC')
+            ->orderBy('id');
+
+        $keyword = trim((string) $request->query('q', ''));
+
+        if ($keyword !== '') {
+            $query->where(function ($q) use ($keyword) {
+                $q->where('book_number', 'like', "%{$keyword}%")
+                    ->orWhere('title_native', 'like', "%{$keyword}%")
+                    ->orWhere('title_zh', 'like', "%{$keyword}%");
+            });
+
+            return response()->json($this->paginatorToArray($query->paginate(100)));
+        }
+
+        return response()->json($this->paginatorToArray($query->paginate(20)));
+    }
+
+    private function paginatorToArray(LengthAwarePaginator $paginator): array
+    {
+        return [
+            'data' => $paginator->items(),
+            'links' => [
+                'first' => $paginator->url(1),
+                'last' => $paginator->url($paginator->lastPage()),
+                'prev' => $paginator->previousPageUrl(),
+                'next' => $paginator->nextPageUrl(),
+            ],
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'from' => $paginator->firstItem(),
+                'last_page' => $paginator->lastPage(),
+                'path' => $paginator->path(),
+                'per_page' => $paginator->perPage(),
+                'to' => $paginator->lastItem(),
+                'total' => $paginator->total(),
+            ],
+        ];
     }
 
     public function show(Song $song)

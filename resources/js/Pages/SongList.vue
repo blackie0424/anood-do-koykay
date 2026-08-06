@@ -1,21 +1,75 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { Link } from '@inertiajs/vue3'
+import axios from 'axios'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 
-const props = defineProps({ songs: Array })
+const DEBOUNCE_MS = 300
+
+const props = defineProps({ songs: Object })
+
+const loadedSongs = ref([...props.songs.data])
+const currentPage = ref(props.songs.meta.current_page)
+const lastPage = ref(props.songs.meta.last_page)
+const loadingMore = ref(false)
 
 const search = ref('')
+const searchResults = ref(null)
+const searching = ref(false)
 const copiedId = ref(null)
 
-const filteredSongs = computed(() => {
-    const q = search.value.trim().toLowerCase()
-    if (!q) return props.songs
-    return props.songs.filter(s =>
-        s.book_number?.includes(q) ||
-        s.title_native?.toLowerCase().includes(q) ||
-        s.title_zh?.toLowerCase().includes(q)
-    )
+const isSearchActive = computed(() => search.value.trim() !== '')
+const displayedSongs = computed(() => (isSearchActive.value ? searchResults.value ?? [] : loadedSongs.value))
+const hasMore = computed(() => currentPage.value < lastPage.value)
+
+let debounceTimer = null
+
+watch(search, (value) => {
+    clearTimeout(debounceTimer)
+    const keyword = value.trim()
+    if (keyword === '') {
+        searchResults.value = null
+        return
+    }
+    debounceTimer = setTimeout(() => runSearch(keyword), DEBOUNCE_MS)
+})
+
+async function runSearch(keyword) {
+    searching.value = true
+    try {
+        const { data } = await axios.get('/api/songs', { params: { q: keyword } })
+        searchResults.value = data.data
+    } finally {
+        searching.value = false
+    }
+}
+
+async function loadMore() {
+    if (isSearchActive.value || !hasMore.value || loadingMore.value) return
+    loadingMore.value = true
+    try {
+        const { data } = await axios.get('/api/songs', { params: { page: currentPage.value + 1 } })
+        loadedSongs.value = [...loadedSongs.value, ...data.data]
+        currentPage.value = data.meta.current_page
+        lastPage.value = data.meta.last_page
+    } finally {
+        loadingMore.value = false
+    }
+}
+
+const sentinel = ref(null)
+let observer = null
+
+onMounted(() => {
+    if (typeof IntersectionObserver === 'undefined') return
+    observer = new IntersectionObserver((entries) => {
+        if (entries[0]?.isIntersecting) loadMore()
+    })
+    if (sentinel.value) observer.observe(sentinel.value)
+})
+
+onBeforeUnmount(() => {
+    observer?.disconnect()
 })
 
 async function share(song) {
@@ -44,7 +98,7 @@ async function share(song) {
                 class="w-full max-w-2xl mx-auto block border-2 border-stone-300 rounded-2xl px-5 py-3 text-lg focus:outline-none focus:border-blue-400 bg-white mb-6" />
 
             <div class="max-w-2xl mx-auto space-y-4">
-                <div v-for="song in filteredSongs" :key="song.id"
+                <div v-for="song in displayedSongs" :key="song.id"
                     class="bg-white rounded-xl shadow p-6">
                     <div class="mb-3">
                         <p class="font-semibold text-stone-900 leading-snug" style="font-size: clamp(1.4rem, 4vw, 1.9rem)">
@@ -73,9 +127,14 @@ async function share(song) {
                         </Link>
                     </div>
                 </div>
-                <p v-if="!filteredSongs?.length" class="text-center text-stone-400 py-8">
-                    {{ search ? '找不到符合的歌曲' : '尚無歌曲' }}
+
+                <p v-if="!displayedSongs?.length && !searching" class="text-center text-stone-400 py-8">
+                    {{ isSearchActive ? '找不到符合的歌曲' : '尚無歌曲' }}
                 </p>
+                <p v-if="searching" class="text-center text-stone-400 py-4">搜尋中…</p>
+
+                <div v-if="!isSearchActive" ref="sentinel" class="h-4"></div>
+                <p v-if="loadingMore" class="text-center text-stone-400 py-4">載入中…</p>
             </div>
         </div>
     </PublicLayout>
