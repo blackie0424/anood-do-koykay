@@ -65,6 +65,28 @@ describe('SongPlayer — 基本渲染', () => {
   })
 })
 
+describe('SongPlayer — 接唱錄音鈕顯示條件', () => {
+  it('有 audio_full 且段落有時間軸時顯示錄唱鈕', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    expect(wrapper.find('[aria-label="接唱錄音"]').exists()).toBe(true)
+  })
+
+  it('段落無時間軸時隱藏錄唱鈕', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songNoLyricTimes } })
+    expect(wrapper.find('[aria-label="接唱錄音"]').exists()).toBe(false)
+  })
+
+  it('無 audio_full 時隱藏錄唱鈕', () => {
+    const wrapper = mount(SongPlayer, { props: { song: { ...BASE_SONG, audio_full: null, lines: songWithLyricTimes.lines } } })
+    expect(wrapper.find('[aria-label="接唱錄音"]').exists()).toBe(false)
+  })
+
+  it('預設不顯示錄音介面', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    expect(wrapper.find('[aria-label="關閉錄音"]').exists()).toBe(false)
+  })
+})
+
 describe('SongPlayer — 返回清單連結快取', () => {
   it('返回清單連結用 mount 觸發 prefetch，快取 5 分鐘', () => {
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
