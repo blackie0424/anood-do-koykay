@@ -132,6 +132,27 @@ describe('useSongRecorder — 錄音狀態機（toggle）', () => {
         const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: makeMicRecorder() })
         expect(r.playSegment(10)).toBe(null)
     })
+
+    it('錄到空 blob 時不儲存並設 error=empty', async () => {
+        const store = createMemoryStore()
+        const mic = makeMicRecorder(new Blob([], { type: 'audio/webm' }))
+        const r = useSongRecorder(SONG, { store, micRecorder: mic })
+        await r.startRecording(10); await r.stopRecording()
+        expect(r.hasRecording(10)).toBe(false)
+        expect((await store.getAllForSong(1)).size).toBe(0)
+        expect(r.error.value).toBe('empty')
+    })
+
+    it('playSegment 設 previewLineId；再點同段 toggle 暫停', async () => {
+        const store = createMemoryStore()
+        const audioFactory = () => ({ play: vi.fn(), pause: vi.fn(), addEventListener: vi.fn() })
+        const r = useSongRecorder(SONG, { store, micRecorder: makeMicRecorder(), audioFactory })
+        await r.startRecording(10); await r.stopRecording()
+        r.playSegment(10)
+        expect(r.previewLineId.value).toBe(10)
+        r.playSegment(10)
+        expect(r.previewLineId.value).toBe(null)
+    })
 })
 
 // 可被測試驅動事件的假 audio

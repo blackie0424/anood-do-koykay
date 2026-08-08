@@ -3,7 +3,7 @@ import { createMicRecorder } from '../recording/mediaRecorder.js'
 
 // jsdom 沒有 MediaRecorder / getUserMedia，用 fake 驗證 wiring。
 class FakeMediaRecorder {
-    constructor() { this.mimeType = 'audio/webm' }
+    constructor(stream) { this.stream = stream; this.mimeType = 'audio/webm' }
     start() { this.started = true }
     stop() {
         this.ondataavailable?.({ data: new Blob(['chunk'], { type: 'audio/webm' }) })
@@ -11,22 +11,28 @@ class FakeMediaRecorder {
     }
 }
 
-let trackStop
+function makeStream() {
+    const stop = vi.fn()
+    return { getTracks: () => [{ stop }], _stop: stop }
+}
+
+let streams
 let getUserMedia
 beforeEach(() => {
-    trackStop = vi.fn()
-    getUserMedia = vi.fn(async () => ({ getTracks: () => [{ stop: trackStop }] }))
+    streams = []
+    getUserMedia = vi.fn(async () => { const s = makeStream(); streams.push(s); return s })
     global.MediaRecorder = FakeMediaRecorder
     global.navigator.mediaDevices = { getUserMedia }
 })
 afterEach(() => { vi.restoreAllMocks() })
 
 describe('createMicRecorder', () => {
-    it('acquire 取得一次麥克風，ready 變 true', async () => {
+    it('acquire 取得授權後立即釋放該 stream，ready 變 true', async () => {
         const mic = createMicRecorder()
         expect(mic.ready).toBe(false)
         await mic.acquire()
         expect(getUserMedia).toHaveBeenCalledWith({ audio: true })
+        expect(streams[0]._stop).toHaveBeenCalled() // 只為授權，立即釋放
         expect(mic.ready).toBe(true)
     })
 
@@ -37,35 +43,38 @@ describe('createMicRecorder', () => {
         expect(getUserMedia).toHaveBeenCalledTimes(1)
     })
 
-    it('start→stop 回傳 Blob，且不釋放 stream（供下段重用）', async () => {
+    it('start 取全新 stream 並開始錄；stop 回傳 Blob 且關閉該段 stream', async () => {
         const mic = createMicRecorder()
-        await mic.acquire()
         await mic.start()
         const blob = await mic.stop()
         expect(blob).toBeInstanceOf(Blob)
         expect(blob.type).toBe('audio/webm')
-        expect(trackStop).not.toHaveBeenCalled() // stream 保留
-        expect(mic.ready).toBe(true)
+        expect(streams[0]._stop).toHaveBeenCalled() // 該段 stream 已關閉
     })
 
-    it('未先 acquire 直接 start 也會自動取得權限', async () => {
+    it('連續錄兩段各取全新 stream（不共用）', async () => {
+        const mic = createMicRecorder()
+        await mic.start(); await mic.stop()
+        await mic.start(); await mic.stop()
+        // start 兩次 → 兩條不同 stream，各自關閉
+        expect(getUserMedia).toHaveBeenCalledTimes(2)
+        expect(streams.length).toBe(2)
+        expect(streams[0]).not.toBe(streams[1])
+        expect(streams[0]._stop).toHaveBeenCalled()
+        expect(streams[1]._stop).toHaveBeenCalled()
+    })
+
+    it('未先 acquire 直接 start 也可運作', async () => {
         const mic = createMicRecorder()
         await mic.start()
         expect(getUserMedia).toHaveBeenCalledTimes(1)
+        expect(mic.ready).toBe(true)
     })
 
-    it('連續錄兩段共用同一 stream（getUserMedia 只呼叫一次）', async () => {
+    it('release 釋放進行中的 stream', async () => {
         const mic = createMicRecorder()
-        await mic.start(); await mic.stop()
-        await mic.start(); await mic.stop()
-        expect(getUserMedia).toHaveBeenCalledTimes(1)
-    })
-
-    it('release 釋放麥克風軌道', async () => {
-        const mic = createMicRecorder()
-        await mic.acquire()
+        await mic.start()
         mic.release()
-        expect(trackStop).toHaveBeenCalled()
-        expect(mic.ready).toBe(false)
+        expect(streams[0]._stop).toHaveBeenCalled()
     })
 })
