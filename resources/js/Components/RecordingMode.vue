@@ -46,9 +46,10 @@ function toggleRecord(line) {
             未錄的段落播放時會用原唱補上，音色會和你的清唱不同，這是正常的。
         </div>
 
-        <div v-if="rec.error.value === 'mic'" role="alert"
+        <div v-if="rec.error.value" role="alert"
             class="flex-shrink-0 px-4 py-2 bg-red-50 text-red-700 text-sm text-center">
-            無法取得麥克風，請確認瀏覽器已授權後重新整理頁面。
+            <template v-if="rec.error.value === 'empty'">這段錄音沒有聲音，請再錄一次。</template>
+            <template v-else>無法取得麥克風，請確認瀏覽器已授權後重新整理頁面。</template>
         </div>
 
         <!-- 段落清單 -->
@@ -77,11 +78,12 @@ function toggleRecord(line) {
                             <template v-else>● 開始錄音</template>
                         </button>
                         <button v-if="rec.hasRecording(line.id) && !rec.isRecording(line.id)"
-                            :aria-label="`播放段落 ${line.order}`"
+                            :aria-label="rec.previewLineId.value === line.id ? `暫停段落 ${line.order}` : `播放段落 ${line.order}`"
                             @click="rec.playSegment(line.id)"
                             :disabled="isSomeRecording"
                             class="flex-shrink-0 rounded-full px-4 py-2.5 bg-stone-200 text-stone-700 font-medium hover:bg-stone-300 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed">
-                            ▶ 播放
+                            <template v-if="rec.previewLineId.value === line.id">⏸ 暫停</template>
+                            <template v-else>▶ 播放</template>
                         </button>
                     </div>
                 </div>

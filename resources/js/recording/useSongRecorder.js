@@ -29,9 +29,11 @@ export function useSongRecorder(song, options = {}) {
     const micReady = ref(false)
     const isPlayingAll = ref(false)
     const playingLineId = ref(null) // 整體播放：目前播到哪一段（供高亮）
+    const previewLineId = ref(null) // 單段自聽：目前正在播哪一段（供播放/暫停切換）
     const error = ref(null)
 
     let referenceAudio = null
+    let previewAudio = null
     let stopAllFlag = false
 
     const recordedLineIds = computed(() => [...recordings.value.keys()])
@@ -67,6 +69,7 @@ export function useSongRecorder(song, options = {}) {
     async function startRecording(lineId) {
         if (recordingLineId.value != null) return
         error.value = null
+        stopPreview()
         try {
             await micRecorder.start()
             recordingLineId.value = lineId
@@ -81,6 +84,11 @@ export function useSongRecorder(song, options = {}) {
         const lineId = recordingLineId.value
         recordingLineId.value = null
         const blob = await micRecorder.stop()
+        // 空 blob（iOS 連續錄音可能靜音）不儲存，提示使用者重錄
+        if (!blob || blob.size === 0) {
+            error.value = 'empty'
+            return
+        }
         await store.put(song.id, lineId, blob)
         setRecording(lineId, blob)
     }
@@ -94,11 +102,25 @@ export function useSongRecorder(song, options = {}) {
         recordings.value = map
     }
 
+    function stopPreview() {
+        if (previewAudio) { previewAudio.pause?.(); previewAudio = null }
+        previewLineId.value = null
+    }
+
+    // 自聽播放：再點同一段則暫停（toggle）；播完自動恢復
     function playSegment(lineId) {
+        if (previewLineId.value === lineId) { stopPreview(); return null }
+        stopPreview()
         const rec = recordings.value.get(lineId)
         if (!rec) return null
         const audio = audioFactory(rec.url)
-        audio.play?.()
+        previewAudio = audio
+        previewLineId.value = lineId
+        audio.addEventListener?.('ended', () => {
+            if (previewAudio === audio) stopPreview()
+        }, { once: true })
+        const p = audio.play?.()
+        if (p && typeof p.catch === 'function') p.catch(() => { if (previewAudio === audio) stopPreview() })
         return audio
     }
 
@@ -179,6 +201,7 @@ export function useSongRecorder(song, options = {}) {
     }
 
     function dispose() {
+        stopPreview()
         micRecorder.release?.()
         for (const rec of recordings.value.values()) revokeUrl(rec.url)
     }
@@ -190,6 +213,7 @@ export function useSongRecorder(song, options = {}) {
         micReady,
         isPlayingAll,
         playingLineId,
+        previewLineId,
         error,
         hasRecording,
         isRecording,
@@ -199,6 +223,7 @@ export function useSongRecorder(song, options = {}) {
         stopRecording,
         deleteRecording,
         playSegment,
+        stopPreview,
         playAll,
         stopPlayAll,
         dispose,
