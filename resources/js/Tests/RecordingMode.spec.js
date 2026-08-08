@@ -136,5 +136,7 @@ describe('RecordingMode — 掛載載入既有錄音', () => {
         await flushPromises()
         expect(wrapper.find('[aria-label="播放段落 2"]').exists()).toBe(true)
         expect(wrapper.find('[aria-label="錄音段落 2"]').text()).toContain('重新錄音')
+        // 已錄段恰好兩顆按鈕（重新錄音 + 播放），沒有第三顆
+        expect(wrapper.findAll('[aria-label*="段落 2"]').length).toBe(2)
     })
 })
