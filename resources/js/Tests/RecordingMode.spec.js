@@ -197,6 +197,35 @@ describe('RecordingMode — 整體播放', () => {
     })
 })
 
+describe('RecordingMode — 整體播放中鎖住段落按鈕', () => {
+    it('整體播放進行中，開始錄音/播放/聆聽原音全部 disabled', async () => {
+        let resolveStep
+        const store = createMemoryStore()
+        await store.put(1, 10, new Blob(['x'], { type: 'audio/webm' }))
+        const wrapper = mount(RecordingMode, {
+            props: {
+                song: SONG,
+                options: {
+                    store,
+                    micRecorder: makeMic(),
+                    audioFactory: () => ({ play: vi.fn(), pause: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn() }),
+                    playStep: () => new Promise((r) => { resolveStep = r }),
+                },
+            },
+        })
+        await flushPromises()
+        await wrapper.find('[aria-label="整體播放我的接唱版本"]').trigger('click')
+        await flushPromises()
+
+        expect(wrapper.find('[aria-label="錄音段落 1"]').attributes('disabled')).toBeDefined()
+        expect(wrapper.find('[aria-label="播放段落 1"]').attributes('disabled')).toBeDefined()
+        expect(wrapper.find('[aria-label="聆聽原音段落 1"]').attributes('disabled')).toBeDefined()
+
+        resolveStep()
+        await flushPromises()
+    })
+})
+
 describe('RecordingMode — 整體播放高亮當前段', () => {
     it('播放中的段落標記 aria-current', async () => {
         let resolveStep

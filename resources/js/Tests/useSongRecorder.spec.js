@@ -379,6 +379,26 @@ describe('useSongRecorder — 整體播放（playAll）', () => {
         expect(r.isPlayingAll.value).toBe(false)
     })
 
+    it('經完整錄音流程存下的段落，playAll 計畫分類為 user（Safari 跳段回歸）', async () => {
+        const store = createMemoryStore()
+        const calls = []
+        const r = useSongRecorder(SONG, {
+            store,
+            micRecorder: makeMicRecorder(new Blob(['mp4data'], { type: 'audio/mp4' })),
+            playStep: (s) => { calls.push(s); return Promise.resolve() },
+        })
+        // 用完整 startRecording/stopRecording 流程錄第 10、12 段
+        await r.startRecording(10); await r.stopRecording()
+        await r.startRecording(12); await r.stopRecording()
+
+        await r.playAll()
+
+        const map = Object.fromEntries(calls.map((c) => [c.lineId, c.source]))
+        expect(map[10]).toBe('user')
+        expect(map[11]).toBe('reference')
+        expect(map[12]).toBe('user')
+    })
+
     it('stopPlayAll 後續段落不再播放', async () => {
         const store = createMemoryStore()
         const calls = []

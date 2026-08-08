@@ -14,6 +14,8 @@ const rec = useSongRecorder(props.song, props.options)
 
 // 有某段正在錄音時，其他段的按鈕鎖住（一次只錄一段）
 const isSomeRecording = computed(() => rec.recordingLineId.value !== null)
+// 整體播放中，段落操作按鈕全部鎖住，只能按「停止播放」
+const isPlayingAll = computed(() => rec.isPlayingAll.value)
 
 onMounted(() => {
     rec.load()
@@ -73,7 +75,7 @@ function canListenReference(line) {
                         <button
                             :aria-label="`錄音段落 ${line.order}`"
                             @click="toggleRecord(line)"
-                            :disabled="isSomeRecording && !rec.isRecording(line.id)"
+                            :disabled="(isSomeRecording && !rec.isRecording(line.id)) || isPlayingAll"
                             :class="['flex-1 rounded-full py-2.5 text-white font-medium active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed',
                                 rec.isRecording(line.id) ? 'bg-red-600'
                                     : rec.hasRecording(line.id) ? 'bg-amber-600 hover:bg-amber-500'
@@ -85,7 +87,7 @@ function canListenReference(line) {
                         <button v-if="rec.hasRecording(line.id) && !rec.isRecording(line.id)"
                             :aria-label="rec.previewLineId.value === line.id ? `暫停段落 ${line.order}` : `播放段落 ${line.order}`"
                             @click="rec.playSegment(line.id)"
-                            :disabled="isSomeRecording"
+                            :disabled="isSomeRecording || isPlayingAll"
                             class="flex-shrink-0 rounded-full px-4 py-2.5 bg-stone-200 text-stone-700 font-medium hover:bg-stone-300 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed">
                             <template v-if="rec.previewLineId.value === line.id">⏸ 暫停</template>
                             <template v-else>▶ 播放</template>
@@ -94,7 +96,7 @@ function canListenReference(line) {
                     <button v-if="canListenReference(line)"
                         :aria-label="rec.referencePreviewLineId.value === line.id ? `暫停原音段落 ${line.order}` : `聆聽原音段落 ${line.order}`"
                         @click="rec.playReference(line)"
-                        :disabled="isSomeRecording"
+                        :disabled="isSomeRecording || isPlayingAll"
                         class="mt-2 w-full rounded-full py-2 bg-indigo-100 text-indigo-700 font-medium hover:bg-indigo-200 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed">
                         <template v-if="rec.referencePreviewLineId.value === line.id">⏸ 暫停</template>
                         <template v-else>🎵 聆聽原音</template>
