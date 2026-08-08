@@ -85,6 +85,32 @@ describe('SongPlayer — 接唱錄音鈕顯示條件', () => {
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
     expect(wrapper.find('[aria-label="關閉錄音"]').exists()).toBe(false)
   })
+
+  it('點錄唱鈕進入錄音模式時暫停原唱播放', async () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const audioEl = wrapper.find('audio').element
+    let paused = false
+    audioEl.pause = () => { paused = true }
+    // 模擬正在播放
+    await wrapper.find('audio').trigger('playing')
+
+    await wrapper.find('[aria-label="接唱錄音"]').trigger('click')
+
+    expect(paused).toBe(true)
+    expect(wrapper.find('[aria-label="關閉錄音"]').exists()).toBe(true)
+  })
+
+  it('未在播放時點錄唱鈕不呼叫 pause', async () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const audioEl = wrapper.find('audio').element
+    let pauseCalls = 0
+    audioEl.pause = () => { pauseCalls++ }
+
+    await wrapper.find('[aria-label="接唱錄音"]').trigger('click')
+
+    expect(pauseCalls).toBe(0)
+    expect(wrapper.find('[aria-label="關閉錄音"]').exists()).toBe(true)
+  })
 })
 
 describe('SongPlayer — 返回清單連結快取', () => {
