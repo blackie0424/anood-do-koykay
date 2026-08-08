@@ -3,8 +3,15 @@ import { ref, computed, watch } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 import ReportModal from '@/Components/ReportModal.vue'
+import RecordingMode from '@/Components/RecordingMode.vue'
 
 const props = defineProps({ song: Object })
+
+// 接唱錄音：需有原音（audio_full）且至少一段有時間軸才可用
+const canRecord = computed(() =>
+    !!props.song?.audio_full && (props.song?.lines ?? []).some(l => l.start_time != null)
+)
+const showRecording = ref(false)
 
 const audio = ref(null)
 const currentTime = ref(0)
@@ -212,6 +219,11 @@ async function share() {
                             aria-label="歌詞閱讀模式">
                             📖 歌詞
                         </a>
+                        <button v-if="canRecord" @click="showRecording = true"
+                            class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-600 text-white text-sm hover:bg-rose-500 active:scale-95 transition-transform"
+                            aria-label="接唱錄音">
+                            🎤 錄唱
+                        </button>
                         <ReportModal :song-id="song.id" />
                     </div>
                 </div>
@@ -285,6 +297,8 @@ async function share() {
             </div>
         </div>
     </Transition>
+
+    <RecordingMode v-if="showRecording" :song="song" @close="showRecording = false" />
     </PublicLayout>
 </template>
 
