@@ -1,10 +1,10 @@
 <script setup>
-import { onMounted, onBeforeUnmount } from 'vue'
+import { onMounted, onBeforeUnmount, computed } from 'vue'
 import { useSongRecorder } from '@/recording/useSongRecorder.js'
 
 const props = defineProps({
     song: { type: Object, required: true },
-    // 依賴注入（測試用）：store / recorderFactory / audioFactory / playStep
+    // 依賴注入（測試用）：store / micRecorder / audioFactory / playStep
     options: { type: Object, default: () => ({}) },
 })
 
@@ -12,15 +12,18 @@ const emit = defineEmits(['close'])
 
 const rec = useSongRecorder(props.song, props.options)
 
-onMounted(() => { rec.load() })
+// 有某段正在錄音時，其他段的按鈕鎖住（一次只錄一段）
+const isSomeRecording = computed(() => rec.recordingLineId.value !== null)
+
+onMounted(() => {
+    rec.load()
+    rec.prepare() // 預取麥克風授權，之後按錄音才能即時開始
+})
 onBeforeUnmount(() => { rec.stopPlayAll(); rec.dispose() })
 
-function onHoldStart(line, e) {
-    e.preventDefault()
-    rec.startRecording(line.id)
-}
-function onHoldEnd(line) {
+function toggleRecord(line) {
     if (rec.isRecording(line.id)) rec.stopRecording()
+    else rec.startRecording(line.id)
 }
 </script>
 
@@ -33,7 +36,7 @@ function onHoldEnd(line) {
                     class="text-stone-500 hover:text-stone-800 text-2xl leading-none">✕</button>
                 <div class="flex-1 min-w-0">
                     <h2 class="font-bold text-stone-800 truncate">{{ song.title_native }}</h2>
-                    <p class="text-stone-500 text-sm">壓住段落錄音、放開結束</p>
+                    <p class="text-stone-500 text-sm">點段落開始錄音、再點一次停止</p>
                 </div>
             </div>
         </div>
@@ -43,9 +46,9 @@ function onHoldEnd(line) {
             未錄的段落播放時會用原唱補上，音色會和你的清唱不同，這是正常的。
         </div>
 
-        <div v-if="rec.error.value === 'mic'"
+        <div v-if="rec.error.value === 'mic'" role="alert"
             class="flex-shrink-0 px-4 py-2 bg-red-50 text-red-700 text-sm text-center">
-            無法使用麥克風，請確認已授權錄音權限。
+            無法取得麥克風，請確認瀏覽器已授權後重新整理頁面。
         </div>
 
         <!-- 段落清單 -->
@@ -63,22 +66,21 @@ function onHoldEnd(line) {
                     <div class="flex items-center gap-2">
                         <button
                             :aria-label="`錄音段落 ${line.order}`"
-                            @pointerdown="onHoldStart(line, $event)"
-                            @pointerup="onHoldEnd(line)"
-                            @pointerleave="onHoldEnd(line)"
-                            @pointercancel="onHoldEnd(line)"
-                            @contextmenu.prevent
-                            :class="['flex-1 select-none touch-none rounded-full py-2.5 text-white font-medium active:scale-95 transition-transform',
-                                rec.isRecording(line.id) ? 'bg-red-600' : 'bg-blue-600 hover:bg-blue-700']">
-                            <template v-if="rec.isRecording(line.id)">● 錄音中…放開結束</template>
-                            <template v-else-if="rec.hasRecording(line.id)">● 壓住重錄</template>
-                            <template v-else>● 壓住錄音</template>
+                            @click="toggleRecord(line)"
+                            :disabled="isSomeRecording && !rec.isRecording(line.id)"
+                            :class="['flex-1 rounded-full py-2.5 text-white font-medium active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed',
+                                rec.isRecording(line.id) ? 'bg-red-600'
+                                    : rec.hasRecording(line.id) ? 'bg-amber-600 hover:bg-amber-500'
+                                    : 'bg-blue-600 hover:bg-blue-700']">
+                            <template v-if="rec.isRecording(line.id)">● 錄音中⋯點擊停止</template>
+                            <template v-else-if="rec.hasRecording(line.id)">🔴 重新錄音</template>
+                            <template v-else>● 開始錄音</template>
                         </button>
-                        <button v-if="rec.hasRecording(line.id)"
+                        <button v-if="rec.hasRecording(line.id) && !rec.isRecording(line.id)"
                             :aria-label="`播放段落 ${line.order}`"
-                            @click.stop="rec.playSegment(line.id)"
-                            @pointerdown.stop
-                            class="flex-shrink-0 rounded-full px-4 py-2.5 bg-stone-200 text-stone-700 font-medium hover:bg-stone-300 active:scale-95 transition-transform">
+                            @click="rec.playSegment(line.id)"
+                            :disabled="isSomeRecording"
+                            class="flex-shrink-0 rounded-full px-4 py-2.5 bg-stone-200 text-stone-700 font-medium hover:bg-stone-300 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed">
                             ▶ 播放
                         </button>
                     </div>
