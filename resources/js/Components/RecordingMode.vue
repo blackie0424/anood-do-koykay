@@ -25,6 +25,11 @@ function toggleRecord(line) {
     if (rec.isRecording(line.id)) rec.stopRecording()
     else rec.startRecording(line.id)
 }
+
+// 聆聽原音顯示條件：該段有時間軸且該首歌有原音
+function canListenReference(line) {
+    return line.start_time != null && !!props.song.audio_full
+}
 </script>
 
 <template>
@@ -86,6 +91,14 @@ function toggleRecord(line) {
                             <template v-else>▶ 播放</template>
                         </button>
                     </div>
+                    <button v-if="canListenReference(line)"
+                        :aria-label="rec.referencePreviewLineId.value === line.id ? `暫停原音段落 ${line.order}` : `聆聽原音段落 ${line.order}`"
+                        @click="rec.playReference(line)"
+                        :disabled="isSomeRecording"
+                        class="mt-2 w-full rounded-full py-2 bg-indigo-100 text-indigo-700 font-medium hover:bg-indigo-200 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed">
+                        <template v-if="rec.referencePreviewLineId.value === line.id">⏸ 暫停</template>
+                        <template v-else>🎵 聆聽原音</template>
+                    </button>
                 </div>
             </div>
         </div>
