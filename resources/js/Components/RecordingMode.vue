@@ -46,9 +46,9 @@ function toggleRecord(line) {
             未錄的段落播放時會用原唱補上，音色會和你的清唱不同，這是正常的。
         </div>
 
-        <div v-if="rec.error.value === 'mic'"
+        <div v-if="rec.error.value === 'mic'" role="alert"
             class="flex-shrink-0 px-4 py-2 bg-red-50 text-red-700 text-sm text-center">
-            無法使用麥克風，請確認已授權錄音權限。
+            無法取得麥克風，請確認瀏覽器已授權後重新整理頁面。
         </div>
 
         <!-- 段落清單 -->

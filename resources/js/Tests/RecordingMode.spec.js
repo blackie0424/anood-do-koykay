@@ -70,6 +70,27 @@ describe('RecordingMode — 掛載預取麥克風授權', () => {
     })
 })
 
+describe('RecordingMode — 麥克風授權失敗提示', () => {
+    it('prepare 授權失敗時畫面顯示錯誤提示', async () => {
+        const store = createMemoryStore()
+        const mic = makeMic()
+        mic.acquire = vi.fn(async () => { throw new Error('denied') })
+        const wrapper = mount(RecordingMode, {
+            props: { song: SONG, options: { store, micRecorder: mic, playStep: vi.fn(() => Promise.resolve()) } },
+        })
+        await flushPromises()
+        const alert = wrapper.find('[role="alert"]')
+        expect(alert.exists()).toBe(true)
+        expect(alert.text()).toContain('無法取得麥克風')
+    })
+
+    it('授權正常時不顯示錯誤提示', async () => {
+        const { wrapper } = makeWrapper()
+        await flushPromises()
+        expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    })
+})
+
 describe('RecordingMode — toggle 錄音互動', () => {
     it('點一下開始錄音、再點一下停止並出現播放/重新錄音', async () => {
         const { wrapper } = makeWrapper()
