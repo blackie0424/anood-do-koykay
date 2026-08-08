@@ -9,7 +9,7 @@ class FakeMediaRecorder {
         this.mimeType = options?.mimeType || 'audio/webm'
         recorders.push(this)
     }
-    start() { this.started = true }
+    start(timeslice) { this.started = true; this.timeslice = timeslice }
     stop() {
         this.ondataavailable?.({ data: new Blob(['chunk'], { type: 'audio/webm' }) })
         this.onstop?.()
@@ -100,6 +100,19 @@ describe('createMicRecorder', () => {
         const mic = createMicRecorder()
         await mic.start()
         expect(recorders.at(-1).mimeType).toBe('audio/webm')
+    })
+
+    it('iOS Safari 僅支援完整 codec 字串時採用之', async () => {
+        supported = new Set(['audio/mp4;codecs=mp4a.40.2'])
+        const mic = createMicRecorder()
+        await mic.start()
+        expect(recorders.at(-1).mimeType).toBe('audio/mp4;codecs=mp4a.40.2')
+    })
+
+    it('start 傳入 timeslice 讓 Safari 定期觸發 ondataavailable', async () => {
+        const mic = createMicRecorder()
+        await mic.start()
+        expect(recorders.at(-1).timeslice).toBe(1000)
     })
 })
 
