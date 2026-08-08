@@ -116,6 +116,52 @@ describe('RecordingMode — toggle 錄音互動', () => {
     })
 })
 
+describe('RecordingMode — 自聽播放/暫停切換', () => {
+    it('點播放後按鈕變暫停，再點恢復播放', async () => {
+        const store = createMemoryStore()
+        await store.put(1, 11, new Blob(['saved'], { type: 'audio/webm' }))
+        const wrapper = mount(RecordingMode, {
+            props: {
+                song: SONG,
+                options: {
+                    store,
+                    micRecorder: makeMic(),
+                    audioFactory: () => ({ play: vi.fn(), pause: vi.fn(), addEventListener: vi.fn() }),
+                    playStep: vi.fn(() => Promise.resolve()),
+                },
+            },
+        })
+        await flushPromises()
+
+        await wrapper.find('[aria-label="播放段落 2"]').trigger('click')
+        expect(wrapper.find('[aria-label="暫停段落 2"]').exists()).toBe(true)
+        expect(wrapper.find('[aria-label="暫停段落 2"]').text()).toContain('暫停')
+
+        await wrapper.find('[aria-label="暫停段落 2"]').trigger('click')
+        expect(wrapper.find('[aria-label="播放段落 2"]').exists()).toBe(true)
+    })
+})
+
+describe('RecordingMode — 空錄音提示', () => {
+    it('錄到空 blob 時顯示「沒有聲音」提示且不新增播放鈕', async () => {
+        const store = createMemoryStore()
+        const mic = makeMic(new Blob([], { type: 'audio/webm' }))
+        const wrapper = mount(RecordingMode, {
+            props: { song: SONG, options: { store, micRecorder: mic, playStep: vi.fn(() => Promise.resolve()) } },
+        })
+        await flushPromises()
+        await wrapper.find('[aria-label="錄音段落 1"]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[aria-label="錄音段落 1"]').trigger('click')
+        await flushPromises()
+
+        const alert = wrapper.find('[role="alert"]')
+        expect(alert.exists()).toBe(true)
+        expect(alert.text()).toContain('沒有聲音')
+        expect(wrapper.find('[aria-label="播放段落 1"]').exists()).toBe(false)
+    })
+})
+
 describe('RecordingMode — 整體播放', () => {
     it('點整體播放呼叫 playStep', async () => {
         const { wrapper, options } = makeWrapper()
