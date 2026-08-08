@@ -27,6 +27,7 @@ export function useSongRecorder(song, options = {}) {
     const recordings = ref(new Map()) // lineId → { blob, url }
     const recordingLineId = ref(null)
     const isPlayingAll = ref(false)
+    const playingLineId = ref(null) // 整體播放：目前播到哪一段（供高亮）
     const error = ref(null)
 
     let activeRecorder = null
@@ -100,32 +101,53 @@ export function useSongRecorder(song, options = {}) {
         return referenceAudio
     }
 
-    function defaultPlayStep(step) {
+    // 播使用者錄音段：播到 ended 才 resolve；play() 被拒或無法播時也要 resolve 以推進下一段
+    function playUserStep(step) {
         return new Promise((resolve) => {
-            if (step.source === 'user') {
-                const rec = recordings.value.get(step.lineId)
-                if (!rec) return resolve()
-                const audio = audioFactory(rec.url)
-                audio.addEventListener?.('ended', () => resolve(), { once: true })
-                audio.play?.()
-                return
-            }
-            const audio = getReferenceAudio()
-            const onTime = () => {
-                if (step.end != null && audio.currentTime >= step.end) {
-                    audio.removeEventListener?.('timeupdate', onTime)
-                    audio.pause?.()
-                    resolve()
-                }
-            }
-            audio.addEventListener?.('timeupdate', onTime)
-            audio.addEventListener?.('ended', () => {
-                audio.removeEventListener?.('timeupdate', onTime)
+            const rec = recordings.value.get(step.lineId)
+            if (!rec) return resolve()
+            const audio = audioFactory(rec.url)
+            let done = false
+            const finish = () => {
+                if (done) return
+                done = true
+                audio.removeEventListener?.('ended', onEnded)
                 resolve()
-            }, { once: true })
-            audio.currentTime = step.start
-            audio.play?.()
+            }
+            const onEnded = () => finish()
+            audio.addEventListener?.('ended', onEnded)
+            const p = audio.play?.()
+            if (p && typeof p.catch === 'function') p.catch(() => finish())
         })
+    }
+
+    // 播未錄段的原唱切片：到 step.end 就停並推進；ended 或 play() 被拒也要 resolve
+    function playReferenceStep(step) {
+        return new Promise((resolve) => {
+            const audio = getReferenceAudio()
+            let done = false
+            const finish = () => {
+                if (done) return
+                done = true
+                audio.removeEventListener?.('timeupdate', onTime)
+                audio.removeEventListener?.('ended', onEnded)
+                audio.pause?.()
+                resolve()
+            }
+            const onTime = () => {
+                if (step.end != null && audio.currentTime >= step.end) finish()
+            }
+            const onEnded = () => finish()
+            audio.addEventListener?.('timeupdate', onTime)
+            audio.addEventListener?.('ended', onEnded)
+            audio.currentTime = step.start
+            const p = audio.play?.()
+            if (p && typeof p.catch === 'function') p.catch(() => finish())
+        })
+    }
+
+    function defaultPlayStep(step) {
+        return step.source === 'user' ? playUserStep(step) : playReferenceStep(step)
     }
 
     async function playAll() {
@@ -136,14 +158,17 @@ export function useSongRecorder(song, options = {}) {
         stopAllFlag = false
         for (const s of plan) {
             if (stopAllFlag) break
+            playingLineId.value = s.lineId
             await step(s)
         }
+        playingLineId.value = null
         isPlayingAll.value = false
     }
 
     function stopPlayAll() {
         stopAllFlag = true
         referenceAudio?.pause?.()
+        playingLineId.value = null
         isPlayingAll.value = false
     }
 
@@ -156,6 +181,7 @@ export function useSongRecorder(song, options = {}) {
         recordingLineId,
         recordedLineIds,
         isPlayingAll,
+        playingLineId,
         error,
         hasRecording,
         isRecording,

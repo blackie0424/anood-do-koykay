@@ -52,8 +52,11 @@ function onHoldEnd(line) {
         <div class="flex-1 overflow-y-auto min-h-0 px-3 py-4">
             <div class="max-w-2xl mx-auto space-y-3">
                 <div v-for="line in song.lines" :key="line.id"
+                    :aria-current="rec.playingLineId.value === line.id ? 'true' : undefined"
                     :class="['rounded-xl border p-3',
-                        rec.isRecording(line.id) ? 'border-red-400 bg-red-50' : 'border-stone-200 bg-white']">
+                        rec.playingLineId.value === line.id ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-300'
+                            : rec.isRecording(line.id) ? 'border-red-400 bg-red-50'
+                            : 'border-stone-200 bg-white']">
                     <p class="font-semibold text-stone-800 leading-snug mb-3" style="font-size: clamp(1.25rem, 4vw, 1.75rem)">
                         {{ line.text_native }}
                     </p>
