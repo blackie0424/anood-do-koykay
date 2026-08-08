@@ -162,6 +162,32 @@ describe('RecordingMode — 空錄音提示', () => {
     })
 })
 
+describe('RecordingMode — 聆聽原音', () => {
+    it('有原音且段落有時間軸時顯示聆聽原音鈕', () => {
+        const { wrapper } = makeWrapper()
+        expect(wrapper.find('[aria-label="聆聽原音段落 1"]').exists()).toBe(true)
+    })
+
+    it('audio_full 為空時不顯示聆聽原音鈕', () => {
+        const store = createMemoryStore()
+        const wrapper = mount(RecordingMode, {
+            props: {
+                song: { ...SONG, audio_full: null },
+                options: { store, micRecorder: makeMic(), playStep: vi.fn(() => Promise.resolve()) },
+            },
+        })
+        expect(wrapper.find('[aria-label="聆聽原音段落 1"]').exists()).toBe(false)
+    })
+
+    it('點聆聽原音後切換為暫停，再點恢復', async () => {
+        const { wrapper } = makeWrapper()
+        await wrapper.find('[aria-label="聆聽原音段落 1"]').trigger('click')
+        expect(wrapper.find('[aria-label="暫停原音段落 1"]').exists()).toBe(true)
+        await wrapper.find('[aria-label="暫停原音段落 1"]').trigger('click')
+        expect(wrapper.find('[aria-label="聆聽原音段落 1"]').exists()).toBe(true)
+    })
+})
+
 describe('RecordingMode — 整體播放', () => {
     it('點整體播放呼叫 playStep', async () => {
         const { wrapper, options } = makeWrapper()
@@ -203,7 +229,7 @@ describe('RecordingMode — 掛載載入既有錄音', () => {
         await flushPromises()
         expect(wrapper.find('[aria-label="播放段落 2"]').exists()).toBe(true)
         expect(wrapper.find('[aria-label="錄音段落 2"]').text()).toContain('重新錄音')
-        // 已錄段恰好兩顆按鈕（重新錄音 + 播放），沒有第三顆
-        expect(wrapper.findAll('[aria-label*="段落 2"]').length).toBe(2)
+        // 沒有重複的錄音鈕：錄音段落 2 只有一顆
+        expect(wrapper.findAll('[aria-label="錄音段落 2"]').length).toBe(1)
     })
 })

@@ -155,6 +155,97 @@ describe('useSongRecorder — 錄音狀態機（toggle）', () => {
     })
 })
 
+describe('useSongRecorder — 聆聽原音 playReference', () => {
+    function fakeAudioFactory() {
+        const created = []
+        const factory = (src) => {
+            const a = { src, currentTime: 0, play: vi.fn(() => Promise.resolve()), pause: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn() }
+            created.push(a)
+            return a
+        }
+        factory.created = created
+        return factory
+    }
+
+    it('playReference 設 referencePreviewLineId、依 start_time 定位播放', () => {
+        const af = fakeAudioFactory()
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: makeMicRecorder(), audioFactory: af })
+        r.playReference(SONG.lines[0]) // start_time 2.0
+        expect(r.referencePreviewLineId.value).toBe(10)
+        const audio = af.created.at(-1)
+        expect(audio.src).toBe('/audio/1.mp3')
+        expect(audio.currentTime).toBe(2.0)
+        expect(audio.play).toHaveBeenCalled()
+    })
+
+    it('再點同段 toggle 暫停', () => {
+        const af = fakeAudioFactory()
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: makeMicRecorder(), audioFactory: af })
+        r.playReference(SONG.lines[0])
+        r.playReference(SONG.lines[0])
+        expect(r.referencePreviewLineId.value).toBe(null)
+    })
+
+    it('end_time 為 null 時用下一段 start_time 當結尾（不提前結束）', () => {
+        const af = fakeAudioFactory()
+        const song = { ...SONG, lines: [
+            { id: 10, order: 1, start_time: 2.0, end_time: null },
+            { id: 11, order: 2, start_time: 6.0, end_time: 9.0 },
+        ] }
+        const r = useSongRecorder(song, { store: createMemoryStore(), micRecorder: makeMicRecorder(), audioFactory: af })
+        r.playReference(song.lines[0])
+        const audio = af.created.at(-1)
+        // 模擬時間推進：未到 6.0 不結束，到 6.0 才結束
+        const onTime = audio.addEventListener.mock.calls.find(c => c[0] === 'timeupdate')[1]
+        audio.currentTime = 5.9; onTime()
+        expect(r.referencePreviewLineId.value).toBe(10)
+        audio.currentTime = 6.0; onTime()
+        expect(r.referencePreviewLineId.value).toBe(null)
+    })
+
+    it('audio_full 為空時不播放', () => {
+        const af = fakeAudioFactory()
+        const song = { ...SONG, audio_full: null }
+        const r = useSongRecorder(song, { store: createMemoryStore(), micRecorder: makeMicRecorder(), audioFactory: af })
+        expect(r.playReference(song.lines[0])).toBe(null)
+        expect(r.referencePreviewLineId.value).toBe(null)
+    })
+
+    it('play() 被拒時不卡住，狀態回復', async () => {
+        const af = (src) => ({ src, currentTime: 0, play: vi.fn(() => Promise.reject(new Error('x'))), pause: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn() })
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: makeMicRecorder(), audioFactory: af })
+        r.playReference(SONG.lines[0])
+        await new Promise((res) => setTimeout(res, 0))
+        expect(r.referencePreviewLineId.value).toBe(null)
+    })
+
+    it('互斥：聆聽原音會停自聽；自聽會停原音', async () => {
+        const af = fakeAudioFactory()
+        const store = createMemoryStore()
+        const r = useSongRecorder(SONG, { store, micRecorder: makeMicRecorder(), audioFactory: af })
+        await r.startRecording(10); await r.stopRecording()
+
+        r.playSegment(10)
+        expect(r.previewLineId.value).toBe(10)
+        r.playReference(SONG.lines[1]) // 開始原音 → 停自聽
+        expect(r.previewLineId.value).toBe(null)
+        expect(r.referencePreviewLineId.value).toBe(11)
+
+        r.playSegment(10) // 開始自聽 → 停原音
+        expect(r.referencePreviewLineId.value).toBe(null)
+        expect(r.previewLineId.value).toBe(10)
+    })
+
+    it('互斥：開始錄音會停原音', async () => {
+        const af = fakeAudioFactory()
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: makeMicRecorder(), audioFactory: af })
+        r.playReference(SONG.lines[0])
+        expect(r.referencePreviewLineId.value).toBe(10)
+        await r.startRecording(11)
+        expect(r.referencePreviewLineId.value).toBe(null)
+    })
+})
+
 // 可被測試驅動事件的假 audio
 class FakeAudio {
     constructor(src) {
