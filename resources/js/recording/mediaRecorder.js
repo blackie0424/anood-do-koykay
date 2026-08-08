@@ -12,6 +12,18 @@
  * 每段獨立取得 stream 可避開這個問題；授權已在 acquire 取得，之後 getUserMedia
  * 不會再跳對話框。
  */
+// 依瀏覽器挑選支援的錄音格式：Safari 只支援 audio/mp4、Chrome/Firefox 支援 audio/webm。
+// 不指定時 Safari 可能錄不出有效資料（ondataavailable 空、blob size 0）。
+export function pickMimeType() {
+    const candidates = ['audio/webm', 'audio/mp4', 'audio/ogg']
+    if (typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function') {
+        for (const t of candidates) {
+            if (MediaRecorder.isTypeSupported(t)) return t
+        }
+    }
+    return ''
+}
+
 export function createMicRecorder() {
     let granted = false
     let mr = null
@@ -29,7 +41,8 @@ export function createMicRecorder() {
         activeStream = await navigator.mediaDevices.getUserMedia({ audio: true })
         granted = true
         chunks = []
-        mr = new MediaRecorder(activeStream)
+        const type = pickMimeType()
+        mr = type ? new MediaRecorder(activeStream, { mimeType: type }) : new MediaRecorder(activeStream)
         mr.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data) }
         mr.start()
     }
