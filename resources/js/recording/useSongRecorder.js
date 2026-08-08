@@ -101,6 +101,8 @@ export function useSongRecorder(song, options = {}) {
         }
         await store.put(song.id, lineId, blob)
         setRecording(lineId, blob)
+        // TODO(暫時)：Safari 整體播放跳段診斷，定位後移除
+        console.debug('[anood][stopRecording]', { lineId, size: blob.size, type: blob.type, recorded: [...recordings.value.keys()] })
     }
 
     async function deleteRecording(lineId) {
@@ -232,6 +234,8 @@ export function useSongRecorder(song, options = {}) {
         stopReferencePreview()
         const step = options.playStep ?? defaultPlayStep
         const plan = buildPlaybackPlan(song.lines, recordedLineIds.value)
+        // TODO(暫時)：Safari 整體播放跳段診斷，定位後移除
+        console.debug('[anood][playAll]', { recorded: recordedLineIds.value, plan: plan.map((s) => [s.lineId, s.source]) })
         isPlayingAll.value = true
         stopAllFlag = false
         for (const s of plan) {

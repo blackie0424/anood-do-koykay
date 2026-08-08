@@ -1,15 +1,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createMicRecorder } from '../recording/mediaRecorder.js'
+import { createMicRecorder, pickMimeType } from '../recording/mediaRecorder.js'
 
 // jsdom 沒有 MediaRecorder / getUserMedia，用 fake 驗證 wiring。
+let recorders
 class FakeMediaRecorder {
-    constructor(stream) { this.stream = stream; this.mimeType = 'audio/webm' }
-    start() { this.started = true }
+    constructor(stream, options) {
+        this.stream = stream
+        this.mimeType = options?.mimeType || 'audio/webm'
+        recorders.push(this)
+    }
+    start(timeslice) { this.started = true; this.timeslice = timeslice }
     stop() {
         this.ondataavailable?.({ data: new Blob(['chunk'], { type: 'audio/webm' }) })
         this.onstop?.()
     }
 }
+// 預設支援的格式集合，測試可覆寫
+let supported
+FakeMediaRecorder.isTypeSupported = (t) => supported.has(t)
 
 function makeStream() {
     const stop = vi.fn()
@@ -20,6 +28,8 @@ let streams
 let getUserMedia
 beforeEach(() => {
     streams = []
+    recorders = []
+    supported = new Set(['audio/webm', 'audio/mp4', 'audio/ogg'])
     getUserMedia = vi.fn(async () => { const s = makeStream(); streams.push(s); return s })
     global.MediaRecorder = FakeMediaRecorder
     global.navigator.mediaDevices = { getUserMedia }
@@ -76,5 +86,46 @@ describe('createMicRecorder', () => {
         await mic.start()
         mic.release()
         expect(streams[0]._stop).toHaveBeenCalled()
+    })
+
+    it('Safari（只支援 audio/mp4）建立 MediaRecorder 時指定 mp4', async () => {
+        supported = new Set(['audio/mp4'])
+        const mic = createMicRecorder()
+        await mic.start()
+        expect(recorders.at(-1).mimeType).toBe('audio/mp4')
+    })
+
+    it('Chrome（支援 audio/webm）建立 MediaRecorder 時指定 webm', async () => {
+        supported = new Set(['audio/webm', 'audio/mp4'])
+        const mic = createMicRecorder()
+        await mic.start()
+        expect(recorders.at(-1).mimeType).toBe('audio/webm')
+    })
+
+    it('iOS Safari 僅支援完整 codec 字串時採用之', async () => {
+        supported = new Set(['audio/mp4;codecs=mp4a.40.2'])
+        const mic = createMicRecorder()
+        await mic.start()
+        expect(recorders.at(-1).mimeType).toBe('audio/mp4;codecs=mp4a.40.2')
+    })
+
+    it('start 傳入 timeslice 讓 Safari 定期觸發 ondataavailable', async () => {
+        const mic = createMicRecorder()
+        await mic.start()
+        expect(recorders.at(-1).timeslice).toBe(1000)
+    })
+})
+
+describe('pickMimeType', () => {
+    it('優先 webm，Safari 情況退回 mp4', () => {
+        supported = new Set(['audio/webm', 'audio/mp4'])
+        expect(pickMimeType()).toBe('audio/webm')
+        supported = new Set(['audio/mp4'])
+        expect(pickMimeType()).toBe('audio/mp4')
+    })
+
+    it('皆不支援時回傳空字串（交給瀏覽器預設）', () => {
+        supported = new Set()
+        expect(pickMimeType()).toBe('')
     })
 })
