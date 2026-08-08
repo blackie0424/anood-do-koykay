@@ -82,6 +82,26 @@ describe('RecordingMode — 整體播放', () => {
     })
 })
 
+describe('RecordingMode — 整體播放高亮當前段', () => {
+    it('播放中的段落標記 aria-current', async () => {
+        let resolveStep
+        const { wrapper } = makeWrapper({
+            playStep: () => new Promise((r) => { resolveStep = r }),
+        })
+        await flushPromises()
+        await wrapper.find('[aria-label="整體播放我的接唱版本"]').trigger('click')
+        await flushPromises()
+
+        // 第一段（line 10）正在播 → 有 aria-current
+        const current = wrapper.find('[aria-current="true"]')
+        expect(current.exists()).toBe(true)
+        expect(current.text()).toContain('Maomaw')
+
+        resolveStep()
+        await flushPromises()
+    })
+})
+
 describe('RecordingMode — 掛載載入既有錄音', () => {
     it('已存在的錄音在掛載後顯示播放鈕', async () => {
         const store = createMemoryStore()
