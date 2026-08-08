@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { buildPlaybackPlan } from './playbackSequencer.js'
 import { createDefaultStore } from './recordingStore.js'
-import { createMediaRecorderFactory } from './mediaRecorder.js'
+import { createMicRecorder } from './mediaRecorder.js'
 
 function makeUrl(blob) {
     try { return URL.createObjectURL(blob) } catch { return '' }
@@ -14,23 +14,23 @@ function revokeUrl(url) {
  * 接唱模式 v1 逐段錄音狀態機。
  *
  * 依賴以參數注入，方便測試：
- *   store           錄音儲存層（預設 IndexedDB）
- *   recorderFactory async () => { start(), stop():Promise<Blob> }
- *   audioFactory    (src) => HTMLAudioElement 類物件
- *   playStep        (step) => Promise<void>，整體播放單段（預設用 audioFactory）
+ *   store        錄音儲存層（預設 IndexedDB）
+ *   micRecorder  麥克風錄音器 { acquire(), start(), stop():Promise<Blob>, release() }
+ *   audioFactory (src) => HTMLAudioElement 類物件
+ *   playStep     (step) => Promise<void>，整體播放單段（預設用 audioFactory）
  */
 export function useSongRecorder(song, options = {}) {
     const store = options.store ?? createDefaultStore()
-    const createRecorder = options.recorderFactory ?? createMediaRecorderFactory()
+    const micRecorder = options.micRecorder ?? createMicRecorder()
     const audioFactory = options.audioFactory ?? ((src) => new Audio(src))
 
     const recordings = ref(new Map()) // lineId → { blob, url }
     const recordingLineId = ref(null)
+    const micReady = ref(false)
     const isPlayingAll = ref(false)
     const playingLineId = ref(null) // 整體播放：目前播到哪一段（供高亮）
     const error = ref(null)
 
-    let activeRecorder = null
     let referenceAudio = null
     let stopAllFlag = false
 
@@ -54,27 +54,33 @@ export function useSongRecorder(song, options = {}) {
         recordings.value = next
     }
 
+    // 進入錄音介面時預取一次麥克風授權，之後按錄音才能即時開始、不被授權對話框打斷
+    async function prepare() {
+        try {
+            await micRecorder.acquire()
+            micReady.value = true
+        } catch {
+            error.value = 'mic'
+        }
+    }
+
     async function startRecording(lineId) {
         if (recordingLineId.value != null) return
         error.value = null
         try {
-            activeRecorder = await createRecorder()
-            await activeRecorder.start()
+            await micRecorder.start()
             recordingLineId.value = lineId
         } catch {
-            activeRecorder = null
             recordingLineId.value = null
             error.value = 'mic'
         }
     }
 
     async function stopRecording() {
-        if (recordingLineId.value == null || !activeRecorder) return
+        if (recordingLineId.value == null) return
         const lineId = recordingLineId.value
-        const recorder = activeRecorder
-        activeRecorder = null
         recordingLineId.value = null
-        const blob = await recorder.stop()
+        const blob = await micRecorder.stop()
         await store.put(song.id, lineId, blob)
         setRecording(lineId, blob)
     }
@@ -173,6 +179,7 @@ export function useSongRecorder(song, options = {}) {
     }
 
     function dispose() {
+        micRecorder.release?.()
         for (const rec of recordings.value.values()) revokeUrl(rec.url)
     }
 
@@ -180,12 +187,14 @@ export function useSongRecorder(song, options = {}) {
         recordings,
         recordingLineId,
         recordedLineIds,
+        micReady,
         isPlayingAll,
         playingLineId,
         error,
         hasRecording,
         isRecording,
         load,
+        prepare,
         startRecording,
         stopRecording,
         deleteRecording,

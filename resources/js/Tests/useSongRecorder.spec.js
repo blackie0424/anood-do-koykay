@@ -14,38 +14,58 @@ const SONG = {
 
 function fakeBlob(s = 'x') { return new Blob([s], { type: 'audio/webm' }) }
 
-// 每次錄音回傳固定 blob 的錄音器
-function makeRecorderFactory(blob = fakeBlob()) {
-    const started = []
-    const factory = vi.fn(async () => ({
-        start: vi.fn(() => started.push(true)),
+// 假麥克風錄音器：acquire/start/stop/release 生命週期
+function makeMicRecorder(blob = fakeBlob()) {
+    return {
+        acquire: vi.fn(async () => {}),
+        start: vi.fn(async () => {}),
         stop: vi.fn(async () => blob),
-    }))
-    factory.started = started
-    return factory
+        release: vi.fn(),
+    }
 }
+// 相容舊測試呼叫名
+const makeRecorderFactory = makeMicRecorder
 
-describe('useSongRecorder — 錄音狀態機', () => {
-    it('startRecording 設定 recordingLineId', async () => {
-        const r = useSongRecorder(SONG, { store: createMemoryStore(), recorderFactory: makeRecorderFactory() })
+describe('useSongRecorder — 錄音狀態機（toggle）', () => {
+    it('prepare 預取麥克風授權，micReady 變 true', async () => {
+        const mic = makeMicRecorder()
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: mic })
+        await r.prepare()
+        expect(mic.acquire).toHaveBeenCalledTimes(1)
+        expect(r.micReady.value).toBe(true)
+    })
+
+    it('prepare 授權失敗時設 error', async () => {
+        const mic = makeMicRecorder()
+        mic.acquire = vi.fn(async () => { throw new Error('denied') })
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: mic })
+        await r.prepare()
+        expect(r.micReady.value).toBe(false)
+        expect(r.error.value).toBe('mic')
+    })
+
+    it('startRecording 設定 recordingLineId 並呼叫 mic.start', async () => {
+        const mic = makeMicRecorder()
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: mic })
         await r.startRecording(10)
         expect(r.recordingLineId.value).toBe(10)
         expect(r.isRecording(10)).toBe(true)
+        expect(mic.start).toHaveBeenCalledTimes(1)
     })
 
     it('已在錄音時再 startRecording 另一段會被忽略', async () => {
-        const factory = makeRecorderFactory()
-        const r = useSongRecorder(SONG, { store: createMemoryStore(), recorderFactory: factory })
+        const mic = makeMicRecorder()
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: mic })
         await r.startRecording(10)
         await r.startRecording(11)
         expect(r.recordingLineId.value).toBe(10)
-        expect(factory).toHaveBeenCalledTimes(1)
+        expect(mic.start).toHaveBeenCalledTimes(1)
     })
 
     it('stopRecording 存 blob、更新 recordings、清空 recordingLineId', async () => {
         const store = createMemoryStore()
         const blob = fakeBlob('take1')
-        const r = useSongRecorder(SONG, { store, recorderFactory: makeRecorderFactory(blob) })
+        const r = useSongRecorder(SONG, { store, micRecorder: makeMicRecorder(blob) })
         await r.startRecording(10)
         await r.stopRecording()
         expect(r.recordingLineId.value).toBe(null)
@@ -53,25 +73,45 @@ describe('useSongRecorder — 錄音狀態機', () => {
         expect((await store.getAllForSong(1)).get(10)).toBe(blob)
     })
 
+    it('toggle 重新錄音會覆蓋舊錄音', async () => {
+        const store = createMemoryStore()
+        const b1 = fakeBlob('take1')
+        const b2 = fakeBlob('take2')
+        const mic = makeMicRecorder(b1)
+        const r = useSongRecorder(SONG, { store, micRecorder: mic })
+        await r.startRecording(10); await r.stopRecording()
+        mic.stop = vi.fn(async () => b2)
+        await r.startRecording(10); await r.stopRecording()
+        expect((await store.getAllForSong(1)).get(10)).toBe(b2)
+    })
+
     it('未在錄音時 stopRecording 為 no-op', async () => {
         const store = createMemoryStore()
-        const r = useSongRecorder(SONG, { store, recorderFactory: makeRecorderFactory() })
+        const r = useSongRecorder(SONG, { store, micRecorder: makeMicRecorder() })
         await r.stopRecording()
         expect(r.hasRecording(10)).toBe(false)
         expect((await store.getAllForSong(1)).size).toBe(0)
     })
 
-    it('getUserMedia 失敗時設 error 且不進入錄音狀態', async () => {
-        const failing = vi.fn(async () => { throw new Error('denied') })
-        const r = useSongRecorder(SONG, { store: createMemoryStore(), recorderFactory: failing })
+    it('mic.start 失敗時設 error 且不進入錄音狀態', async () => {
+        const mic = makeMicRecorder()
+        mic.start = vi.fn(async () => { throw new Error('denied') })
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: mic })
         await r.startRecording(10)
         expect(r.recordingLineId.value).toBe(null)
         expect(r.error.value).toBe('mic')
     })
 
+    it('dispose 釋放麥克風', async () => {
+        const mic = makeMicRecorder()
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: mic })
+        r.dispose()
+        expect(mic.release).toHaveBeenCalled()
+    })
+
     it('deleteRecording 移除該段（重錄用）', async () => {
         const store = createMemoryStore()
-        const r = useSongRecorder(SONG, { store, recorderFactory: makeRecorderFactory() })
+        const r = useSongRecorder(SONG, { store, micRecorder: makeMicRecorder() })
         await r.startRecording(10); await r.stopRecording()
         expect(r.hasRecording(10)).toBe(true)
         await r.deleteRecording(10)
@@ -82,14 +122,14 @@ describe('useSongRecorder — 錄音狀態機', () => {
     it('load 從 store 載入既有錄音', async () => {
         const store = createMemoryStore()
         await store.put(1, 11, fakeBlob('saved'))
-        const r = useSongRecorder(SONG, { store, recorderFactory: makeRecorderFactory() })
+        const r = useSongRecorder(SONG, { store, micRecorder: makeMicRecorder() })
         await r.load()
         expect(r.hasRecording(11)).toBe(true)
         expect(r.recordedLineIds.value).toEqual([11])
     })
 
     it('playSegment 無錄音時回傳 null', () => {
-        const r = useSongRecorder(SONG, { store: createMemoryStore(), recorderFactory: makeRecorderFactory() })
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: makeMicRecorder() })
         expect(r.playSegment(10)).toBe(null)
     })
 })
@@ -137,7 +177,7 @@ describe('useSongRecorder — 整體播放真實推進（跳段）', () => {
         const audios = []
         const r = useSongRecorder(SONG5, {
             store,
-            recorderFactory: makeRecorderFactory(),
+            micRecorder: makeMicRecorder(),
             audioFactory: (src) => { const a = new FakeAudio(src); audios.push(a); return a },
         })
         await r.load()
@@ -171,7 +211,7 @@ describe('useSongRecorder — 整體播放真實推進（跳段）', () => {
         const audios = []
         const r = useSongRecorder({ ...SONG5, lines: SONG5.lines.slice(0, 2) }, {
             store,
-            recorderFactory: makeRecorderFactory(),
+            micRecorder: makeMicRecorder(),
             audioFactory: (src) => {
                 const a = new FakeAudio(src)
                 if (audios.length === 0) a.playImpl = () => Promise.reject(new Error('blocked'))
@@ -193,7 +233,7 @@ describe('useSongRecorder — 整體播放真實推進（跳段）', () => {
         const audios = []
         const r = useSongRecorder({ ...SONG5, lines: SONG5.lines.slice(0, 1) }, {
             store,
-            recorderFactory: makeRecorderFactory(),
+            micRecorder: makeMicRecorder(),
             audioFactory: (src) => { const a = new FakeAudio(src); audios.push(a); return a },
         })
         await r.load()
@@ -211,7 +251,7 @@ describe('useSongRecorder — 整體播放（playAll）', () => {
         const calls = []
         const r = useSongRecorder(SONG, {
             store,
-            recorderFactory: makeRecorderFactory(),
+            micRecorder: makeMicRecorder(),
             playStep: (s) => { calls.push(s); return Promise.resolve() },
         })
         // 錄第 2 段
@@ -233,7 +273,7 @@ describe('useSongRecorder — 整體播放（playAll）', () => {
         let stop
         const r = useSongRecorder(SONG, {
             store,
-            recorderFactory: makeRecorderFactory(),
+            micRecorder: makeMicRecorder(),
             playStep: (s) => {
                 calls.push(s)
                 if (s.lineId === 10) stop()
