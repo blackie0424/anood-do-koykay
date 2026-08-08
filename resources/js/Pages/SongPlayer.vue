@@ -13,6 +13,12 @@ const canRecord = computed(() =>
 )
 const showRecording = ref(false)
 
+// 進入錄音模式前先暫停原唱，避免原音被錄進使用者的清唱
+function openRecording() {
+    if (audio.value && isPlaying.value) audio.value.pause()
+    showRecording.value = true
+}
+
 const audio = ref(null)
 const currentTime = ref(0)
 const isPlaying = ref(false)
@@ -219,7 +225,7 @@ async function share() {
                             aria-label="歌詞閱讀模式">
                             📖 歌詞
                         </a>
-                        <button v-if="canRecord" @click="showRecording = true"
+                        <button v-if="canRecord" @click="openRecording"
                             class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-600 text-white text-sm hover:bg-rose-500 active:scale-95 transition-transform"
                             aria-label="接唱錄音">
                             🎤 錄唱
