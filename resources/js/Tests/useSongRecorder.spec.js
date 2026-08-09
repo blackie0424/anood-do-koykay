@@ -70,7 +70,7 @@ describe('useSongRecorder — 錄音狀態機（toggle）', () => {
         await r.stopRecording()
         expect(r.recordingLineId.value).toBe(null)
         expect(r.hasRecording(10)).toBe(true)
-        expect((await store.getAllForSong(1)).get(10)).toBe(blob)
+        expect((await store.getAllForSong(1)).get(10).blob).toBe(blob)
     })
 
     it('toggle 重新錄音會覆蓋舊錄音', async () => {
@@ -82,7 +82,7 @@ describe('useSongRecorder — 錄音狀態機（toggle）', () => {
         await r.startRecording(10); await r.stopRecording()
         mic.stop = vi.fn(async () => b2)
         await r.startRecording(10); await r.stopRecording()
-        expect((await store.getAllForSong(1)).get(10)).toBe(b2)
+        expect((await store.getAllForSong(1)).get(10).blob).toBe(b2)
     })
 
     it('未在錄音時 stopRecording 為 no-op', async () => {
@@ -361,6 +361,33 @@ describe('useSongRecorder — 整體播放真實推進（跳段）', () => {
         await flush(); expect(r.playingLineId.value).toBe(2); audios[1].seekTo(1); audios[1].end()
         await done
         expect(r.isPlayingAll.value).toBe(false)
+    })
+
+    it('Safari 無 audio 事件時，依錄音時長定時推進（不卡住）', async () => {
+        const store = createMemoryStore()
+        await store.put(5, 1, fakeBlob(), 500) // 錄音時長 500ms
+
+        const audios = []
+        const r = useSongRecorder({ ...SONG5, lines: SONG5.lines.slice(0, 1) }, {
+            store,
+            micRecorder: makeMicRecorder(),
+            audioFactory: (src) => { const a = new FakeAudio(src); audios.push(a); return a },
+        })
+        await r.load()
+
+        vi.useFakeTimers()
+        try {
+            const done = r.playAll()
+            await Promise.resolve()
+            expect(r.playingLineId.value).toBe(1)
+            // 完全不觸發任何 audio 事件，只靠時長計時器推進
+            await vi.advanceTimersByTimeAsync(800)
+            await done
+            expect(r.isPlayingAll.value).toBe(false)
+            expect(r.playingLineId.value).toBe(null)
+        } finally {
+            vi.useRealTimers()
+        }
     })
 
     it('Safari spurious ended（尚未播放就觸發）不推進，真正播放後才推進', async () => {
