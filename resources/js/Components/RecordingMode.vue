@@ -31,11 +31,6 @@ function toggleRecord(line) {
 function canListenReference(line) {
     return line.start_time != null && !!props.song.audio_full
 }
-
-// TODO(暫時)：Safari 跳段診斷，顯示每段抓到的錄音時長，定位後移除
-function segDuration(line) {
-    return rec.recordings.value.get(line.id)?.duration ?? null
-}
 </script>
 
 <template>
@@ -102,9 +97,6 @@ function segDuration(line) {
                             <template v-else>▶ 播放</template>
                         </button>
                     </div>
-                    <p v-if="rec.hasRecording(line.id)" class="mt-1 text-xs text-stone-400">
-                        （診斷）時長：{{ segDuration(line) != null ? segDuration(line) + 'ms' : '未知' }}
-                    </p>
                     <button v-if="canListenReference(line)"
                         :aria-label="rec.referencePreviewLineId.value === line.id ? `暫停原音段落 ${line.order}` : `聆聽原音段落 ${line.order}`"
                         @click="rec.playReference(line)"
