@@ -85,6 +85,29 @@ describe('useSongRecorder — 錄音狀態機（toggle）', () => {
         expect((await store.getAllForSong(1)).get(10).blob).toBe(b2)
     })
 
+    it('stopRecording 以解碼取得的實際時長為準存入', async () => {
+        const store = createMemoryStore()
+        const r = useSongRecorder(SONG, {
+            store,
+            micRecorder: makeMicRecorder(),
+            durationFromBlob: async () => 777, // 解碼得到的實際毫秒數
+        })
+        await r.startRecording(10); await r.stopRecording()
+        expect((await store.getAllForSong(1)).get(10).duration).toBe(777)
+    })
+
+    it('解碼失敗時退回碼表時長（仍為數字）', async () => {
+        const store = createMemoryStore()
+        const r = useSongRecorder(SONG, {
+            store,
+            micRecorder: makeMicRecorder(),
+            durationFromBlob: async () => null, // 解碼失敗
+        })
+        await r.startRecording(10); await r.stopRecording()
+        const duration = (await store.getAllForSong(1)).get(10).duration
+        expect(typeof duration).toBe('number')
+    })
+
     it('未在錄音時 stopRecording 為 no-op', async () => {
         const store = createMemoryStore()
         const r = useSongRecorder(SONG, { store, micRecorder: makeMicRecorder() })

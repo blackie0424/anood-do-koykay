@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import { buildPlaybackPlan } from './playbackSequencer.js'
 import { createDefaultStore } from './recordingStore.js'
 import { createMicRecorder } from './mediaRecorder.js'
+import { getBlobDuration } from './audioDuration.js'
 
 const USER_PLAY_TAIL_MS = 250 // 依錄音時長推進時，尾端多留一點時間
 const USER_PLAY_FALLBACK_MS = 8000 // 舊錄音無時長資訊時的保險上限
@@ -26,6 +27,7 @@ export function useSongRecorder(song, options = {}) {
     const store = options.store ?? createDefaultStore()
     const micRecorder = options.micRecorder ?? createMicRecorder()
     const audioFactory = options.audioFactory ?? ((src) => new Audio(src))
+    const durationFromBlob = options.durationFromBlob ?? getBlobDuration
 
     const recordings = ref(new Map()) // lineId → { blob, url }
     const recordingLineId = ref(null)
@@ -112,13 +114,16 @@ export function useSongRecorder(song, options = {}) {
         if (recordingLineId.value == null) return
         const lineId = recordingLineId.value
         recordingLineId.value = null
-        const duration = recordStartAt ? Date.now() - recordStartAt : null // 錄音實際長度（毫秒）
+        const stopwatch = recordStartAt ? Date.now() - recordStartAt : null // 後備：碼表估算
         const blob = await micRecorder.stop()
         // 空 blob（iOS 連續錄音可能靜音）不儲存，提示使用者重錄
         if (!blob || blob.size === 0) {
             error.value = 'empty'
             return
         }
+        // 精準：解碼錄音取得實際時長；失敗才退回碼表
+        const decoded = await durationFromBlob(blob)
+        const duration = (Number.isFinite(decoded) && decoded > 0) ? decoded : stopwatch
         try {
             await store.put(song.id, lineId, blob, duration)
         } catch {
