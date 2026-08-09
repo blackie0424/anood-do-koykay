@@ -327,13 +327,14 @@ const SONG5 = {
     ],
 }
 
-describe('useSongRecorder — 整體播放真實推進（共用單一 audio）', () => {
+describe('useSongRecorder — 整體播放真實推進（iOS 共用單一 audio）', () => {
     function setup(song) {
         const store = createMemoryStore()
         const audios = []
         const r = useSongRecorder(song, {
             store,
             micRecorder: makeMicRecorder(),
+            needsAudioUnlock: true, // 走 iOS 共用元素路徑
             audioFactory: (src) => { const a = new FakeAudio(src); audios.push(a); return a },
         })
         return { store, audios, r }
@@ -386,6 +387,7 @@ describe('useSongRecorder — 整體播放真實推進（共用單一 audio）',
         const r2 = useSongRecorder({ ...SONG5, lines: SONG5.lines.slice(0, 2) }, {
             store,
             micRecorder: makeMicRecorder(),
+            needsAudioUnlock: true,
             audioFactory: () => { const a = new FakeAudio(''); a.playImpl = () => Promise.reject(new Error('blocked')); return a },
         })
         await r2.load()
@@ -436,6 +438,67 @@ describe('useSongRecorder — 整體播放真實推進（共用單一 audio）',
         await done
         expect(r.isPlayingAll.value).toBe(false)
         expect(a.paused).toBe(true)
+    })
+})
+
+describe('useSongRecorder — 整體播放（非 iOS 每段各建 audio）', () => {
+    function setup(song) {
+        const store = createMemoryStore()
+        const audios = []
+        const r = useSongRecorder(song, {
+            store,
+            micRecorder: makeMicRecorder(),
+            needsAudioUnlock: false, // 走每段各建 audio 的舊路徑
+            audioFactory: (src) => { const a = new FakeAudio(src); audios.push(a); return a },
+        })
+        return { store, audios, r }
+    }
+
+    it('每段各建 audio；reference 用專用元素直接 seek（不換 src、不等 metadata）', async () => {
+        const { store, audios, r } = setup({ ...SONG5, lines: SONG5.lines.slice(0, 3) })
+        await store.put(5, 1, fakeBlob(), 100)
+        await r.load()
+        const done = r.playAll()
+        // 段1 user → 自建 audios[0]
+        await flush(); expect(r.playingLineId.value).toBe(1); audios[0].seekTo(1); audios[0].end()
+        // 段2 reference → 專用 referenceAudio（audios[1]），src 就是 audio_full，直接 seek、不需 metadata
+        await flush(); expect(r.playingLineId.value).toBe(2)
+        expect(audios[1].src).toBe('/audio/5.mp3')
+        expect(audios[1].currentTime).toBe(2) // 直接 seek 到 start
+        audios[1].seekTo(4)
+        // 段3 reference → 重用同一 referenceAudio
+        await flush(); expect(r.playingLineId.value).toBe(3)
+        audios[1].seekTo(6)
+        await done
+        expect(r.isPlayingAll.value).toBe(false)
+    })
+
+    it('每段各建 audio：user↔reference 交替推進', async () => {
+        const { store, audios, r } = setup({ ...SONG5, lines: SONG5.lines.slice(0, 4) })
+        await store.put(5, 1, fakeBlob(), 100)
+        await store.put(5, 2, fakeBlob(), 100)
+        await store.put(5, 4, fakeBlob(), 100)
+        await r.load()
+        const done = r.playAll()
+        await flush(); expect(r.playingLineId.value).toBe(1); audios[0].seekTo(1); audios[0].end()
+        await flush(); expect(r.playingLineId.value).toBe(2); audios[1].seekTo(1); audios[1].end()
+        // 段3 reference → referenceAudio = audios[2]
+        await flush(); expect(r.playingLineId.value).toBe(3); audios[2].seekTo(6)
+        // 段4 user → 自建 audios[3]
+        await flush(); expect(r.playingLineId.value).toBe(4); audios[3].seekTo(1); audios[3].end()
+        await done
+        expect(r.isPlayingAll.value).toBe(false)
+    })
+
+    it('非 iOS 不建立共用元素：整首只播一段 reference 用專用元素', async () => {
+        const { store, audios, r } = setup({ ...SONG5, lines: SONG5.lines.slice(0, 1) })
+        await r.load() // 無錄音 → 段1 reference
+        const done = r.playAll()
+        await flush()
+        expect(audios.length).toBe(1) // 只有 referenceAudio，一個
+        audios[0].seekTo(2)
+        await done
+        expect(r.isPlayingAll.value).toBe(false)
     })
 })
 

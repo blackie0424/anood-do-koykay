@@ -7,6 +7,16 @@ import { getBlobDuration } from './audioDuration.js'
 const USER_PLAY_TAIL_MS = 250 // 依錄音時長推進時，尾端多留一點時間
 const USER_PLAY_FALLBACK_MS = 8000 // 舊錄音無時長資訊時的保險上限
 
+// iOS Safari 需要「手勢當下解鎖的共用 audio 元素」才能連續播放；其他平台用每段各建 audio 的舊路徑。
+// iPadOS 13+ 的 UA 會偽裝成 Mac，故補 MacIntel + 多點觸控判斷。
+function detectNeedsAudioUnlock() {
+    if (typeof navigator === 'undefined') return false
+    const ua = navigator.userAgent || ''
+    if (/iPad|iPhone|iPod/.test(ua)) return true
+    if (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1) return true
+    return false
+}
+
 function makeUrl(blob) {
     try { return URL.createObjectURL(blob) } catch { return '' }
 }
@@ -28,6 +38,7 @@ export function useSongRecorder(song, options = {}) {
     const micRecorder = options.micRecorder ?? createMicRecorder()
     const audioFactory = options.audioFactory ?? ((src) => new Audio(src))
     const durationFromBlob = options.durationFromBlob ?? getBlobDuration
+    const needsAudioUnlock = typeof options.needsAudioUnlock === 'boolean' ? options.needsAudioUnlock : detectNeedsAudioUnlock()
 
     const recordings = ref(new Map()) // lineId → { blob, url }
     const recordingLineId = ref(null)
@@ -41,7 +52,9 @@ export function useSongRecorder(song, options = {}) {
 
     let previewAudio = null
     let refPreviewAudio = null
-    let playbackAudio = null // 整體播放共用的 audio 元素（iOS 手勢解鎖後可連續播）
+    let referenceAudio = null // 非 iOS 路徑：專用播原唱的 audio 元素
+    let userStepAudio = null // 非 iOS 路徑：整體播放中正在播的使用者段
+    let playbackAudio = null // iOS 路徑：整體播放共用的 audio 元素（手勢解鎖後可連續播）
     let activeStepCancel = null // 停止整體播放時用來結束當前段
     let recordStartAt = 0
     let stopAllFlag = false
@@ -201,13 +214,21 @@ export function useSongRecorder(song, options = {}) {
         return audio
     }
 
-    // 播使用者錄音段（用整體播放的共用 audio 元素）。
+    function getReferenceAudio() {
+        if (!referenceAudio) referenceAudio = audioFactory(song.audio_full)
+        return referenceAudio
+    }
+
+    // 播使用者錄音段。sharedAudio 有值＝iOS 共用元素路徑（換 src）；否則每段各建 audio（非 iOS）。
     // Safari mp4 缺時長資訊，靠 audio 事件判斷結束不可靠，改用「錄音當下量到的時長」定時推進；
-    // 舊錄音無時長時退回 ended + 保險上限。play() 被拒也推進。
-    function playUserStep(step, audio) {
+    // 舊錄音無時長時退回 ended + 保險上限；play() 被拒也推進。
+    function playUserStep(step, sharedAudio) {
         return new Promise((resolve) => {
             const rec = recordings.value.get(step.lineId)
             if (!rec) return resolve()
+            const audio = sharedAudio || audioFactory(rec.url)
+            if (sharedAudio) { audio.src = rec.url; audio.load?.() }
+            userStepAudio = audio
             let done = false
             let progressed = false
             let timer = null
@@ -217,6 +238,7 @@ export function useSongRecorder(song, options = {}) {
                 if (timer) clearTimeout(timer)
                 audio.removeEventListener?.('timeupdate', onProgress)
                 audio.removeEventListener?.('ended', onEnded)
+                if (userStepAudio === audio) userStepAudio = null
                 if (activeStepCancel === finish) activeStepCancel = null
                 resolve()
             }
@@ -225,8 +247,6 @@ export function useSongRecorder(song, options = {}) {
             const onEnded = () => { if (progressed) finish() } // 忽略尚未真正播放就觸發的 spurious ended
             audio.addEventListener?.('timeupdate', onProgress)
             audio.addEventListener?.('ended', onEnded)
-            audio.src = rec.url
-            audio.load?.()
             const p = audio.play?.()
             if (p && typeof p.catch === 'function') p.catch(() => finish())
             const hasDuration = Number.isFinite(rec.duration) && rec.duration > 0
@@ -234,10 +254,11 @@ export function useSongRecorder(song, options = {}) {
         })
     }
 
-    // 播未錄段的原唱切片（同一共用 audio）：切到 audio_full、seek 到起點、到 end 推進。
-    // 換 src 需 load()＋等 loadedmetadata 才能 seek（Safari）。
-    function playReferenceStep(step, audio) {
+    // 播未錄段的原唱切片：到 step.end 就停並推進；ended 或 play() 被拒也要 resolve。
+    // sharedAudio 路徑需換 src 到 audio_full 並等 loadedmetadata 才能 seek；非 iOS 用專用元素直接 seek。
+    function playReferenceStep(step, sharedAudio) {
         return new Promise((resolve) => {
+            const audio = sharedAudio || getReferenceAudio()
             let done = false
             const finish = () => {
                 if (done) return
@@ -260,7 +281,7 @@ export function useSongRecorder(song, options = {}) {
             const onMeta = () => seekAndPlay()
             audio.addEventListener?.('timeupdate', onTime)
             audio.addEventListener?.('ended', onEnded)
-            if (audio.src !== song.audio_full) {
+            if (sharedAudio && audio.src !== song.audio_full) {
                 audio.src = song.audio_full
                 audio.load?.()
                 audio.addEventListener?.('loadedmetadata', onMeta, { once: true })
@@ -270,8 +291,8 @@ export function useSongRecorder(song, options = {}) {
         })
     }
 
-    function defaultPlayStep(step, audio) {
-        return step.source === 'user' ? playUserStep(step, audio) : playReferenceStep(step, audio)
+    function defaultPlayStep(step, sharedAudio) {
+        return step.source === 'user' ? playUserStep(step, sharedAudio) : playReferenceStep(step, sharedAudio)
     }
 
     async function playAll() {
@@ -282,21 +303,22 @@ export function useSongRecorder(song, options = {}) {
         const step = options.playStep ?? defaultPlayStep
         const plan = buildPlaybackPlan(song.lines, recordedLineIds.value)
         // iOS Safari：整首共用一個 audio 元素——第一段在使用者手勢當下 play() 會解鎖它，
-        // 之後在計時器/續程裡對「同一個已解鎖元素」play() 就不再被擋。
-        const audio = options.playStep ? null : audioFactory('')
-        playbackAudio = audio
-        if (audio) {
-            try { const up = audio.play?.(); if (up && typeof up.catch === 'function') up.catch(() => {}) } catch { /* noop */ }
+        // 之後對同一個已解鎖元素 play() 就不再被擋。非 iOS 用每段各建 audio 的路徑（sharedAudio=null）。
+        const sharedAudio = (!options.playStep && needsAudioUnlock) ? audioFactory('') : null
+        playbackAudio = sharedAudio
+        if (sharedAudio) {
+            try { const up = sharedAudio.play?.(); if (up && typeof up.catch === 'function') up.catch(() => {}) } catch { /* noop */ }
         }
         isPlayingAll.value = true
         stopAllFlag = false
         for (const s of plan) {
             if (stopAllFlag) break
             playingLineId.value = s.lineId
-            await step(s, audio)
+            await step(s, sharedAudio)
         }
-        audio?.pause?.()
-        if (playbackAudio === audio) playbackAudio = null
+        sharedAudio?.pause?.()
+        referenceAudio?.pause?.()
+        if (playbackAudio === sharedAudio) playbackAudio = null
         playingLineId.value = null
         isPlayingAll.value = false
     }
@@ -305,6 +327,9 @@ export function useSongRecorder(song, options = {}) {
         stopAllFlag = true
         playbackAudio?.pause?.()
         playbackAudio = null
+        referenceAudio?.pause?.()
+        userStepAudio?.pause?.()
+        userStepAudio = null
         const cancel = activeStepCancel // 立即結束當前段，讓播放迴圈跳出
         activeStepCancel = null
         cancel?.()
