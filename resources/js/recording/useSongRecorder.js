@@ -241,7 +241,11 @@ export function useSongRecorder(song, options = {}) {
             const p = audio.play?.()
             if (p && typeof p.catch === 'function') p.catch(() => finish())
             const hasDuration = Number.isFinite(rec.duration) && rec.duration > 0
-            timer = setTimeout(finish, hasDuration ? rec.duration + USER_PLAY_TAIL_MS : USER_PLAY_FALLBACK_MS)
+            const ms = hasDuration ? rec.duration + USER_PLAY_TAIL_MS : USER_PLAY_FALLBACK_MS
+            // TODO(暫時)：Safari 跳段診斷，定位後移除
+            console.log('[anood][userStep]', { lineId: step.lineId, duration: rec.duration, hasDuration, timerMs: ms })
+            const origFinish = finish
+            timer = setTimeout(() => { console.log('[anood][userStep] timer→finish', step.lineId); origFinish() }, ms)
         })
     }
 
@@ -288,7 +292,9 @@ export function useSongRecorder(song, options = {}) {
         for (const s of plan) {
             if (stopAllFlag) break
             playingLineId.value = s.lineId
+            console.log('[anood][playAll] step', s.lineId, s.source) // TODO(暫時)：診斷
             await step(s)
+            console.log('[anood][playAll] step done', s.lineId, 'stopAll=', stopAllFlag) // TODO(暫時)：診斷
         }
         playingLineId.value = null
         isPlayingAll.value = false
