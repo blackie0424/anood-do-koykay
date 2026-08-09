@@ -490,6 +490,30 @@ describe('useSongRecorder — 整體播放（非 iOS 每段各建 audio）', () 
         expect(r.isPlayingAll.value).toBe(false)
     })
 
+    it('非 iOS：user 段 play() 被拒不立刻跳段，交給時長計時器推進', async () => {
+        const store = createMemoryStore()
+        await store.put(5, 1, fakeBlob(), 300)
+        const r = useSongRecorder({ ...SONG5, lines: SONG5.lines.slice(0, 1) }, {
+            store,
+            micRecorder: makeMicRecorder(),
+            needsAudioUnlock: false,
+            audioFactory: () => { const a = new FakeAudio(''); a.playImpl = () => Promise.reject(new Error('blocked')); return a },
+        })
+        await r.load()
+        vi.useFakeTimers()
+        try {
+            const done = r.playAll()
+            await Promise.resolve()
+            await Promise.resolve() // 讓 reject 的 catch microtask 跑完
+            expect(r.playingLineId.value).toBe(1) // 沒有因 play 被拒而立刻跳過
+            await vi.advanceTimersByTimeAsync(600) // 靠時長計時器（300+250）推進
+            await done
+            expect(r.isPlayingAll.value).toBe(false)
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
     it('非 iOS 不建立共用元素：整首只播一段 reference 用專用元素', async () => {
         const { store, audios, r } = setup({ ...SONG5, lines: SONG5.lines.slice(0, 1) })
         await r.load() // 無錄音 → 段1 reference

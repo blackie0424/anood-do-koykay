@@ -248,7 +248,10 @@ export function useSongRecorder(song, options = {}) {
             audio.addEventListener?.('timeupdate', onProgress)
             audio.addEventListener?.('ended', onEnded)
             const p = audio.play?.()
-            if (p && typeof p.catch === 'function') p.catch(() => finish())
+            // iOS 共用元素：play() 被拒代表沒解鎖成功，需推進避免卡住。
+            // 非 iOS 每段各建元素：play() 偶發被拒（Chrome 自動播放節流）時「不立刻跳段」，
+            // 交給時長計時器推進，保住段落順序不被跳過。
+            if (p && typeof p.catch === 'function') p.catch(() => { if (sharedAudio) finish() })
             const hasDuration = Number.isFinite(rec.duration) && rec.duration > 0
             timer = setTimeout(finish, hasDuration ? rec.duration + USER_PLAY_TAIL_MS : USER_PLAY_FALLBACK_MS)
         })
