@@ -133,6 +133,29 @@ describe('useSongRecorder — 錄音狀態機（toggle）', () => {
         expect(r.playSegment(10)).toBe(null)
     })
 
+    it('probeStorage 寫入失敗（無痕模式）時設 storageBlocked', async () => {
+        const store = createMemoryStore()
+        store.put = vi.fn(async () => { throw new Error('QuotaExceeded') })
+        const r = useSongRecorder(SONG, { store, micRecorder: makeMicRecorder() })
+        await r.probeStorage()
+        expect(r.storageBlocked.value).toBe(true)
+    })
+
+    it('probeStorage 正常時 storageBlocked 為 false', async () => {
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: makeMicRecorder() })
+        await r.probeStorage()
+        expect(r.storageBlocked.value).toBe(false)
+    })
+
+    it('stopRecording 寫入失敗時設 storageBlocked 且不新增錄音', async () => {
+        const store = createMemoryStore()
+        const r = useSongRecorder(SONG, { store, micRecorder: makeMicRecorder() })
+        store.put = vi.fn(async () => { throw new Error('blocked') })
+        await r.startRecording(10); await r.stopRecording()
+        expect(r.storageBlocked.value).toBe(true)
+        expect(r.hasRecording(10)).toBe(false)
+    })
+
     it('錄到空 blob 時不儲存並設 error=empty', async () => {
         const store = createMemoryStore()
         const mic = makeMicRecorder(new Blob([], { type: 'audio/webm' }))

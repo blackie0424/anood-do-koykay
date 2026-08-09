@@ -18,6 +18,7 @@ const isSomeRecording = computed(() => rec.recordingLineId.value !== null)
 onMounted(() => {
     rec.load()
     rec.prepare() // 預取麥克風授權，之後按錄音才能即時開始
+    rec.probeStorage() // 偵測無痕模式等 IndexedDB 不可寫的情況
 })
 onBeforeUnmount(() => { rec.stopPlayAll(); rec.dispose() })
 
@@ -55,6 +56,11 @@ function canListenReference(line) {
             class="flex-shrink-0 px-4 py-2 bg-red-50 text-red-700 text-sm text-center">
             <template v-if="rec.error.value === 'empty'">這段錄音沒有聲音，請再錄一次。</template>
             <template v-else>無法取得麥克風，請確認瀏覽器已授權後重新整理頁面。</template>
+        </div>
+
+        <div v-if="rec.storageBlocked.value" role="alert"
+            class="flex-shrink-0 px-4 py-2 bg-orange-50 text-orange-700 text-sm text-center">
+            無痕模式下錄音不會被儲存，請改用一般瀏覽模式。
         </div>
 
         <!-- 段落清單 -->

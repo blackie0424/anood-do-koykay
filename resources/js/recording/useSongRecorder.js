@@ -31,6 +31,7 @@ export function useSongRecorder(song, options = {}) {
     const playingLineId = ref(null) // 整體播放：目前播到哪一段（供高亮）
     const previewLineId = ref(null) // 單段自聽：目前正在播哪一段（供播放/暫停切換）
     const referencePreviewLineId = ref(null) // 單段聆聽原音：目前正在播哪一段
+    const storageBlocked = ref(false) // Safari 無痕模式等 IndexedDB 無法寫入時為 true
     const error = ref(null)
 
     let referenceAudio = null
@@ -62,6 +63,17 @@ export function useSongRecorder(song, options = {}) {
         const next = new Map()
         for (const [lineId, blob] of stored) next.set(lineId, { blob, url: makeUrl(blob) })
         recordings.value = next
+    }
+
+    // 偵測本地儲存是否可寫（Safari 無痕模式下 IndexedDB 寫入會失敗）
+    async function probeStorage() {
+        try {
+            await store.put(song.id, -1, new Blob(['probe'], { type: 'text/plain' }))
+            await store.remove(song.id, -1)
+            storageBlocked.value = false
+        } catch {
+            storageBlocked.value = true
+        }
     }
 
     // 進入錄音介面時預取一次麥克風授權，之後按錄音才能即時開始、不被授權對話框打斷
@@ -99,7 +111,13 @@ export function useSongRecorder(song, options = {}) {
             error.value = 'empty'
             return
         }
-        await store.put(song.id, lineId, blob)
+        try {
+            await store.put(song.id, lineId, blob)
+        } catch {
+            // Safari 無痕模式等 IndexedDB 無法寫入
+            storageBlocked.value = true
+            return
+        }
         setRecording(lineId, blob)
         // TODO(暫時)：Safari 整體播放跳段診斷，定位後移除
         console.debug('[anood][stopRecording]', { lineId, size: blob.size, type: blob.type, recorded: [...recordings.value.keys()] })
@@ -234,10 +252,10 @@ export function useSongRecorder(song, options = {}) {
         stopReferencePreview()
         const step = options.playStep ?? defaultPlayStep
         const plan = buildPlaybackPlan(song.lines, recordedLineIds.value)
-        // TODO(暫時)：Safari 整體播放跳段診斷，定位後移除
-        console.debug('[anood][playAll]', { recorded: recordedLineIds.value, plan: plan.map((s) => [s.lineId, s.source]) })
         isPlayingAll.value = true
         stopAllFlag = false
+        // TODO(暫時)：Safari 診斷，定位後移除
+        console.log('[anood][playAll] started', { isPlayingAll: isPlayingAll.value, recorded: recordedLineIds.value, plan: plan.map((s) => [s.lineId, s.source]) })
         for (const s of plan) {
             if (stopAllFlag) break
             playingLineId.value = s.lineId
@@ -270,11 +288,13 @@ export function useSongRecorder(song, options = {}) {
         playingLineId,
         previewLineId,
         referencePreviewLineId,
+        storageBlocked,
         error,
         hasRecording,
         isRecording,
         load,
         prepare,
+        probeStorage,
         startRecording,
         stopRecording,
         deleteRecording,

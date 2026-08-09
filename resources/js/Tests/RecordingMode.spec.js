@@ -188,6 +188,24 @@ describe('RecordingMode — 聆聽原音', () => {
     })
 })
 
+describe('RecordingMode — 無痕模式儲存提示', () => {
+    it('IndexedDB 不可寫時顯示無痕模式提示', async () => {
+        const store = createMemoryStore()
+        store.put = vi.fn(async () => { throw new Error('blocked') })
+        const wrapper = mount(RecordingMode, {
+            props: { song: SONG, options: { store, micRecorder: makeMic(), playStep: vi.fn(() => Promise.resolve()) } },
+        })
+        await flushPromises()
+        expect(wrapper.text()).toContain('無痕模式下錄音不會被儲存')
+    })
+
+    it('儲存正常時不顯示無痕模式提示', async () => {
+        const { wrapper } = makeWrapper()
+        await flushPromises()
+        expect(wrapper.text()).not.toContain('無痕模式下錄音不會被儲存')
+    })
+})
+
 describe('RecordingMode — 整體播放', () => {
     it('點整體播放呼叫 playStep', async () => {
         const { wrapper, options } = makeWrapper()
