@@ -5,10 +5,10 @@
  * v1 僅存裝置本地、免登入、不上傳。
  *
  * 兩種實作共用同一介面：
- *   put(songId, lineId, blob)   → Promise<void>
- *   getAllForSong(songId)       → Promise<Map<lineId, blob>>
- *   remove(songId, lineId)      → Promise<void>
- *   clearSong(songId)           → Promise<void>
+ *   put(songId, lineId, blob, duration?) → Promise<void>
+ *   getAllForSong(songId)                → Promise<Map<lineId, { blob, duration }>>
+ *   remove(songId, lineId)               → Promise<void>
+ *   clearSong(songId)                    → Promise<void>
  */
 
 const DB_NAME = 'anood-recordings'
@@ -47,9 +47,9 @@ function reqToPromise(req) {
 
 export function createIndexedDbStore() {
     return {
-        async put(songId, lineId, blob) {
+        async put(songId, lineId, blob, duration = null) {
             const db = await openDb()
-            await reqToPromise(tx(db, 'readwrite').put({ key: keyOf(songId, lineId), songId, lineId, blob }))
+            await reqToPromise(tx(db, 'readwrite').put({ key: keyOf(songId, lineId), songId, lineId, blob, duration }))
             db.close()
         },
         async getAllForSong(songId) {
@@ -57,7 +57,7 @@ export function createIndexedDbStore() {
             const all = await reqToPromise(tx(db, 'readonly').index('songId').getAll(songId))
             db.close()
             const map = new Map()
-            for (const rec of all) map.set(rec.lineId, rec.blob)
+            for (const rec of all) map.set(rec.lineId, { blob: rec.blob, duration: rec.duration ?? null })
             return map
         },
         async remove(songId, lineId) {
@@ -79,15 +79,15 @@ export function createIndexedDbStore() {
  * 記憶體實作：供測試與不支援 IndexedDB 的環境注入使用。
  */
 export function createMemoryStore() {
-    const map = new Map() // key → { songId, lineId, blob }
+    const map = new Map() // key → { songId, lineId, blob, duration }
     return {
-        async put(songId, lineId, blob) {
-            map.set(keyOf(songId, lineId), { songId, lineId, blob })
+        async put(songId, lineId, blob, duration = null) {
+            map.set(keyOf(songId, lineId), { songId, lineId, blob, duration })
         },
         async getAllForSong(songId) {
             const out = new Map()
             for (const rec of map.values()) {
-                if (rec.songId === songId) out.set(rec.lineId, rec.blob)
+                if (rec.songId === songId) out.set(rec.lineId, { blob: rec.blob, duration: rec.duration ?? null })
             }
             return out
         },

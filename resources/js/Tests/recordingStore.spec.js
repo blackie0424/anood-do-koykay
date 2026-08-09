@@ -4,13 +4,21 @@ import { createMemoryStore } from '../recording/recordingStore.js'
 const blob = (s) => new Blob([s], { type: 'audio/webm' })
 
 describe('createMemoryStore', () => {
-    it('put 後 getAllForSong 取得對應段落 blob', async () => {
+    it('put 後 getAllForSong 取得對應段落 blob 與時長', async () => {
         const store = createMemoryStore()
         const b = blob('a')
-        await store.put(1, 10, b)
+        await store.put(1, 10, b, 1234)
         const map = await store.getAllForSong(1)
-        expect(map.get(10)).toBe(b)
+        expect(map.get(10).blob).toBe(b)
+        expect(map.get(10).duration).toBe(1234)
         expect(map.size).toBe(1)
+    })
+
+    it('未給時長時 duration 為 null', async () => {
+        const store = createMemoryStore()
+        await store.put(1, 10, blob('a'))
+        const map = await store.getAllForSong(1)
+        expect(map.get(10).duration).toBe(null)
     })
 
     it('同一段落重複 put 會覆蓋（重錄）', async () => {
@@ -20,7 +28,7 @@ describe('createMemoryStore', () => {
         await store.put(1, 10, b2)
         const map = await store.getAllForSong(1)
         expect(map.size).toBe(1)
-        expect(map.get(10)).toBe(b2)
+        expect(map.get(10).blob).toBe(b2)
     })
 
     it('getAllForSong 只回傳該首歌的錄音', async () => {

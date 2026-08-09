@@ -18,6 +18,7 @@ const isSomeRecording = computed(() => rec.recordingLineId.value !== null)
 onMounted(() => {
     rec.load()
     rec.prepare() // 預取麥克風授權，之後按錄音才能即時開始
+    rec.probeStorage() // 偵測無痕模式等 IndexedDB 不可寫的情況
 })
 onBeforeUnmount(() => { rec.stopPlayAll(); rec.dispose() })
 
@@ -57,6 +58,11 @@ function canListenReference(line) {
             <template v-else>無法取得麥克風，請確認瀏覽器已授權後重新整理頁面。</template>
         </div>
 
+        <div v-if="rec.storageBlocked.value" role="alert"
+            class="flex-shrink-0 px-4 py-2 bg-orange-50 text-orange-700 text-sm text-center">
+            無痕模式下錄音不會被儲存，請改用一般瀏覽模式。
+        </div>
+
         <!-- 段落清單 -->
         <div class="flex-1 overflow-y-auto min-h-0 px-3 py-4">
             <div class="max-w-2xl mx-auto space-y-3">
@@ -73,7 +79,7 @@ function canListenReference(line) {
                         <button
                             :aria-label="`錄音段落 ${line.order}`"
                             @click="toggleRecord(line)"
-                            :disabled="isSomeRecording && !rec.isRecording(line.id)"
+                            :disabled="(isSomeRecording && !rec.isRecording(line.id)) || rec.isPlayingAll.value"
                             :class="['flex-1 rounded-full py-2.5 text-white font-medium active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed',
                                 rec.isRecording(line.id) ? 'bg-red-600'
                                     : rec.hasRecording(line.id) ? 'bg-amber-600 hover:bg-amber-500'
@@ -85,7 +91,7 @@ function canListenReference(line) {
                         <button v-if="rec.hasRecording(line.id) && !rec.isRecording(line.id)"
                             :aria-label="rec.previewLineId.value === line.id ? `暫停段落 ${line.order}` : `播放段落 ${line.order}`"
                             @click="rec.playSegment(line.id)"
-                            :disabled="isSomeRecording"
+                            :disabled="isSomeRecording || rec.isPlayingAll.value"
                             class="flex-shrink-0 rounded-full px-4 py-2.5 bg-stone-200 text-stone-700 font-medium hover:bg-stone-300 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed">
                             <template v-if="rec.previewLineId.value === line.id">⏸ 暫停</template>
                             <template v-else>▶ 播放</template>
@@ -94,7 +100,7 @@ function canListenReference(line) {
                     <button v-if="canListenReference(line)"
                         :aria-label="rec.referencePreviewLineId.value === line.id ? `暫停原音段落 ${line.order}` : `聆聽原音段落 ${line.order}`"
                         @click="rec.playReference(line)"
-                        :disabled="isSomeRecording"
+                        :disabled="isSomeRecording || rec.isPlayingAll.value"
                         class="mt-2 w-full rounded-full py-2 bg-indigo-100 text-indigo-700 font-medium hover:bg-indigo-200 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed">
                         <template v-if="rec.referencePreviewLineId.value === line.id">⏸ 暫停</template>
                         <template v-else>🎵 聆聽原音</template>
