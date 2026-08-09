@@ -318,17 +318,17 @@ describe('useSongRecorder — 整體播放真實推進（跳段）', () => {
         await r.load()
 
         const done = r.playAll()
-        // 段1 user
-        await flush(); expect(r.playingLineId.value).toBe(1); audios[0].end()
+        // 段1 user（先有播放進度再 ended 才視為結束）
+        await flush(); expect(r.playingLineId.value).toBe(1); audios[0].seekTo(1); audios[0].end()
         // 段2 user
-        await flush(); expect(r.playingLineId.value).toBe(2); audios[1].end()
+        await flush(); expect(r.playingLineId.value).toBe(2); audios[1].seekTo(1); audios[1].end()
         // 段3 reference（原唱切片，audio_full）
         await flush(); expect(r.playingLineId.value).toBe(3)
         const ref = audios[2]
         expect(ref.src).toBe('/audio/5.mp3')
         ref.seekTo(6) // 到 end=6 → 推進
         // 段4 user（關鍵：切片後要能推進到這裡）
-        await flush(); expect(r.playingLineId.value).toBe(4); audios[3].end()
+        await flush(); expect(r.playingLineId.value).toBe(4); audios[3].seekTo(1); audios[3].end()
         // 段5 reference（重用同一個 reference audio）
         await flush(); expect(r.playingLineId.value).toBe(5)
         ref.seekTo(10)
@@ -358,7 +358,30 @@ describe('useSongRecorder — 整體播放真實推進（跳段）', () => {
 
         const done = r.playAll()
         // 段1 的 play() 被拒 → 不需 end 事件也要推進
-        await flush(); expect(r.playingLineId.value).toBe(2); audios[1].end()
+        await flush(); expect(r.playingLineId.value).toBe(2); audios[1].seekTo(1); audios[1].end()
+        await done
+        expect(r.isPlayingAll.value).toBe(false)
+    })
+
+    it('Safari spurious ended（尚未播放就觸發）不推進，真正播放後才推進', async () => {
+        const store = createMemoryStore()
+        await store.put(5, 1, fakeBlob())
+
+        const audios = []
+        const r = useSongRecorder({ ...SONG5, lines: SONG5.lines.slice(0, 1) }, {
+            store,
+            micRecorder: makeMicRecorder(),
+            audioFactory: (src) => { const a = new FakeAudio(src); audios.push(a); return a },
+        })
+        await r.load()
+
+        const done = r.playAll()
+        await flush(); expect(r.playingLineId.value).toBe(1)
+        // 尚未播放（currentTime 仍為 0）就觸發 ended → 應忽略，不推進
+        audios[0].end()
+        await flush(); expect(r.playingLineId.value).toBe(1)
+        // 真正播放後（currentTime 前進）再 ended → 才結束
+        audios[0].seekTo(1); audios[0].end()
         await done
         expect(r.isPlayingAll.value).toBe(false)
     })

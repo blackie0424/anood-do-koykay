@@ -3,6 +3,9 @@ import { buildPlaybackPlan } from './playbackSequencer.js'
 import { createDefaultStore } from './recordingStore.js'
 import { createMicRecorder } from './mediaRecorder.js'
 
+// 使用者段落真正播放後，若這麼久沒有新的 timeupdate，視為已結束（Safari 無時長 blob 的保險）
+const USER_PLAY_WATCHDOG_MS = 1500
+
 function makeUrl(blob) {
     try { return URL.createObjectURL(blob) } catch { return '' }
 }
@@ -196,21 +199,47 @@ export function useSongRecorder(song, options = {}) {
         return referenceAudio
     }
 
-    // 播使用者錄音段：播到 ended 才 resolve；play() 被拒或無法播時也要 resolve 以推進下一段
+    // 播使用者錄音段。
+    // Safari 的 MediaRecorder mp4 缺時長資訊，play() 後可能在 currentTime 還是 0 時
+    // 就觸發 spurious ended，若直接推進會「跳過」該段。因此：
+    // - 只有「真正播放過」（currentTime 前進過）後的 ended/pause 才視為結束
+    // - 有限時長時，currentTime 到達時長也視為結束
+    // - play() 被拒 → 推進，避免卡住
+    // - 看門狗：真正播放後若一段時間沒有新的 timeupdate，視為已結束，避免永久等待
     function playUserStep(step) {
         return new Promise((resolve) => {
             const rec = recordings.value.get(step.lineId)
             if (!rec) return resolve()
             const audio = audioFactory(rec.url)
             let done = false
+            let progressed = false
+            let watchdog = null
+            const cleanup = () => {
+                if (watchdog) { clearTimeout(watchdog); watchdog = null }
+                audio.removeEventListener?.('timeupdate', onProgress)
+                audio.removeEventListener?.('ended', onEnded)
+                audio.removeEventListener?.('pause', onPause)
+            }
             const finish = () => {
                 if (done) return
                 done = true
-                audio.removeEventListener?.('ended', onEnded)
+                cleanup()
                 resolve()
             }
-            const onEnded = () => finish()
+            const armWatchdog = () => {
+                if (watchdog) clearTimeout(watchdog)
+                watchdog = setTimeout(() => { if (progressed) finish() }, USER_PLAY_WATCHDOG_MS)
+            }
+            const onProgress = () => {
+                if (audio.currentTime > 0) { progressed = true; armWatchdog() }
+                const d = audio.duration
+                if (progressed && Number.isFinite(d) && d > 0 && audio.currentTime >= d) finish()
+            }
+            const onEnded = () => { if (progressed) finish() } // 忽略尚未真正播放就觸發的 spurious ended
+            const onPause = () => { if (progressed) finish() }
+            audio.addEventListener?.('timeupdate', onProgress)
             audio.addEventListener?.('ended', onEnded)
+            audio.addEventListener?.('pause', onPause)
             const p = audio.play?.()
             if (p && typeof p.catch === 'function') p.catch(() => finish())
         })
