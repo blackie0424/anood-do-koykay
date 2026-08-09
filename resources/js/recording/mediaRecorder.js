@@ -12,6 +12,31 @@
  * 每段獨立取得 stream 可避開這個問題；授權已在 acquire 取得，之後 getUserMedia
  * 不會再跳對話框。
  */
+// 每 timeslice 毫秒觸發一次 ondataavailable。iOS Safari 若不給 timeslice，
+// 可能只在 stop() 時觸發、甚至完全不觸發，導致收不到 chunks（空 blob）。
+const TIMESLICE_MS = 1000
+
+// 依瀏覽器挑選支援的錄音格式。
+// - Chrome/Firefox 支援 audio/webm
+// - iOS Safari 不支援 webm；isTypeSupported('audio/mp4') 有時回 false，
+//   需帶完整 codec 字串 audio/mp4;codecs=mp4a.40.2 才會通過。
+// 先試 webm（維持 Chrome 原行為），再試 mp4 的完整/簡短寫法。
+export function pickMimeType() {
+    const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4;codecs=mp4a.40.2',
+        'audio/mp4',
+        'audio/ogg',
+    ]
+    if (typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function') {
+        for (const t of candidates) {
+            if (MediaRecorder.isTypeSupported(t)) return t
+        }
+    }
+    return ''
+}
+
 export function createMicRecorder() {
     let granted = false
     let mr = null
@@ -29,9 +54,11 @@ export function createMicRecorder() {
         activeStream = await navigator.mediaDevices.getUserMedia({ audio: true })
         granted = true
         chunks = []
-        mr = new MediaRecorder(activeStream)
+        const type = pickMimeType()
+        mr = type ? new MediaRecorder(activeStream, { mimeType: type }) : new MediaRecorder(activeStream)
         mr.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data) }
-        mr.start()
+        // 給 timeslice 讓 Safari 定期觸發 ondataavailable
+        mr.start(TIMESLICE_MS)
     }
 
     function stop() {

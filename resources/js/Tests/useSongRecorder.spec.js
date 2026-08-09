@@ -70,7 +70,7 @@ describe('useSongRecorder — 錄音狀態機（toggle）', () => {
         await r.stopRecording()
         expect(r.recordingLineId.value).toBe(null)
         expect(r.hasRecording(10)).toBe(true)
-        expect((await store.getAllForSong(1)).get(10)).toBe(blob)
+        expect((await store.getAllForSong(1)).get(10).blob).toBe(blob)
     })
 
     it('toggle 重新錄音會覆蓋舊錄音', async () => {
@@ -82,7 +82,30 @@ describe('useSongRecorder — 錄音狀態機（toggle）', () => {
         await r.startRecording(10); await r.stopRecording()
         mic.stop = vi.fn(async () => b2)
         await r.startRecording(10); await r.stopRecording()
-        expect((await store.getAllForSong(1)).get(10)).toBe(b2)
+        expect((await store.getAllForSong(1)).get(10).blob).toBe(b2)
+    })
+
+    it('stopRecording 以解碼取得的實際時長為準存入', async () => {
+        const store = createMemoryStore()
+        const r = useSongRecorder(SONG, {
+            store,
+            micRecorder: makeMicRecorder(),
+            durationFromBlob: async () => 777, // 解碼得到的實際毫秒數
+        })
+        await r.startRecording(10); await r.stopRecording()
+        expect((await store.getAllForSong(1)).get(10).duration).toBe(777)
+    })
+
+    it('解碼失敗時退回碼表時長（仍為數字）', async () => {
+        const store = createMemoryStore()
+        const r = useSongRecorder(SONG, {
+            store,
+            micRecorder: makeMicRecorder(),
+            durationFromBlob: async () => null, // 解碼失敗
+        })
+        await r.startRecording(10); await r.stopRecording()
+        const duration = (await store.getAllForSong(1)).get(10).duration
+        expect(typeof duration).toBe('number')
     })
 
     it('未在錄音時 stopRecording 為 no-op', async () => {
@@ -131,6 +154,29 @@ describe('useSongRecorder — 錄音狀態機（toggle）', () => {
     it('playSegment 無錄音時回傳 null', () => {
         const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: makeMicRecorder() })
         expect(r.playSegment(10)).toBe(null)
+    })
+
+    it('probeStorage 寫入失敗（無痕模式）時設 storageBlocked', async () => {
+        const store = createMemoryStore()
+        store.put = vi.fn(async () => { throw new Error('QuotaExceeded') })
+        const r = useSongRecorder(SONG, { store, micRecorder: makeMicRecorder() })
+        await r.probeStorage()
+        expect(r.storageBlocked.value).toBe(true)
+    })
+
+    it('probeStorage 正常時 storageBlocked 為 false', async () => {
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: makeMicRecorder() })
+        await r.probeStorage()
+        expect(r.storageBlocked.value).toBe(false)
+    })
+
+    it('stopRecording 寫入失敗時設 storageBlocked 且不新增錄音', async () => {
+        const store = createMemoryStore()
+        const r = useSongRecorder(SONG, { store, micRecorder: makeMicRecorder() })
+        store.put = vi.fn(async () => { throw new Error('blocked') })
+        await r.startRecording(10); await r.stopRecording()
+        expect(r.storageBlocked.value).toBe(true)
+        expect(r.hasRecording(10)).toBe(false)
     })
 
     it('錄到空 blob 時不儲存並設 error=empty', async () => {
@@ -258,11 +304,13 @@ class FakeAudio {
     }
     addEventListener(ev, cb) { (this.listeners[ev] ||= []).push(cb) }
     removeEventListener(ev, cb) { this.listeners[ev] = (this.listeners[ev] || []).filter(f => f !== cb) }
+    load() { this.loadCalls = (this.loadCalls || 0) + 1 }
     play() { this.playCalls++; this.paused = false; return this.playImpl() }
     pause() { this.paused = true }
     emit(ev) { (this.listeners[ev] || []).slice().forEach(cb => cb()) }
     seekTo(t) { this.currentTime = t; this.emit('timeupdate') }
     end() { this.emit('ended') }
+    meta() { this.emit('loadedmetadata') }
 }
 
 const flush = () => new Promise((r) => setTimeout(r, 0))
@@ -279,79 +327,200 @@ const SONG5 = {
     ],
 }
 
-describe('useSongRecorder — 整體播放真實推進（跳段）', () => {
-    it('有錄/有錄/沒錄/有錄/沒錄：播完原唱切片後正確推進到下一段', async () => {
+describe('useSongRecorder — 整體播放真實推進（iOS 共用單一 audio）', () => {
+    function setup(song) {
         const store = createMemoryStore()
-        await store.put(5, 1, fakeBlob())
-        await store.put(5, 2, fakeBlob())
-        await store.put(5, 4, fakeBlob())
-
         const audios = []
-        const r = useSongRecorder(SONG5, {
+        const r = useSongRecorder(song, {
             store,
             micRecorder: makeMicRecorder(),
+            needsAudioUnlock: true, // 走 iOS 共用元素路徑
             audioFactory: (src) => { const a = new FakeAudio(src); audios.push(a); return a },
         })
+        return { store, audios, r }
+    }
+
+    it('整首共用一個 audio 元素（iOS 手勢解鎖）', async () => {
+        const { store, audios, r } = setup({ ...SONG5, lines: SONG5.lines.slice(0, 3) })
+        await store.put(5, 1, fakeBlob(), 100)
         await r.load()
-
         const done = r.playAll()
+        expect(audios.length).toBe(1) // 只建立一個共用元素
+        const a = audios[0]
         // 段1 user
-        await flush(); expect(r.playingLineId.value).toBe(1); audios[0].end()
-        // 段2 user
-        await flush(); expect(r.playingLineId.value).toBe(2); audios[1].end()
-        // 段3 reference（原唱切片，audio_full）
+        await flush(); expect(r.playingLineId.value).toBe(1); a.seekTo(1); a.end()
+        // 段2 reference：換 src 到原唱、需 loadedmetadata 才 seek
+        await flush(); expect(r.playingLineId.value).toBe(2)
+        expect(a.src).toBe('/audio/5.mp3'); expect(a.loadCalls).toBeGreaterThan(0)
+        a.meta(); a.seekTo(4) // seek 到 4 >= end 4 → 推進
+        // 段3 reference（src 已是原唱，直接 seek）
         await flush(); expect(r.playingLineId.value).toBe(3)
-        const ref = audios[2]
-        expect(ref.src).toBe('/audio/5.mp3')
-        ref.seekTo(6) // 到 end=6 → 推進
-        // 段4 user（關鍵：切片後要能推進到這裡）
-        await flush(); expect(r.playingLineId.value).toBe(4); audios[3].end()
-        // 段5 reference（重用同一個 reference audio）
-        await flush(); expect(r.playingLineId.value).toBe(5)
-        ref.seekTo(10)
-
+        a.seekTo(6)
         await done
         expect(r.isPlayingAll.value).toBe(false)
         expect(r.playingLineId.value).toBe(null)
     })
 
-    it('某段 play() 被拒時不卡住，仍推進到下一段', async () => {
-        const store = createMemoryStore()
-        await store.put(5, 1, fakeBlob())
-        await store.put(5, 2, fakeBlob())
-
-        const audios = []
-        const r = useSongRecorder({ ...SONG5, lines: SONG5.lines.slice(0, 2) }, {
-            store,
-            micRecorder: makeMicRecorder(),
-            audioFactory: (src) => {
-                const a = new FakeAudio(src)
-                if (audios.length === 0) a.playImpl = () => Promise.reject(new Error('blocked'))
-                audios.push(a)
-                return a
-            },
-        })
+    it('有錄/有錄/沒錄/有錄：user↔reference 交替都在同一元素上推進', async () => {
+        const { store, audios, r } = setup({ ...SONG5, lines: SONG5.lines.slice(0, 4) })
+        await store.put(5, 1, fakeBlob(), 100)
+        await store.put(5, 2, fakeBlob(), 100)
+        await store.put(5, 4, fakeBlob(), 100)
         await r.load()
-
         const done = r.playAll()
-        // 段1 的 play() 被拒 → 不需 end 事件也要推進
-        await flush(); expect(r.playingLineId.value).toBe(2); audios[1].end()
+        const a = audios[0]
+        await flush(); expect(r.playingLineId.value).toBe(1); a.seekTo(1); a.end()
+        await flush(); expect(r.playingLineId.value).toBe(2); a.seekTo(1); a.end()
+        // 段3 reference
+        await flush(); expect(r.playingLineId.value).toBe(3); a.meta(); a.seekTo(6)
+        // 段4 user（換回 blob）
+        await flush(); expect(r.playingLineId.value).toBe(4); a.seekTo(1); a.end()
         await done
         expect(r.isPlayingAll.value).toBe(false)
     })
 
-    it('reference 段落 ended（切片到檔尾）也會推進', async () => {
+    it('play() 被拒時不卡住，仍依序跑完', async () => {
+        const { store, r } = setup({ ...SONG5, lines: SONG5.lines.slice(0, 2) })
+        await store.put(5, 1, fakeBlob())
+        await store.put(5, 2, fakeBlob())
+        // 讓共用元素每次 play() 都被拒 → 每段 catch→finish 推進、不卡住
+        const r2 = useSongRecorder({ ...SONG5, lines: SONG5.lines.slice(0, 2) }, {
+            store,
+            micRecorder: makeMicRecorder(),
+            needsAudioUnlock: true,
+            audioFactory: () => { const a = new FakeAudio(''); a.playImpl = () => Promise.reject(new Error('blocked')); return a },
+        })
+        await r2.load()
+        await r2.playAll()
+        expect(r2.isPlayingAll.value).toBe(false)
+    })
+
+    it('Safari 無 audio 事件時，依錄音時長定時推進（不卡住）', async () => {
+        const { store, r } = setup({ ...SONG5, lines: SONG5.lines.slice(0, 1) })
+        await store.put(5, 1, fakeBlob(), 500) // 錄音時長 500ms
+        await r.load()
+        vi.useFakeTimers()
+        try {
+            const done = r.playAll()
+            await Promise.resolve()
+            expect(r.playingLineId.value).toBe(1)
+            await vi.advanceTimersByTimeAsync(800) // 不觸發任何 audio 事件，只靠時長計時器
+            await done
+            expect(r.isPlayingAll.value).toBe(false)
+            expect(r.playingLineId.value).toBe(null)
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    it('Safari spurious ended（尚未播放就觸發）不推進，真正播放後才推進', async () => {
+        const { store, audios, r } = setup({ ...SONG5, lines: SONG5.lines.slice(0, 1) })
+        await store.put(5, 1, fakeBlob())
+        await r.load()
+        const done = r.playAll()
+        const a = audios[0]
+        await flush(); expect(r.playingLineId.value).toBe(1)
+        a.end() // 尚未播放就 ended → 忽略
+        await flush(); expect(r.playingLineId.value).toBe(1)
+        a.seekTo(1); a.end() // 真正播放後才結束
+        await done
+        expect(r.isPlayingAll.value).toBe(false)
+    })
+
+    it('stopPlayAll 立即結束當前段、暫停共用元素', async () => {
+        const { store, audios, r } = setup({ ...SONG5, lines: SONG5.lines.slice(0, 3) })
+        await store.put(5, 1, fakeBlob(), 100)
+        await r.load()
+        const done = r.playAll()
+        const a = audios[0]
+        await flush(); expect(r.playingLineId.value).toBe(1)
+        r.stopPlayAll()
+        await done
+        expect(r.isPlayingAll.value).toBe(false)
+        expect(a.paused).toBe(true)
+    })
+})
+
+describe('useSongRecorder — 整體播放（非 iOS 每段各建 audio）', () => {
+    function setup(song) {
         const store = createMemoryStore()
         const audios = []
+        const r = useSongRecorder(song, {
+            store,
+            micRecorder: makeMicRecorder(),
+            needsAudioUnlock: false, // 走每段各建 audio 的舊路徑
+            audioFactory: (src) => { const a = new FakeAudio(src); audios.push(a); return a },
+        })
+        return { store, audios, r }
+    }
+
+    it('每段各建 audio；reference 用專用元素直接 seek（不換 src、不等 metadata）', async () => {
+        const { store, audios, r } = setup({ ...SONG5, lines: SONG5.lines.slice(0, 3) })
+        await store.put(5, 1, fakeBlob(), 100)
+        await r.load()
+        const done = r.playAll()
+        // 段1 user → 自建 audios[0]
+        await flush(); expect(r.playingLineId.value).toBe(1); audios[0].seekTo(1); audios[0].end()
+        // 段2 reference → 專用 referenceAudio（audios[1]），src 就是 audio_full，直接 seek、不需 metadata
+        await flush(); expect(r.playingLineId.value).toBe(2)
+        expect(audios[1].src).toBe('/audio/5.mp3')
+        expect(audios[1].currentTime).toBe(2) // 直接 seek 到 start
+        audios[1].seekTo(4)
+        // 段3 reference → 重用同一 referenceAudio
+        await flush(); expect(r.playingLineId.value).toBe(3)
+        audios[1].seekTo(6)
+        await done
+        expect(r.isPlayingAll.value).toBe(false)
+    })
+
+    it('每段各建 audio：user↔reference 交替推進', async () => {
+        const { store, audios, r } = setup({ ...SONG5, lines: SONG5.lines.slice(0, 4) })
+        await store.put(5, 1, fakeBlob(), 100)
+        await store.put(5, 2, fakeBlob(), 100)
+        await store.put(5, 4, fakeBlob(), 100)
+        await r.load()
+        const done = r.playAll()
+        await flush(); expect(r.playingLineId.value).toBe(1); audios[0].seekTo(1); audios[0].end()
+        await flush(); expect(r.playingLineId.value).toBe(2); audios[1].seekTo(1); audios[1].end()
+        // 段3 reference → referenceAudio = audios[2]
+        await flush(); expect(r.playingLineId.value).toBe(3); audios[2].seekTo(6)
+        // 段4 user → 自建 audios[3]
+        await flush(); expect(r.playingLineId.value).toBe(4); audios[3].seekTo(1); audios[3].end()
+        await done
+        expect(r.isPlayingAll.value).toBe(false)
+    })
+
+    it('非 iOS：user 段 play() 被拒不立刻跳段，交給時長計時器推進', async () => {
+        const store = createMemoryStore()
+        await store.put(5, 1, fakeBlob(), 300)
         const r = useSongRecorder({ ...SONG5, lines: SONG5.lines.slice(0, 1) }, {
             store,
             micRecorder: makeMicRecorder(),
-            audioFactory: (src) => { const a = new FakeAudio(src); audios.push(a); return a },
+            needsAudioUnlock: false,
+            audioFactory: () => { const a = new FakeAudio(''); a.playImpl = () => Promise.reject(new Error('blocked')); return a },
         })
         await r.load()
+        vi.useFakeTimers()
+        try {
+            const done = r.playAll()
+            await Promise.resolve()
+            await Promise.resolve() // 讓 reject 的 catch microtask 跑完
+            expect(r.playingLineId.value).toBe(1) // 沒有因 play 被拒而立刻跳過
+            await vi.advanceTimersByTimeAsync(600) // 靠時長計時器（300+250）推進
+            await done
+            expect(r.isPlayingAll.value).toBe(false)
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    it('非 iOS 不建立共用元素：整首只播一段 reference 用專用元素', async () => {
+        const { store, audios, r } = setup({ ...SONG5, lines: SONG5.lines.slice(0, 1) })
+        await r.load() // 無錄音 → 段1 reference
         const done = r.playAll()
-        await flush(); expect(r.playingLineId.value).toBe(1)
-        audios[0].end() // 未到 end 就檔案播完
+        await flush()
+        expect(audios.length).toBe(1) // 只有 referenceAudio，一個
+        audios[0].seekTo(2)
         await done
         expect(r.isPlayingAll.value).toBe(false)
     })
@@ -377,6 +546,26 @@ describe('useSongRecorder — 整體播放（playAll）', () => {
             [12, 'reference'],
         ])
         expect(r.isPlayingAll.value).toBe(false)
+    })
+
+    it('經完整錄音流程存下的段落，playAll 計畫分類為 user（Safari 跳段回歸）', async () => {
+        const store = createMemoryStore()
+        const calls = []
+        const r = useSongRecorder(SONG, {
+            store,
+            micRecorder: makeMicRecorder(new Blob(['mp4data'], { type: 'audio/mp4' })),
+            playStep: (s) => { calls.push(s); return Promise.resolve() },
+        })
+        // 用完整 startRecording/stopRecording 流程錄第 10、12 段
+        await r.startRecording(10); await r.stopRecording()
+        await r.startRecording(12); await r.stopRecording()
+
+        await r.playAll()
+
+        const map = Object.fromEntries(calls.map((c) => [c.lineId, c.source]))
+        expect(map[10]).toBe('user')
+        expect(map[11]).toBe('reference')
+        expect(map[12]).toBe('user')
     })
 
     it('stopPlayAll 後續段落不再播放', async () => {
