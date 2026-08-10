@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useSongRecorder } from '@/recording/useSongRecorder.js'
 
 const props = defineProps({
@@ -15,12 +15,40 @@ const rec = useSongRecorder(props.song, props.options)
 // 有某段正在錄音時，其他段的按鈕鎖住（一次只錄一段）
 const isSomeRecording = computed(() => rec.recordingLineId.value !== null)
 
+// 頂部提示：可各自關閉；狀態存 sessionStorage（同 session 內不再顯示，關瀏覽器/PWA 後重顯）
+const HINT_KEYS = {
+    mismatch: 'anood.hint.audioMismatch.dismissed',
+    localOnly: 'anood.hint.localOnly.dismissed',
+}
+function readHintDismissed(key) {
+    try { return sessionStorage.getItem(key) === '1' } catch { return false }
+}
+function writeHintDismissed(key) {
+    try { sessionStorage.setItem(key, '1') } catch { /* sessionStorage 不可用時僅本次隱藏 */ }
+}
+const HINT_AUTO_MS = 5000 // 提示 5 秒後自動消失
+const hintMismatchDismissed = ref(readHintDismissed(HINT_KEYS.mismatch))
+const hintLocalOnlyDismissed = ref(readHintDismissed(HINT_KEYS.localOnly))
+function dismissMismatch() { hintMismatchDismissed.value = true; writeHintDismissed(HINT_KEYS.mismatch) }
+function dismissLocalOnly() { hintLocalOnlyDismissed.value = true; writeHintDismissed(HINT_KEYS.localOnly) }
+// 兩條提示都消失後，頂部才顯示「返回清單」
+const allHintsDismissed = computed(() => hintMismatchDismissed.value && hintLocalOnlyDismissed.value)
+
+let hintTimer1 = null
+let hintTimer2 = null
 onMounted(() => {
     rec.load()
     rec.prepare() // 預取麥克風授權，之後按錄音才能即時開始
     rec.probeStorage() // 偵測無痕模式等 IndexedDB 不可寫的情況
+    if (!hintMismatchDismissed.value) hintTimer1 = setTimeout(dismissMismatch, HINT_AUTO_MS)
+    if (!hintLocalOnlyDismissed.value) hintTimer2 = setTimeout(dismissLocalOnly, HINT_AUTO_MS)
 })
-onBeforeUnmount(() => { rec.stopPlayAll(); rec.dispose() })
+onBeforeUnmount(() => {
+    clearTimeout(hintTimer1)
+    clearTimeout(hintTimer2)
+    rec.stopPlayAll()
+    rec.dispose()
+})
 
 function toggleRecord(line) {
     if (rec.isRecording(line.id)) rec.stopRecording()
@@ -34,22 +62,30 @@ function canListenReference(line) {
 </script>
 
 <template>
-    <div class="fixed inset-0 z-[60] bg-stone-50 flex flex-col">
-        <!-- 標頭 -->
-        <div class="flex-shrink-0 px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 border-b border-stone-200 bg-white">
-            <div class="max-w-2xl mx-auto flex items-center gap-3">
-                <button @click="emit('close')" aria-label="關閉錄音"
-                    class="text-stone-500 hover:text-stone-800 text-2xl leading-none">✕</button>
-                <div class="flex-1 min-w-0">
-                    <h2 class="font-bold text-stone-800 truncate">{{ song.title_native }}</h2>
-                    <p class="text-stone-500 text-sm">點段落開始錄音、再點一次停止</p>
-                </div>
+    <div class="fixed inset-0 z-[60] bg-stone-50 flex flex-col pt-[env(safe-area-inset-top)]">
+        <!-- 兩條提示都消失後，頂部顯示返回清單 -->
+        <div v-if="allHintsDismissed"
+            class="flex-shrink-0 px-4 py-2 bg-white border-b border-stone-200">
+            <div class="max-w-2xl mx-auto">
+                <button @click="emit('close')" aria-label="返回清單"
+                    class="inline-flex items-center gap-1 text-stone-600 hover:text-stone-800 text-lg font-bold">
+                    ← 返回清單
+                </button>
             </div>
         </div>
 
-        <!-- 提示 -->
-        <div class="flex-shrink-0 px-4 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm text-center">
-            未錄的段落播放時會用原唱補上，音色會和你的清唱不同，這是正常的。
+        <!-- 提示（可各自關閉，5 秒自動消失） -->
+        <div v-if="!hintMismatchDismissed"
+            class="flex-shrink-0 px-4 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm flex items-center gap-2">
+            <span class="flex-1 text-center">未錄的段落播放時會用原唱補上，音色會和你的清唱不同，這是正常的。</span>
+            <button @click="dismissMismatch" aria-label="關閉提示：音色說明"
+                class="flex-shrink-0 text-amber-500 hover:text-amber-700 text-lg leading-none">✕</button>
+        </div>
+        <div v-if="!hintLocalOnlyDismissed"
+            class="flex-shrink-0 px-4 py-2 bg-sky-50 border-b border-sky-100 text-sky-800 text-sm flex items-center gap-2">
+            <span class="flex-1 text-center">錄音存在你的手機裡，不會上傳或與他人分享。</span>
+            <button @click="dismissLocalOnly" aria-label="關閉提示：本地儲存"
+                class="flex-shrink-0 text-sky-500 hover:text-sky-700 text-lg leading-none">✕</button>
         </div>
 
         <div v-if="rec.error.value" role="alert"
