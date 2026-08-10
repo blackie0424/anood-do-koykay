@@ -68,7 +68,7 @@ function canListenReference(line) {
             class="flex-shrink-0 px-4 py-2 bg-white border-b border-stone-200">
             <div class="max-w-2xl mx-auto">
                 <button @click="emit('close')" aria-label="返回清單"
-                    class="inline-flex items-center gap-1 text-stone-500 hover:text-stone-700 text-sm">
+                    class="inline-flex items-center gap-1 text-stone-600 hover:text-stone-800 text-lg font-bold">
                     ← 返回清單
                 </button>
             </div>
