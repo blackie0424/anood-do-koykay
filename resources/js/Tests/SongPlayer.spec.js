@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
-import { Link } from '@inertiajs/vue3'
+import BackLink from '../Components/BackLink.vue'
 import SongPlayer from '../Pages/SongPlayer.vue'
 
 const BASE_SONG = {
@@ -113,14 +113,13 @@ describe('SongPlayer — 接唱錄音鈕顯示條件', () => {
   })
 })
 
-describe('SongPlayer — 返回清單連結快取', () => {
-  it('返回清單連結用 mount 觸發 prefetch，快取 5 分鐘', () => {
+describe('SongPlayer — 返回連結', () => {
+  it('頂部有大字返回連結（BackLink size=lg）', () => {
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-    const backLink = wrapper.findComponent(Link)
+    const backLink = wrapper.findComponent(BackLink)
 
-    expect(backLink.props('href')).toBe('/')
-    expect(backLink.props('prefetch')).toBe('mount')
-    expect(backLink.props('cacheFor')).toBe('5m')
+    expect(backLink.exists()).toBe(true)
+    expect(backLink.props('size')).toBe('lg')
   })
 })
 
