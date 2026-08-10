@@ -1,8 +1,9 @@
-import { mount, flushPromises } from '@vue/test-utils'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { mount, flushPromises, enableAutoUnmount } from '@vue/test-utils'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import RecordingMode from '../Components/RecordingMode.vue'
 import { createMemoryStore } from '../recording/recordingStore.js'
 
+enableAutoUnmount(afterEach) // 卸載時清掉提示自動消失計時器，避免跨測試干擾
 beforeEach(() => { try { sessionStorage.clear() } catch { /* noop */ } })
 
 const SONG = {
@@ -93,10 +94,32 @@ describe('RecordingMode — 提示可關閉（sessionStorage）', () => {
         expect(btn.text()).toContain('開始錄音')
     })
 
-    it('關閉按鈕觸發 close 事件', async () => {
+    it('兩條提示都關閉後出現返回清單，點擊觸發 close 事件', async () => {
         const { wrapper } = makeWrapper()
-        await wrapper.find('[aria-label="關閉錄音"]').trigger('click')
+        expect(wrapper.find('[aria-label="返回清單"]').exists()).toBe(false) // 提示還在時不顯示
+        await wrapper.find('[aria-label="關閉提示：音色說明"]').trigger('click')
+        await wrapper.find('[aria-label="關閉提示：本地儲存"]').trigger('click')
+        const back = wrapper.find('[aria-label="返回清單"]')
+        expect(back.exists()).toBe(true)
+        await back.trigger('click')
         expect(wrapper.emitted('close')).toBeTruthy()
+    })
+})
+
+describe('RecordingMode — 提示自動消失', () => {
+    it('5 秒後兩條提示自動消失並出現返回清單', async () => {
+        vi.useFakeTimers()
+        try {
+            const { wrapper } = makeWrapper()
+            await flushPromises()
+            expect(wrapper.text()).toContain('音色會和你的清唱不同')
+            await vi.advanceTimersByTimeAsync(5000)
+            expect(wrapper.text()).not.toContain('音色會和你的清唱不同')
+            expect(wrapper.text()).not.toContain('錄音存在你的手機裡')
+            expect(wrapper.find('[aria-label="返回清單"]').exists()).toBe(true)
+        } finally {
+            vi.useRealTimers()
+        }
     })
 })
 

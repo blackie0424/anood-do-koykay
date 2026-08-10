@@ -26,17 +26,29 @@ function readHintDismissed(key) {
 function writeHintDismissed(key) {
     try { sessionStorage.setItem(key, '1') } catch { /* sessionStorage 不可用時僅本次隱藏 */ }
 }
+const HINT_AUTO_MS = 5000 // 提示 5 秒後自動消失
 const hintMismatchDismissed = ref(readHintDismissed(HINT_KEYS.mismatch))
 const hintLocalOnlyDismissed = ref(readHintDismissed(HINT_KEYS.localOnly))
 function dismissMismatch() { hintMismatchDismissed.value = true; writeHintDismissed(HINT_KEYS.mismatch) }
 function dismissLocalOnly() { hintLocalOnlyDismissed.value = true; writeHintDismissed(HINT_KEYS.localOnly) }
+// 兩條提示都消失後，頂部才顯示「返回清單」
+const allHintsDismissed = computed(() => hintMismatchDismissed.value && hintLocalOnlyDismissed.value)
 
+let hintTimer1 = null
+let hintTimer2 = null
 onMounted(() => {
     rec.load()
     rec.prepare() // 預取麥克風授權，之後按錄音才能即時開始
     rec.probeStorage() // 偵測無痕模式等 IndexedDB 不可寫的情況
+    if (!hintMismatchDismissed.value) hintTimer1 = setTimeout(dismissMismatch, HINT_AUTO_MS)
+    if (!hintLocalOnlyDismissed.value) hintTimer2 = setTimeout(dismissLocalOnly, HINT_AUTO_MS)
 })
-onBeforeUnmount(() => { rec.stopPlayAll(); rec.dispose() })
+onBeforeUnmount(() => {
+    clearTimeout(hintTimer1)
+    clearTimeout(hintTimer2)
+    rec.stopPlayAll()
+    rec.dispose()
+})
 
 function toggleRecord(line) {
     if (rec.isRecording(line.id)) rec.stopRecording()
@@ -50,19 +62,19 @@ function canListenReference(line) {
 </script>
 
 <template>
-    <div class="fixed inset-0 z-[60] bg-stone-50 flex flex-col">
-        <!-- 標頭 -->
-        <div class="flex-shrink-0 px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 border-b border-stone-200 bg-white">
-            <div class="max-w-2xl mx-auto flex items-center gap-3">
-                <button @click="emit('close')" aria-label="關閉錄音"
-                    class="text-stone-500 hover:text-stone-800 text-2xl leading-none">✕</button>
-                <div class="flex-1 min-w-0">
-                    <h2 class="font-bold text-stone-800 truncate">{{ song.title_native }}</h2>
-                </div>
+    <div class="fixed inset-0 z-[60] bg-stone-50 flex flex-col pt-[env(safe-area-inset-top)]">
+        <!-- 兩條提示都消失後，頂部顯示返回清單 -->
+        <div v-if="allHintsDismissed"
+            class="flex-shrink-0 px-4 py-2 bg-white border-b border-stone-200">
+            <div class="max-w-2xl mx-auto">
+                <button @click="emit('close')" aria-label="返回清單"
+                    class="inline-flex items-center gap-1 text-stone-500 hover:text-stone-700 text-sm">
+                    ← 返回清單
+                </button>
             </div>
         </div>
 
-        <!-- 提示（可各自關閉） -->
+        <!-- 提示（可各自關閉，5 秒自動消失） -->
         <div v-if="!hintMismatchDismissed"
             class="flex-shrink-0 px-4 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm flex items-center gap-2">
             <span class="flex-1 text-center">未錄的段落播放時會用原唱補上，音色會和你的清唱不同，這是正常的。</span>
