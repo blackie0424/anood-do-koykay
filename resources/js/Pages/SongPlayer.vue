@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { Link } from '@inertiajs/vue3'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
+import BackLink from '@/Components/BackLink.vue'
 import ReportModal from '@/Components/ReportModal.vue'
 import RecordingMode from '@/Components/RecordingMode.vue'
 
@@ -198,9 +198,9 @@ async function share() {
         <!-- 標頭 -->
         <div class="px-3 pt-3 flex-shrink-0">
             <div class="max-w-2xl mx-auto">
-                <Link href="/" prefetch="mount" cache-for="5m" class="inline-flex items-center gap-1 text-stone-500 hover:text-stone-700 text-sm mb-4">
-                    ← 返回清單
-                </Link>
+                <div class="mb-4">
+                    <BackLink href="/" />
+                </div>
                 <div class="text-center mb-4">
                     <p v-if="song.book_number" class="font-mono text-stone-500 mb-1" style="font-size: clamp(1rem, 3vw, 1.25rem)">[{{ song.book_number }}]</p>
                     <h1 class="font-bold text-stone-800" style="font-size: clamp(1.5rem, 5vw, 2rem)">

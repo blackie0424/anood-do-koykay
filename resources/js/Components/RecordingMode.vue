@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useSongRecorder } from '@/recording/useSongRecorder.js'
+import BackLink from '@/Components/BackLink.vue'
 
 const props = defineProps({
     song: { type: Object, required: true },
@@ -67,10 +68,7 @@ function canListenReference(line) {
         <div v-if="allHintsDismissed"
             class="flex-shrink-0 px-4 py-2 bg-white border-b border-stone-200">
             <div class="max-w-2xl mx-auto">
-                <button @click="emit('close')" aria-label="返回清單"
-                    class="inline-flex items-center gap-1 text-stone-600 hover:text-stone-800 text-lg font-bold">
-                    ← 返回清單
-                </button>
+                <BackLink size="lg" @click="emit('close')" />
             </div>
         </div>
 
