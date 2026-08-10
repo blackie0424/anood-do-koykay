@@ -195,12 +195,15 @@ async function share() {
 <template>
     <PublicLayout>
     <div class="min-h-dvh flex flex-col bg-stone-50 relative">
+        <!-- 返回 bar（固定頂部） -->
+        <div class="flex-shrink-0 bg-white border-b border-stone-200 px-3 py-2">
+            <div class="max-w-2xl mx-auto">
+                <BackLink size="lg" />
+            </div>
+        </div>
         <!-- 標頭 -->
         <div class="px-3 pt-3 flex-shrink-0">
             <div class="max-w-2xl mx-auto">
-                <div class="mb-4">
-                    <BackLink size="lg" />
-                </div>
                 <div class="text-center mb-4">
                     <p v-if="song.book_number" class="font-mono text-stone-500 mb-1" style="font-size: clamp(1rem, 3vw, 1.25rem)">[{{ song.book_number }}]</p>
                     <h1 class="font-bold text-stone-800" style="font-size: clamp(1.5rem, 5vw, 2rem)">
