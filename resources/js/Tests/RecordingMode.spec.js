@@ -1,7 +1,9 @@
 import { mount, flushPromises } from '@vue/test-utils'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import RecordingMode from '../Components/RecordingMode.vue'
 import { createMemoryStore } from '../recording/recordingStore.js'
+
+beforeEach(() => { try { sessionStorage.clear() } catch { /* noop */ } })
 
 const SONG = {
     id: 1,
@@ -46,6 +48,42 @@ describe('RecordingMode — 渲染', () => {
     it('顯示音色不一致提示', () => {
         const { wrapper } = makeWrapper()
         expect(wrapper.text()).toContain('音色會和你的清唱不同')
+    })
+
+    it('顯示兩條頂部提示（音色說明 + 本地儲存）', () => {
+        const { wrapper } = makeWrapper()
+        expect(wrapper.text()).toContain('音色會和你的清唱不同')
+        expect(wrapper.text()).toContain('錄音存在你的手機裡，不會上傳或與他人分享')
+    })
+})
+
+describe('RecordingMode — 提示可關閉（sessionStorage）', () => {
+    it('按 ✕ 關閉音色提示後該條消失、另一條仍在', async () => {
+        const { wrapper } = makeWrapper()
+        await wrapper.find('[aria-label="關閉提示：音色說明"]').trigger('click')
+        expect(wrapper.text()).not.toContain('音色會和你的清唱不同')
+        expect(wrapper.text()).toContain('錄音存在你的手機裡')
+    })
+
+    it('關閉後同 session 重新開啟介面不再顯示該條', async () => {
+        const first = makeWrapper()
+        await first.wrapper.find('[aria-label="關閉提示：本地儲存"]').trigger('click')
+        first.wrapper.unmount()
+        // 同 session（sessionStorage 未清）重新掛載
+        const { wrapper } = makeWrapper()
+        expect(wrapper.text()).not.toContain('錄音存在你的手機裡')
+        expect(wrapper.text()).toContain('音色會和你的清唱不同') // 未關的仍顯示
+    })
+
+    it('sessionStorage 清空（模擬關閉瀏覽器/PWA）後兩條都重新顯示', async () => {
+        const first = makeWrapper()
+        await first.wrapper.find('[aria-label="關閉提示：音色說明"]').trigger('click')
+        await first.wrapper.find('[aria-label="關閉提示：本地儲存"]').trigger('click')
+        first.wrapper.unmount()
+        sessionStorage.clear() // 模擬重新開啟瀏覽器/PWA
+        const { wrapper } = makeWrapper()
+        expect(wrapper.text()).toContain('音色會和你的清唱不同')
+        expect(wrapper.text()).toContain('錄音存在你的手機裡')
     })
 
     it('每段預設顯示「開始錄音」', () => {
