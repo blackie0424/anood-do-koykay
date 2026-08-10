@@ -58,7 +58,6 @@ function canListenReference(line) {
                     class="text-stone-500 hover:text-stone-800 text-2xl leading-none">✕</button>
                 <div class="flex-1 min-w-0">
                     <h2 class="font-bold text-stone-800 truncate">{{ song.title_native }}</h2>
-                    <p class="text-stone-500 text-sm">點段落開始錄音、再點一次停止</p>
                 </div>
             </div>
         </div>
