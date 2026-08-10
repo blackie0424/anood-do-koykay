@@ -199,7 +199,7 @@ async function share() {
         <div class="px-3 pt-3 flex-shrink-0">
             <div class="max-w-2xl mx-auto">
                 <div class="mb-4">
-                    <BackLink href="/" />
+                    <BackLink href="/" size="lg" />
                 </div>
                 <div class="text-center mb-4">
                     <p v-if="song.book_number" class="font-mono text-stone-500 mb-1" style="font-size: clamp(1rem, 3vw, 1.25rem)">[{{ song.book_number }}]</p>
