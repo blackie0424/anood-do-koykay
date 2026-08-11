@@ -1,7 +1,8 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { Link } from '@inertiajs/vue3'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
+import BackLink from '@/Components/BackLink.vue'
+import PlayBar from '@/Components/PlayBar.vue'
 import ReportModal from '@/Components/ReportModal.vue'
 import RecordingMode from '@/Components/RecordingMode.vue'
 
@@ -34,6 +35,9 @@ let programmaticScroll = false
 // 逐段播放模式
 const segmentMode = ref(false)
 const segmentLine = ref(null)
+
+// 底部播放列說明文字：逐段模式提示點歌詞、播放中提示播放中
+const segmentLabel = computed(() => (segmentMode.value ? '點選歌詞播放' : isPlaying.value ? '播放中…' : ''))
 
 // 播放起止點：優先由歌詞時間推算，無歌詞時間則 fallback 到 audio_start/audio_end
 const effectiveStart = computed(() => {
@@ -194,13 +198,16 @@ async function share() {
 
 <template>
     <PublicLayout>
-    <div class="min-h-dvh flex flex-col bg-stone-50 relative">
+    <div class="h-dvh flex flex-col overflow-hidden bg-stone-50 relative">
+        <!-- 返回 bar（sticky 固定頂部，捲動不消失） -->
+        <div class="sticky top-0 z-10 flex-shrink-0 bg-white border-b border-stone-200 px-3 py-2">
+            <div class="max-w-2xl mx-auto">
+                <BackLink size="lg" />
+            </div>
+        </div>
         <!-- 標頭 -->
         <div class="px-3 pt-3 flex-shrink-0">
             <div class="max-w-2xl mx-auto">
-                <Link href="/" prefetch="mount" cache-for="5m" class="inline-flex items-center gap-1 text-stone-500 hover:text-stone-700 text-sm mb-4">
-                    ← 返回清單
-                </Link>
                 <div class="text-center mb-4">
                     <p v-if="song.book_number" class="font-mono text-stone-500 mb-1" style="font-size: clamp(1rem, 3vw, 1.25rem)">[{{ song.book_number }}]</p>
                     <h1 class="font-bold text-stone-800" style="font-size: clamp(1.5rem, 5vw, 2rem)">
@@ -271,20 +278,7 @@ async function share() {
             @ended="onEnded" @error="onError" />
 
         <!-- 底部控制列 -->
-        <div class="flex-shrink-0 bg-white border-t border-stone-200 px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-            <div class="max-w-2xl mx-auto flex items-center gap-4">
-                <button @click="togglePlay" :disabled="!song.audio_full || hasError"
-                    :aria-label="segmentMode ? '整首播放' : isPlaying ? '暫停' : '播放'"
-                    :class="['flex-shrink-0 w-16 h-16 rounded-full text-2xl flex items-center justify-center transition-transform active:scale-95',
-                        song.audio_full && !hasError ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-stone-200 text-stone-400 cursor-not-allowed']">
-                    {{ isPlaying ? '⏸' : '▶' }}
-                </button>
-                <div class="flex-1 text-stone-600 font-medium text-lg">
-                    <span v-if="segmentMode">▶ 點選歌詞播放</span>
-                    <span v-else-if="isPlaying">播放中…</span>
-                </div>
-            </div>
-        </div>
+        <PlayBar :playing="isPlaying" :disabled="!song.audio_full || hasError" :label="segmentLabel" @play="togglePlay" />
     </div>
 
     <!-- 進入頁面播放提示覆蓋層 -->

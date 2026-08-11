@@ -1,6 +1,8 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useSongRecorder } from '@/recording/useSongRecorder.js'
+import BackLink from '@/Components/BackLink.vue'
+import PlayBar from '@/Components/PlayBar.vue'
 
 const props = defineProps({
     song: { type: Object, required: true },
@@ -67,10 +69,7 @@ function canListenReference(line) {
         <div v-if="allHintsDismissed"
             class="flex-shrink-0 px-4 py-2 bg-white border-b border-stone-200">
             <div class="max-w-2xl mx-auto">
-                <button @click="emit('close')" aria-label="返回清單"
-                    class="inline-flex items-center gap-1 text-stone-600 hover:text-stone-800 text-lg font-bold">
-                    ← 返回清單
-                </button>
+                <BackLink size="lg" @click="emit('close')" />
             </div>
         </div>
 
@@ -146,21 +145,7 @@ function canListenReference(line) {
         </div>
 
         <!-- 整體播放 -->
-        <div class="flex-shrink-0 bg-white border-t border-stone-200 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-            <div class="max-w-2xl mx-auto">
-                <button v-if="!rec.isPlayingAll.value"
-                    @click="rec.playAll()"
-                    aria-label="整體播放我的接唱版本"
-                    class="w-full rounded-full py-3 bg-emerald-600 text-white font-bold text-lg hover:bg-emerald-700 active:scale-95 transition-transform">
-                    ▶ 整體播放我的版本
-                </button>
-                <button v-else
-                    @click="rec.stopPlayAll()"
-                    aria-label="停止整體播放"
-                    class="w-full rounded-full py-3 bg-stone-700 text-white font-bold text-lg hover:bg-stone-600 active:scale-95 transition-transform">
-                    ⏹ 停止播放
-                </button>
-            </div>
-        </div>
+        <PlayBar :playing="rec.isPlayingAll.value" :stop-mode="rec.isPlayingAll.value"
+            @play="rec.playAll()" @stop="rec.stopPlayAll()" />
     </div>
 </template>
