@@ -96,10 +96,10 @@ describe('RecordingMode — 提示可關閉（sessionStorage）', () => {
 
     it('兩條提示都關閉後出現返回清單，點擊觸發 close 事件', async () => {
         const { wrapper } = makeWrapper()
-        expect(wrapper.find('[aria-label="返回清單"]').exists()).toBe(false) // 提示還在時不顯示
+        expect(wrapper.find('[aria-label="回上一頁"]').exists()).toBe(false) // 提示還在時不顯示
         await wrapper.find('[aria-label="關閉提示：音色說明"]').trigger('click')
         await wrapper.find('[aria-label="關閉提示：本地儲存"]').trigger('click')
-        const back = wrapper.find('[aria-label="返回清單"]')
+        const back = wrapper.find('[aria-label="回上一頁"]')
         expect(back.exists()).toBe(true)
         await back.trigger('click')
         expect(wrapper.emitted('close')).toBeTruthy()
@@ -116,7 +116,7 @@ describe('RecordingMode — 提示自動消失', () => {
             await vi.advanceTimersByTimeAsync(5000)
             expect(wrapper.text()).not.toContain('音色會和你的清唱不同')
             expect(wrapper.text()).not.toContain('錄音存在你的手機裡')
-            expect(wrapper.find('[aria-label="返回清單"]').exists()).toBe(true)
+            expect(wrapper.find('[aria-label="回上一頁"]').exists()).toBe(true)
         } finally {
             vi.useRealTimers()
         }
@@ -270,7 +270,7 @@ describe('RecordingMode — 無痕模式儲存提示', () => {
 describe('RecordingMode — 整體播放', () => {
     it('點整體播放呼叫 playStep', async () => {
         const { wrapper, options } = makeWrapper()
-        await wrapper.find('[aria-label="整體播放我的接唱版本"]').trigger('click')
+        await wrapper.find('[aria-label="播放"]').trigger('click')
         await flushPromises()
         expect(options.playStep).toHaveBeenCalled()
     })
@@ -293,7 +293,7 @@ describe('RecordingMode — 整體播放中鎖住段落按鈕', () => {
             },
         })
         await flushPromises()
-        await wrapper.find('[aria-label="整體播放我的接唱版本"]').trigger('click')
+        await wrapper.find('[aria-label="播放"]').trigger('click')
         await flushPromises()
 
         expect(wrapper.find('[aria-label="錄音段落 1"]').attributes('disabled')).toBeDefined()
@@ -312,7 +312,7 @@ describe('RecordingMode — 整體播放高亮當前段', () => {
             playStep: () => new Promise((r) => { resolveStep = r }),
         })
         await flushPromises()
-        await wrapper.find('[aria-label="整體播放我的接唱版本"]').trigger('click')
+        await wrapper.find('[aria-label="播放"]').trigger('click')
         await flushPromises()
 
         const current = wrapper.find('[aria-current="true"]')
