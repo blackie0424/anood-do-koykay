@@ -83,7 +83,7 @@ describe('SongPlayer — 接唱錄音鈕顯示條件', () => {
 
   it('預設不顯示錄音介面', () => {
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-    expect(wrapper.find('[aria-label="整體播放我的接唱版本"]').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="錄音段落 1"]').exists()).toBe(false)
   })
 
   it('點錄唱鈕進入錄音模式時暫停原唱播放', async () => {
@@ -97,7 +97,7 @@ describe('SongPlayer — 接唱錄音鈕顯示條件', () => {
     await wrapper.find('[aria-label="接唱錄音"]').trigger('click')
 
     expect(paused).toBe(true)
-    expect(wrapper.find('[aria-label="整體播放我的接唱版本"]').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="錄音段落 1"]').exists()).toBe(true)
   })
 
   it('未在播放時點錄唱鈕不呼叫 pause', async () => {
@@ -109,7 +109,7 @@ describe('SongPlayer — 接唱錄音鈕顯示條件', () => {
     await wrapper.find('[aria-label="接唱錄音"]').trigger('click')
 
     expect(pauseCalls).toBe(0)
-    expect(wrapper.find('[aria-label="整體播放我的接唱版本"]').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="錄音段落 1"]').exists()).toBe(true)
   })
 })
 

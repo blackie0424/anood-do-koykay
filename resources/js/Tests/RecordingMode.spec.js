@@ -270,7 +270,7 @@ describe('RecordingMode — 無痕模式儲存提示', () => {
 describe('RecordingMode — 整體播放', () => {
     it('點整體播放呼叫 playStep', async () => {
         const { wrapper, options } = makeWrapper()
-        await wrapper.find('[aria-label="整體播放我的接唱版本"]').trigger('click')
+        await wrapper.find('[aria-label="播放"]').trigger('click')
         await flushPromises()
         expect(options.playStep).toHaveBeenCalled()
     })
@@ -293,7 +293,7 @@ describe('RecordingMode — 整體播放中鎖住段落按鈕', () => {
             },
         })
         await flushPromises()
-        await wrapper.find('[aria-label="整體播放我的接唱版本"]').trigger('click')
+        await wrapper.find('[aria-label="播放"]').trigger('click')
         await flushPromises()
 
         expect(wrapper.find('[aria-label="錄音段落 1"]').attributes('disabled')).toBeDefined()
@@ -312,7 +312,7 @@ describe('RecordingMode — 整體播放高亮當前段', () => {
             playStep: () => new Promise((r) => { resolveStep = r }),
         })
         await flushPromises()
-        await wrapper.find('[aria-label="整體播放我的接唱版本"]').trigger('click')
+        await wrapper.find('[aria-label="播放"]').trigger('click')
         await flushPromises()
 
         const current = wrapper.find('[aria-current="true"]')
