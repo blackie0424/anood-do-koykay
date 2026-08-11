@@ -198,7 +198,7 @@ async function share() {
 
 <template>
     <PublicLayout>
-    <div class="min-h-dvh flex flex-col bg-stone-50 relative">
+    <div class="h-dvh flex flex-col overflow-hidden bg-stone-50 relative">
         <!-- 返回 bar（sticky 固定頂部，捲動不消失） -->
         <div class="sticky top-0 z-10 flex-shrink-0 bg-white border-b border-stone-200 px-3 py-2">
             <div class="max-w-2xl mx-auto">
