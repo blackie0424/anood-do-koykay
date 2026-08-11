@@ -1,6 +1,8 @@
 import { mount } from '@vue/test-utils'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import PlayBar from '../Components/PlayBar.vue'
+
+afterEach(() => { vi.restoreAllMocks(); delete global.AudioContext })
 
 describe('PlayBar', () => {
     it('playing=false 顯示 ▶／aria 播放；playing=true 顯示 ⏸／aria 暫停', () => {
@@ -40,5 +42,52 @@ describe('PlayBar', () => {
         await wrapper.find('button').trigger('click')
         expect(wrapper.emitted('stop')).toBeTruthy()
         expect(wrapper.emitted('play')).toBeFalsy()
+    })
+
+    it('點擊後進入 loading（按鈕 disabled + 變灰）', async () => {
+        const wrapper = mount(PlayBar, { props: { playing: false } })
+        await wrapper.find('button').trigger('click')
+        const btn = wrapper.find('button')
+        expect(btn.attributes('disabled')).toBeDefined()
+        expect(btn.classes()).toContain('bg-stone-400')
+    })
+
+    it('loading 中重複點擊不再 emit', async () => {
+        const wrapper = mount(PlayBar, { props: { playing: false } })
+        await wrapper.find('button').trigger('click')
+        await wrapper.find('button').trigger('click')
+        expect(wrapper.emitted('play')).toHaveLength(1)
+    })
+
+    it('playing prop 改變後離開 loading', async () => {
+        const wrapper = mount(PlayBar, { props: { playing: false } })
+        await wrapper.find('button').trigger('click')
+        expect(wrapper.find('button').attributes('disabled')).toBeDefined()
+        await wrapper.setProps({ playing: true }) // 父層操作完成
+        expect(wrapper.find('button').attributes('disabled')).toBeUndefined()
+    })
+
+    it('點擊播放點擊音效（呼叫 AudioContext）', async () => {
+        const osc = { frequency: {}, connect: vi.fn(), start: vi.fn(), stop: vi.fn(), onended: null }
+        const gain = { gain: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() }, connect: vi.fn() }
+        const AC = vi.fn(() => ({
+            createOscillator: () => osc,
+            createGain: () => gain,
+            destination: {},
+            currentTime: 0,
+            close: vi.fn(),
+        }))
+        global.AudioContext = AC
+        const wrapper = mount(PlayBar)
+        await wrapper.find('button').trigger('click')
+        expect(AC).toHaveBeenCalled()
+        expect(osc.start).toHaveBeenCalled()
+    })
+
+    it('無 AudioContext 時點擊不報錯仍 emit', async () => {
+        delete global.AudioContext
+        const wrapper = mount(PlayBar)
+        await wrapper.find('button').trigger('click')
+        expect(wrapper.emitted('play')).toBeTruthy()
     })
 })
