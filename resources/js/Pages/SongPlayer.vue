@@ -119,13 +119,60 @@ function togglePlay() {
 const TIME_UPDATE_INTERVAL_MS = 250
 const audioReadyState = ref(0)
 let timeUpdateTimer = null
+
+// 診斷確認：在部分裝置的 LINE WebView 冷啟動情境下，聲音正常播放，
+// 但 audio.currentTime／timeupdate 兩者回報的播放位置完全不會前進
+// （不是緩衝、readyState 已經是 HAVE_ENOUGH_DATA）。這是純粹的「進度
+// 回報」問題，不是播放問題。修法用行為自我偵測，不分平台分支：
+// 正常情況下永遠用 audio.currentTime 當真實來源（正常瀏覽器/PWA 完全
+// 不受影響，真的緩衝時 currentTime 停滯也還是正確反映）；只有在資料已
+// 備妥（readyState>=3）卻連續好幾個 tick 完全沒前進時，才判定為回報卡
+// 住，改用 Date.now() 牆鐘時間估算前進量；一旦真實回報又恢復，立刻切
+// 回真實值，不會永久分岔成兩套時間軸。
+const STALL_TICKS_THRESHOLD = 3 // 連續 3 次（750ms）沒前進才判定回報卡住，避免正常抖動誤判
+const usingVirtualTime = ref(false) // TODO(暫時)：診斷用，顯示是否已切換到虛擬計時 fallback，定位穩定後視情況保留或移除
+let lastObservedRealTime = null
+let stallTickCount = 0
+let virtualBaseTime = 0
+let virtualBaseWallClock = 0
+
+function computeCurrentTime() {
+    audioReadyState.value = audio.value.readyState
+    const real = audio.value.currentTime
+
+    if (usingVirtualTime.value) {
+        if (real !== lastObservedRealTime) {
+            // 真實回報恢復了，切回真實值，不再用估算的
+            usingVirtualTime.value = false
+            stallTickCount = 0
+            lastObservedRealTime = real
+            return real
+        }
+        return virtualBaseTime + (Date.now() - virtualBaseWallClock) / 1000
+    }
+
+    if (lastObservedRealTime !== null && real === lastObservedRealTime && audioReadyState.value >= 3) {
+        stallTickCount++
+    } else {
+        stallTickCount = 0
+    }
+    lastObservedRealTime = real
+
+    if (stallTickCount >= STALL_TICKS_THRESHOLD) {
+        usingVirtualTime.value = true
+        virtualBaseTime = real
+        virtualBaseWallClock = Date.now()
+    }
+    return real
+}
+
 function startTimeUpdateLoop() {
     if (timeUpdateTimer != null) return
     timeUpdateTimer = setInterval(() => {
         pollCount.value++ // TODO(暫時)：診斷用，定位穩定後移除
         if (audio.value) {
-            currentTime.value = audio.value.currentTime
-            audioReadyState.value = audio.value.readyState
+            currentTime.value = computeCurrentTime()
+            checkBoundary()
         }
     }, TIME_UPDATE_INTERVAL_MS)
 }
@@ -144,14 +191,18 @@ const isBuffering = computed(() => isPlaying.value && audioReadyState.value < 3)
 
 function onPlaying() {
     isPlaying.value = true
+    if (usingVirtualTime.value) {
+        // 從暫停恢復播放時，重新對齊虛擬時間的牆鐘基準，避免把暫停期間
+        // 經過的時間也算進估算的前進量，造成恢復播放的瞬間畫面跳動。
+        virtualBaseWallClock = Date.now()
+    }
     startTimeUpdateLoop()
 }
 
-function onTimeUpdate() {
-    tuCount.value++ // TODO(暫時)：診斷用，定位穩定後移除
-    currentTime.value = audio.value?.currentTime ?? 0
-
-    // 逐段播放模式
+// 逐段播放模式 / 整首播放到達 effectiveEnd 的暫停判斷。輪詢（setInterval）
+// 與原生 timeupdate 都會呼叫這裡，確保即使 timeupdate 在 LINE WebView
+// 不可靠時，段落結尾／整首結尾的自動暫停行為依然正常。
+function checkBoundary() {
     if (segmentMode.value) {
         if (segmentLine.value) {
             const line = segmentLine.value
@@ -170,6 +221,16 @@ function onTimeUpdate() {
         audio.value.pause()
         enterSegmentMode()
     }
+}
+
+function onTimeUpdate() {
+    tuCount.value++ // TODO(暫時)：診斷用，定位穩定後移除
+    // 虛擬計時 fallback 期間，timeupdate 若剛好帶著卡住的舊值觸發，
+    // 不要覆蓋掉正在估算前進的 currentTime。
+    if (!usingVirtualTime.value) {
+        currentTime.value = audio.value?.currentTime ?? 0
+    }
+    checkBoundary()
 }
 
 function getNextLineStartTime(line) {
@@ -363,7 +424,7 @@ async function share() {
 
     <!-- TODO(暫時)：chung 要求繼續保留畫面診斷，定位穩定後移除 -->
     <div class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
-        （診斷）t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | poll={{ pollCount }} | tu={{ tuCount }} | playing={{ isPlaying }} | ready={{ audioReadyState }} | buffering={{ isBuffering }}
+        （診斷）t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | poll={{ pollCount }} | tu={{ tuCount }} | playing={{ isPlaying }} | ready={{ audioReadyState }} | buffering={{ isBuffering }} | virt={{ usingVirtualTime }}
     </div>
     </PublicLayout>
 </template>

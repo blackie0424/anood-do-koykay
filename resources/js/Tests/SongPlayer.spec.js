@@ -369,6 +369,132 @@ describe('SongPlayer — currentTime 用 setInterval 輪詢（不依賴 timeupda
   })
 })
 
+describe('SongPlayer — currentTime 回報卡住時 fallback 到 Date.now() 虛擬計時', () => {
+  it('正常前進時全程用真實 currentTime，不啟用虛擬計時', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+
+      await wrapper.find('audio').trigger('playing')
+
+      for (let i = 0; i < 5; i++) {
+        audioEl.currentTime = 2.0 + i * 0.25
+        await vi.advanceTimersByTimeAsync(250)
+      }
+
+      expect(wrapper.text()).toContain('virt=false')
+      expect(wrapper.text()).toContain('t=3.00')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('真的在緩衝（readyState<3）時 currentTime 停滯不會誤判為回報卡住', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      Object.defineProperty(audioEl, 'readyState', { value: 1, configurable: true }) // 還在緩衝
+
+      await wrapper.find('audio').trigger('playing')
+      audioEl.currentTime = 2.0
+
+      await vi.advanceTimersByTimeAsync(250 * 5) // 連續多個 tick 都沒前進
+
+      expect(wrapper.text()).toContain('virt=false')
+      expect(wrapper.text()).toContain('buffering=true')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('資料已備妥但連續達到門檻沒前進，判定回報卡住並切換到虛擬計時持續前進', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true }) // 資料已足夠
+
+      await wrapper.find('audio').trigger('playing')
+      audioEl.currentTime = 2.0
+
+      // 第 1 次 tick 只是建立基準值，接下來連續 3 次（第 2~4 次）都卡在
+      // 同一個值 → 第 4 次判定回報卡住，切換到虛擬計時（這個 tick 本身還
+      // 是回報基準值，下一個 tick 才會真正開始用估算的往前推進）
+      await vi.advanceTimersByTimeAsync(250)
+      expect(wrapper.text()).toContain('virt=false')
+      await vi.advanceTimersByTimeAsync(250)
+      expect(wrapper.text()).toContain('virt=false')
+      await vi.advanceTimersByTimeAsync(250)
+      expect(wrapper.text()).toContain('virt=false')
+      await vi.advanceTimersByTimeAsync(250)
+      expect(wrapper.text()).toContain('virt=true')
+      expect(wrapper.text()).toContain('t=2.00')
+
+      // 之後即使 audio.currentTime 依然卡住，畫面的 t 仍會用牆鐘時間繼續往前推進
+      await vi.advanceTimersByTimeAsync(250)
+      expect(wrapper.text()).toContain('t=2.25')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('回報恢復（真實 currentTime 又開始變化）時立刻切回真實值', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+
+      await wrapper.find('audio').trigger('playing')
+      audioEl.currentTime = 2.0
+      await vi.advanceTimersByTimeAsync(250 * 4) // 進入虛擬計時
+      expect(wrapper.text()).toContain('virt=true')
+
+      audioEl.currentTime = 6.5 // 真實回報恢復了
+      await vi.advanceTimersByTimeAsync(250)
+
+      expect(wrapper.text()).toContain('virt=false')
+      expect(wrapper.text()).toContain('t=6.50')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('虛擬計時期間暫停又恢復播放，不會把暫停的時間也算進前進量', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+      Object.defineProperty(audioEl, 'paused', { value: false, configurable: true })
+
+      await wrapper.find('audio').trigger('playing')
+      audioEl.currentTime = 2.0
+      await vi.advanceTimersByTimeAsync(250 * 4) // 進入虛擬計時，t=2.00
+      expect(wrapper.text()).toContain('virt=true')
+
+      // 暫停：停止輪詢，但虛擬計時的狀態還留著
+      Object.defineProperty(audioEl, 'paused', { value: true, configurable: true })
+      await wrapper.find('audio').trigger('pause')
+
+      // 模擬真的暫停了 5 秒
+      await vi.advanceTimersByTimeAsync(5000)
+
+      // 恢復播放：重新對齊牆鐘基準，不該把剛剛暫停的 5 秒也算進去
+      Object.defineProperty(audioEl, 'paused', { value: false, configurable: true })
+      await wrapper.find('audio').trigger('playing')
+      await vi.advanceTimersByTimeAsync(250)
+
+      expect(wrapper.text()).toContain('t=2.25')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe('SongPlayer — 音訊緩衝中顯示「載入中…」', () => {
   it('playing 已觸發但 readyState<3（緩衝中）時，PlayBar 顯示「載入中…」', async () => {
     vi.useFakeTimers()
