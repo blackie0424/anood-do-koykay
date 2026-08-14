@@ -24,6 +24,7 @@ const audio = ref(null)
 const currentTime = ref(0)
 const isPlaying = ref(false)
 const hasError = ref(false)
+const pollCount = ref(0) // TODO(暫時)：chung 要求繼續保留畫面診斷，定位穩定後移除
 
 // 歌詞捲動
 const lyricsContainer = ref(null)
@@ -120,6 +121,7 @@ let timeUpdateTimer = null
 function startTimeUpdateLoop() {
     if (timeUpdateTimer != null) return
     timeUpdateTimer = setInterval(() => {
+        pollCount.value++ // TODO(暫時)：診斷用，定位穩定後移除
         if (audio.value) {
             currentTime.value = audio.value.currentTime
             audioReadyState.value = audio.value.readyState
@@ -356,6 +358,11 @@ async function share() {
     </Transition>
 
     <RecordingMode v-if="showRecording" :song="song" @close="showRecording = false" />
+
+    <!-- TODO(暫時)：chung 要求繼續保留畫面診斷，定位穩定後移除 -->
+    <div class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
+        （診斷）t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | poll={{ pollCount }} | playing={{ isPlaying }} | ready={{ audioReadyState }} | buffering={{ isBuffering }}
+    </div>
     </PublicLayout>
 </template>
 
