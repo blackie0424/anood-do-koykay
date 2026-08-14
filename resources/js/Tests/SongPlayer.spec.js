@@ -191,6 +191,62 @@ describe('SongPlayer — effectiveEnd（onTimeUpdate）', () => {
   })
 })
 
+describe('SongPlayer — 結尾自動暫停不只依賴 timeupdate（LINE WebView 情境：輪詢也會觸發）', () => {
+  it('完全不觸發 timeupdate，輪詢仍會在到達 effectiveEnd 時暫停並進入逐段模式', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      audioEl.play = async () => {}
+      let paused = false
+      audioEl.pause = () => { paused = true }
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+
+      await wrapper.find('audio').trigger('playing')
+      // 完全不觸發 timeupdate，只靠輪詢；直接把 currentTime 推到 effectiveEnd(9.0) 之後
+      audioEl.currentTime = 9.1
+      await vi.advanceTimersByTimeAsync(250)
+
+      expect(paused).toBe(true)
+      expect(wrapper.findComponent(PlayBar).props('label')).toBe('點選歌詞播放')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('逐段模式下完全不觸發 timeupdate，輪詢仍會在該行 end_time 暫停', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      audioEl.play = async () => {}
+      let paused = false
+      audioEl.pause = () => { paused = true }
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+
+      // 先靠輪詢把整首播完，進入逐段模式
+      await wrapper.find('audio').trigger('playing')
+      audioEl.currentTime = 9.1
+      await vi.advanceTimersByTimeAsync(250)
+      expect(wrapper.findComponent(PlayBar).props('label')).toBe('點選歌詞播放')
+
+      // 點第一句進行逐段聆聽
+      paused = false
+      const maomawLine = wrapper.findAll('p').find((p) => p.text() === 'Maomaw')
+      await maomawLine.element.parentElement.dispatchEvent(new Event('click', { bubbles: true }))
+      await wrapper.vm.$nextTick()
+
+      // 完全不觸發 timeupdate，只靠輪詢；把 currentTime 推到該行 end_time(6.0) 之後
+      audioEl.currentTime = 6.1
+      await vi.advanceTimersByTimeAsync(250)
+
+      expect(paused).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe('SongPlayer — startPlayFromOverlay', () => {
   it('readyState >= 2 時套用 effectiveStart（歌詞時間）並播放', async () => {
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
