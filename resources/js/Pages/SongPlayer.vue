@@ -25,6 +25,7 @@ const currentTime = ref(0)
 const isPlaying = ref(false)
 const hasError = ref(false)
 const pollCount = ref(0) // TODO(暫時)：chung 要求繼續保留畫面診斷，定位穩定後移除
+const tuCount = ref(0) // TODO(暫時)：診斷用，確認 LINE WebView 冷啟動時 timeupdate 是否真的沒觸發，定位穩定後移除
 
 // 歌詞捲動
 const lyricsContainer = ref(null)
@@ -147,6 +148,7 @@ function onPlaying() {
 }
 
 function onTimeUpdate() {
+    tuCount.value++ // TODO(暫時)：診斷用，定位穩定後移除
     currentTime.value = audio.value?.currentTime ?? 0
 
     // 逐段播放模式
@@ -361,7 +363,7 @@ async function share() {
 
     <!-- TODO(暫時)：chung 要求繼續保留畫面診斷，定位穩定後移除 -->
     <div class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
-        （診斷）t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | poll={{ pollCount }} | playing={{ isPlaying }} | ready={{ audioReadyState }} | buffering={{ isBuffering }}
+        （診斷）t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | poll={{ pollCount }} | tu={{ tuCount }} | playing={{ isPlaying }} | ready={{ audioReadyState }} | buffering={{ isBuffering }}
     </div>
     </PublicLayout>
 </template>
