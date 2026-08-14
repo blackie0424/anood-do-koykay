@@ -24,6 +24,10 @@ const audio = ref(null)
 const currentTime = ref(0)
 const isPlaying = ref(false)
 const hasError = ref(false)
+// 冷啟動時資料還沒備妥，「開始播放」被排程等 canplay／3 秒 fallback，這段
+// 等待期間為 true。用來讓畫面顯示「準備中…」、播放鈕暫時不可按，避免使用
+// 者以為沒反應而重複按下，導致排程中的播放又把進度拉回開頭。
+const isPendingPlay = ref(false)
 
 // 歌詞捲動
 const lyricsContainer = ref(null)
@@ -38,6 +42,7 @@ const segmentLine = ref(null)
 
 // 底部播放列說明文字：逐段模式提示點歌詞、播放中提示播放中
 const segmentLabel = computed(() => {
+    if (isPendingPlay.value) return '準備中…'
     if (isBuffering.value) return '載入中…'
     if (segmentMode.value) return '點選歌詞播放'
     if (isPlaying.value) return '播放中…'
@@ -89,7 +94,9 @@ function returnToCurrentLine() {
 }
 
 function togglePlay() {
-    if (!audio.value) return
+    // 冷啟動排程中的播放還沒執行完，忽略這次按下，避免跟排程中的播放
+    // 互相搶著設定 currentTime／呼叫 play()
+    if (!audio.value || isPendingPlay.value) return
     if (segmentMode.value) {
         // 退出逐段模式，從 effectiveStart 播放整首
         segmentMode.value = false
@@ -275,6 +282,7 @@ function startPlayFromOverlay() {
     showPlayOverlay.value = false
     if (audio.value && props.song?.audio_full && !hasError.value) {
         const doPlay = () => {
+            isPendingPlay.value = false
             audio.value.currentTime = effectiveStart.value
             audio.value.play().catch(() => { hasError.value = true })
         }
@@ -282,7 +290,9 @@ function startPlayFromOverlay() {
             doPlay()
         } else {
             // 從外部連結完整載入頁面時，Safari 的 canplay 有時遲遲不觸發，
-            // 加保險：3 秒後若還沒播放就強制播放一次
+            // 加保險：3 秒後若還沒播放就強制播放一次。等待期間標記
+            // isPendingPlay，畫面顯示「準備中…」且播放鈕暫時不可按。
+            isPendingPlay.value = true
             let played = false
             const play = () => {
                 if (played || !audio.value) return
@@ -314,7 +324,7 @@ async function share() {
 }
 
 // 畫面診斷已移除（chung 驗收確認後）；保留這幾個內部狀態給測試用，不會渲染在畫面上
-defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
+defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering, isPendingPlay })
 </script>
 
 <template>
@@ -399,7 +409,7 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
             @ended="onEnded" @error="onError" />
 
         <!-- 底部控制列 -->
-        <PlayBar :playing="isPlaying" :disabled="!song.audio_full || hasError" :label="segmentLabel" @play="togglePlay" />
+        <PlayBar :playing="isPlaying" :disabled="!song.audio_full || hasError || isPendingPlay" :label="segmentLabel" @play="togglePlay" />
     </div>
 
     <!-- 進入頁面播放提示覆蓋層 -->
