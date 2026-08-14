@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Http;
 
 class LineWebhookController extends Controller
 {
-    private const USAGE_MESSAGE = "輸入頁碼或歌名就可以點歌囉 🎵\n例如：44　或　耶穌\n（群組裡請先 @ 我再輸入）";
+    private const USAGE_MESSAGE = "輸入頁碼或歌名就可以點歌囉 🎵\n例如：44　或　主愛我\n（群組裡請先 @ 我再輸入）";
     private const JOIN_MESSAGE = "大家好，我是 Anood 助理 🎵\n輸入「@Anood助理 頁碼」或「@Anood助理 歌名」就可以點歌！\n例如：@Anood助理 44 或 @Anood助理 主愛我";
     private const MEMBER_JOINED_MESSAGE = "歡迎新朋友！輸入「@Anood助理 頁碼」可以點達悟族詩歌 🎵";
 
@@ -83,8 +83,9 @@ class LineWebhookController extends Controller
 
         $song = $this->lookup->find($query);
 
+        // LINE 內建瀏覽器（WebView）對音訊播放限制較嚴格，加參數強制用外部瀏覽器開啟
         $reply = $song
-            ? $song->title_native."\n".rtrim(config('app.url'), '/')."/songs/{$song->id}"
+            ? $song->title_native."\n".rtrim(config('app.url'), '/')."/songs/{$song->id}?openExternalBrowser=1"
             : "找不到「{$query}」，請確認頁碼或歌名";
 
         $this->sendReply($replyToken, $reply);

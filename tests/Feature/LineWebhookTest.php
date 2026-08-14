@@ -97,6 +97,19 @@ class LineWebhookTest extends TestCase
         });
     }
 
+    public function test_book_number_query_reply_link_forces_external_browser(): void
+    {
+        Http::fake();
+        $song = Song::factory()->published()->create(['book_number' => '44']);
+
+        $this->signedPost($this->textEvent('44'))->assertStatus(200);
+
+        Http::assertSent(function ($request) use ($song) {
+            $text = $request->data()['messages'][0]['text'] ?? '';
+            return str_contains($text, "/songs/{$song->id}?openExternalBrowser=1");
+        });
+    }
+
     public function test_book_number_query_not_found_replies_with_not_found_message(): void
     {
         Http::fake();
