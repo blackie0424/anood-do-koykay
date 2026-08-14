@@ -97,8 +97,10 @@ class LineWebhookTest extends TestCase
         });
     }
 
-    public function test_book_number_query_reply_link_forces_external_browser(): void
+    public function test_book_number_query_reply_link_has_no_extra_query_params(): void
     {
+        // 曾短暫加過 ?openExternalBrowser=1，後來評估會干擾 Inertia 路由而移除，
+        // 這條測試固定「回覆連結就是乾淨的 /songs/{id}」這個行為
         Http::fake();
         $song = Song::factory()->published()->create(['book_number' => '44']);
 
@@ -106,7 +108,7 @@ class LineWebhookTest extends TestCase
 
         Http::assertSent(function ($request) use ($song) {
             $text = $request->data()['messages'][0]['text'] ?? '';
-            return str_contains($text, "/songs/{$song->id}?openExternalBrowser=1");
+            return str_contains($text, "/songs/{$song->id}") && !str_contains($text, '?');
         });
     }
 

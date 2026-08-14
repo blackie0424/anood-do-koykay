@@ -173,7 +173,17 @@ function startPlayFromOverlay() {
         if (audio.value.readyState >= 2) {
             doPlay()
         } else {
-            audio.value.addEventListener('canplay', doPlay, { once: true })
+            // 從外部連結完整載入頁面時，Safari 的 canplay 有時遲遲不觸發，
+            // 加保險：3 秒後若還沒播放就強制播放一次
+            let played = false
+            const play = () => {
+                if (played || !audio.value) return
+                played = true
+                audio.value.removeEventListener('canplay', play)
+                doPlay()
+            }
+            audio.value.addEventListener('canplay', play, { once: true })
+            setTimeout(play, 3000)
         }
     }
 }

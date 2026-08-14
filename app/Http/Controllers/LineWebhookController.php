@@ -83,9 +83,8 @@ class LineWebhookController extends Controller
 
         $song = $this->lookup->find($query);
 
-        // LINE 內建瀏覽器（WebView）對音訊播放限制較嚴格，加參數強制用外部瀏覽器開啟
         $reply = $song
-            ? $song->title_native."\n".rtrim(config('app.url'), '/')."/songs/{$song->id}?openExternalBrowser=1"
+            ? $song->title_native."\n".rtrim(config('app.url'), '/')."/songs/{$song->id}"
             : "找不到「{$query}」，請確認頁碼或歌名";
 
         $this->sendReply($replyToken, $reply);

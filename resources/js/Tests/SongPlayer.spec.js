@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import BackLink from '../Components/BackLink.vue'
 import SongPlayer from '../Pages/SongPlayer.vue'
 
@@ -223,6 +223,27 @@ describe('SongPlayer — startPlayFromOverlay', () => {
 
     expect(audioEl.currentTime).toBe(2.0)
     expect(played).toBe(true)
+  })
+
+  it('readyState < 2 時 canplay 遲遲不觸發，3 秒後保險強制播放', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      let played = false
+      audioEl.play = async () => { played = true }
+      Object.defineProperty(audioEl, 'readyState', { value: 0, configurable: true })
+
+      await wrapper.find('[aria-label="點擊開始播放"]').trigger('click')
+      expect(played).toBe(false)
+
+      await vi.advanceTimersByTimeAsync(3000)
+
+      expect(audioEl.currentTime).toBe(2.0)
+      expect(played).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 
