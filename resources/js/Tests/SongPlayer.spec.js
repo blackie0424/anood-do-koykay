@@ -610,6 +610,43 @@ describe('SongPlayer — currentTime 回報卡住時 fallback 到 Date.now() 虛
       vi.useRealTimers()
     }
   })
+
+  it('一般模式下暫停後在同一位置恢復播放，連續 3 次還沒真的前進不會被誤判為回報卡住', async () => {
+    // 流川楓 review 發現：onPause 若沒有重置 stallTickCount／
+    // lastObservedRealTime，暫停位置剛好等於暫停前最後觀察到的值，
+    // 恢復播放後只要連續 3 次 tick 還沒真的前進（例如剛恢復還沒動），
+    // 就會被誤判成「回報卡住」而切到虛擬計時——即使這只是正常的
+    // 暫停/恢復，不是 LINE WebView 那種真的卡住的情況。
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+      Object.defineProperty(audioEl, 'paused', { value: false, configurable: true })
+
+      await wrapper.find('audio').trigger('playing')
+      audioEl.currentTime = 2.0
+      await vi.advanceTimersByTimeAsync(250) // 建立比對基準，尚未進入虛擬計時
+      expect(wrapper.vm.usingVirtualTime).toBe(false)
+
+      // 暫停在 2.0
+      Object.defineProperty(audioEl, 'paused', { value: true, configurable: true })
+      await wrapper.find('audio').trigger('pause')
+
+      // 恢復播放，位置依然停在暫停時的 2.0
+      Object.defineProperty(audioEl, 'paused', { value: false, configurable: true })
+      await wrapper.find('audio').trigger('playing')
+
+      // 連續 3 次 tick 都還停在 2.0（模擬剛恢復還沒真的前進）
+      await vi.advanceTimersByTimeAsync(250)
+      await vi.advanceTimersByTimeAsync(250)
+      await vi.advanceTimersByTimeAsync(250)
+
+      expect(wrapper.vm.usingVirtualTime).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('SongPlayer — 音訊緩衝中顯示「載入中…」', () => {

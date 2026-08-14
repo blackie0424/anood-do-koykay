@@ -264,6 +264,17 @@ function onPause() {
     if (audio.value?.paused) {
         isPlaying.value = false
         stopTimeUpdateLoop()
+        // 暫停時清掉「回報卡住」判定用的比對基準，避免恢復播放後的第一個
+        // tick 誤判：暫停位置剛好等於暫停前最後一次觀察到的值，如果不清
+        // 掉，連續 3 次 tick 還沒真的前進（例如剛恢復還沒開始動）就會被
+        // 誤判成回報卡住。已經在虛擬計時 fallback 中的話不清（見下方
+        // if），要維持判斷延續性——不然這裡把 lastObservedRealTime 清成
+        // null，會讓虛擬計時模式那段「real !== lastObservedRealTime 就切
+        // 回真實值」的判斷把 null 誤認成「回報恢復了」，跳回卡住的舊值。
+        if (!usingVirtualTime.value) {
+            stallTickCount = 0
+            lastObservedRealTime = null
+        }
     }
 }
 
