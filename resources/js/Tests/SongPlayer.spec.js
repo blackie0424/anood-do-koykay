@@ -1,6 +1,7 @@
 import { mount, enableAutoUnmount } from '@vue/test-utils'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import BackLink from '../Components/BackLink.vue'
+import PlayBar from '../Components/PlayBar.vue'
 import SongPlayer from '../Pages/SongPlayer.vue'
 
 // SongPlayer 播放中會用 setInterval 輪詢 currentTime，卸載時（onBeforeUnmount）才會停止；
@@ -365,5 +366,48 @@ describe('SongPlayer — currentTime 用 setInterval 輪詢（不依賴 timeupda
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('SongPlayer — 音訊緩衝中顯示「載入中…」', () => {
+  it('playing 已觸發但 readyState<3（緩衝中）時，PlayBar 顯示「載入中…」', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      Object.defineProperty(audioEl, 'readyState', { value: 1, configurable: true }) // HAVE_METADATA，還在緩衝
+
+      await wrapper.find('audio').trigger('playing')
+      await vi.advanceTimersByTimeAsync(250) // 讓輪詢跑一次，讀到 readyState
+
+      expect(wrapper.findComponent(PlayBar).props('label')).toBe('載入中…')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('緩衝完成（readyState>=3）後改顯示「播放中…」', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      Object.defineProperty(audioEl, 'readyState', { value: 1, configurable: true })
+
+      await wrapper.find('audio').trigger('playing')
+      await vi.advanceTimersByTimeAsync(250)
+      expect(wrapper.findComponent(PlayBar).props('label')).toBe('載入中…')
+
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true }) // HAVE_ENOUGH_DATA
+      await vi.advanceTimersByTimeAsync(250)
+
+      expect(wrapper.findComponent(PlayBar).props('label')).toBe('播放中…')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('未播放時（isPlaying=false）即使 readyState<3 也不顯示載入中', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    expect(wrapper.findComponent(PlayBar).props('label')).not.toBe('載入中…')
   })
 })

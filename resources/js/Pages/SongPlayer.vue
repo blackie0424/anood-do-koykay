@@ -24,7 +24,6 @@ const audio = ref(null)
 const currentTime = ref(0)
 const isPlaying = ref(false)
 const hasError = ref(false)
-const pollCount = ref(0) // TODO(暫時)：LINE WebView 冷啟動診斷，定位後移除
 
 // 歌詞捲動
 const lyricsContainer = ref(null)
@@ -38,7 +37,12 @@ const segmentMode = ref(false)
 const segmentLine = ref(null)
 
 // 底部播放列說明文字：逐段模式提示點歌詞、播放中提示播放中
-const segmentLabel = computed(() => (segmentMode.value ? '點選歌詞播放' : isPlaying.value ? '播放中…' : ''))
+const segmentLabel = computed(() => {
+    if (isBuffering.value) return '載入中…'
+    if (segmentMode.value) return '點選歌詞播放'
+    if (isPlaying.value) return '播放中…'
+    return ''
+})
 
 // 播放起止點：優先由歌詞時間推算，無歌詞時間則 fallback 到 audio_start/audio_end
 const effectiveStart = computed(() => {
@@ -111,12 +115,15 @@ function togglePlay() {
 // 250ms 對歌詞高亮已經足夠，不需要每幀更新。timeupdate 仍保留給下方的
 // 逐段/整首播放結束判斷使用（多一層保險）。
 const TIME_UPDATE_INTERVAL_MS = 250
+const audioReadyState = ref(0)
 let timeUpdateTimer = null
 function startTimeUpdateLoop() {
     if (timeUpdateTimer != null) return
     timeUpdateTimer = setInterval(() => {
-        pollCount.value++ // TODO(暫時)：診斷用，定位後移除
-        if (audio.value) currentTime.value = audio.value.currentTime
+        if (audio.value) {
+            currentTime.value = audio.value.currentTime
+            audioReadyState.value = audio.value.readyState
+        }
     }, TIME_UPDATE_INTERVAL_MS)
 }
 function stopTimeUpdateLoop() {
@@ -126,6 +133,11 @@ function stopTimeUpdateLoop() {
     }
 }
 onBeforeUnmount(() => { stopTimeUpdateLoop() })
+
+// 診斷確認：歌詞高亮沒有 bug，是音訊緩衝中——瀏覽器觸發 playing 事件後，
+// 實際資料還沒備妥（readyState < HAVE_FUTURE_DATA）時播放位置不會前進。
+// 緩衝中顯示「載入中…」，讓使用者知道不是按壞了。
+const isBuffering = computed(() => isPlaying.value && audioReadyState.value < 3)
 
 function onPlaying() {
     isPlaying.value = true
@@ -344,11 +356,6 @@ async function share() {
     </Transition>
 
     <RecordingMode v-if="showRecording" :song="song" @close="showRecording = false" />
-
-    <!-- TODO(暫時)：LINE WebView 冷啟動歌詞高亮診斷，定位後移除 -->
-    <div class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
-        （診斷）t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | poll={{ pollCount }} | playing={{ isPlaying }}
-    </div>
     </PublicLayout>
 </template>
 
