@@ -105,6 +105,8 @@ function togglePlay() {
 
 function onTimeUpdate() {
     currentTime.value = audio.value?.currentTime ?? 0
+    // TODO(暫時)：LINE WebView 歌詞高亮診斷，定位後移除
+    console.log('[anood] timeupdate', currentTime.value)
 
     // 逐段播放模式
     if (segmentMode.value) {
@@ -309,6 +311,11 @@ async function share() {
     </Transition>
 
     <RecordingMode v-if="showRecording" :song="song" @close="showRecording = false" />
+
+    <!-- TODO(暫時)：LINE WebView 歌詞高亮診斷，定位後移除 -->
+    <div class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
+        （診斷）t={{ currentTime.toFixed(2) }} idx={{ activeLineIndex }} hasStart={{ (song.lines ?? []).some(l => l.start_time != null) }}
+    </div>
     </PublicLayout>
 </template>
 
