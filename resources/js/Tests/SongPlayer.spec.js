@@ -647,6 +647,46 @@ describe('SongPlayer — currentTime 回報卡住時 fallback 到 Date.now() 虛
       vi.useRealTimers()
     }
   })
+
+  it('虛擬計時已經跑一段時間後暫停恢復，會從暫停當下的位置繼續，不會跳回剛進入虛擬計時那個舊起點', async () => {
+    // chung 驗收發現：播放中歌詞正常跟播，暫停後再播放，歌詞跳回第一行，
+    // 但歌聲繼續往下播（沒被重設）。根因：onPlaying 恢復播放時只重新
+    // 對齊了虛擬計時的牆鐘基準（virtualBaseWallClock），卻沒有把起點
+    // （virtualBaseTime）也對齊到暫停當下的位置——起點停在最初判定回報
+    // 卡住那一刻的舊位置（例如第 2 秒），暫停在第 27 秒恢復播放時，畫面
+    // 顯示的 currentTime 會瞬間跳回第 2 秒附近重新算，歌詞跟著跳回開頭，
+    // 但實際 audio 播放位置沒被動過、繼續往下，兩者就對不起來了。
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+      Object.defineProperty(audioEl, 'paused', { value: false, configurable: true })
+
+      await wrapper.find('audio').trigger('playing')
+      audioEl.currentTime = 2.0
+      await vi.advanceTimersByTimeAsync(250 * 4) // 進入虛擬計時，起點是 2.0
+      expect(wrapper.vm.usingVirtualTime).toBe(true)
+
+      // 虛擬計時繼續跑一段時間（模擬使用者聽了好幾秒才按暫停）
+      await vi.advanceTimersByTimeAsync(250 * 20) // 再過 5 秒，currentTime 應該來到約 7.0
+      expect(wrapper.vm.currentTime).toBeCloseTo(7.0, 1)
+
+      // 暫停
+      Object.defineProperty(audioEl, 'paused', { value: true, configurable: true })
+      await wrapper.find('audio').trigger('pause')
+
+      // 恢復播放：應該從暫停當下（約 7.0）繼續，不是跳回最初進入虛擬
+      // 計時的 2.0
+      Object.defineProperty(audioEl, 'paused', { value: false, configurable: true })
+      await wrapper.find('audio').trigger('playing')
+      await vi.advanceTimersByTimeAsync(250)
+
+      expect(wrapper.vm.currentTime).toBeCloseTo(7.25, 1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('SongPlayer — 音訊緩衝中顯示「載入中…」', () => {

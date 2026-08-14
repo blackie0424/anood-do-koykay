@@ -196,8 +196,12 @@ const isBuffering = computed(() => isPlaying.value && audioReadyState.value < 3)
 function onPlaying() {
     isPlaying.value = true
     if (usingVirtualTime.value) {
-        // 從暫停恢復播放時，重新對齊虛擬時間的牆鐘基準，避免把暫停期間
-        // 經過的時間也算進估算的前進量，造成恢復播放的瞬間畫面跳動。
+        // 從暫停恢復播放時，把虛擬計時的起點重新對齊到「暫停當下顯示的
+        // 位置」，牆鐘基準也重新對齊到現在。只重置牆鐘、不重置起點的話，
+        // 起點會停留在最初判定回報卡住時的舊位置（例如第 2 秒），暫停在
+        // 第 27 秒恢復播放時，畫面會瞬間跳回第 2 秒附近重新算——歌詞跟著
+        // 跳回開頭，但實際音訊沒有被重設、還是繼續往下播，兩者對不起來。
+        virtualBaseTime = currentTime.value
         virtualBaseWallClock = Date.now()
     }
     startTimeUpdateLoop()
