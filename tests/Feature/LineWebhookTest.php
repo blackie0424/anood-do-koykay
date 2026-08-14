@@ -153,13 +153,25 @@ class LineWebhookTest extends TestCase
         Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', "/songs/{$song->id}"));
     }
 
-    public function test_mention_only_with_no_query_replies_not_found_with_empty_query(): void
+    public function test_mention_only_with_no_query_replies_with_usage_message(): void
     {
         Http::fake();
 
         $this->signedPost($this->textEvent('@詩歌小秘書'))->assertStatus(200);
 
-        Http::assertSent(fn ($request) => ($request->data()['messages'][0]['text'] ?? null) === '找不到「」，請確認頁碼或歌名');
+        Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', '輸入頁碼或歌名就可以點歌'));
+    }
+
+    public function test_empty_text_replies_with_usage_message_not_not_found(): void
+    {
+        Http::fake();
+
+        $this->signedPost($this->textEvent(''))->assertStatus(200);
+
+        Http::assertSent(function ($request) {
+            $text = $request->data()['messages'][0]['text'] ?? '';
+            return str_contains($text, '輸入頁碼或歌名就可以點歌') && !str_contains($text, '找不到');
+        });
     }
 
     // ── 白箱／邊界：事件型別分支 ────────────────────────────────

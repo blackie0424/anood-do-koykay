@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Http;
 
 class LineWebhookController extends Controller
 {
+    private const USAGE_MESSAGE = "輸入頁碼或歌名就可以點歌囉 🎵\n例如：44　或　耶穌\n（群組裡請先 @ 我再輸入）";
+
     public function __construct(private LineSongLookupService $lookup)
     {
     }
@@ -59,6 +61,12 @@ class LineWebhookController extends Controller
         }
 
         $query = $this->lookup->parseQuery($event['message']['text'] ?? '');
+
+        if ($query === '') {
+            $this->sendReply($replyToken, self::USAGE_MESSAGE);
+            return;
+        }
+
         $song = $this->lookup->find($query);
 
         $reply = $song
