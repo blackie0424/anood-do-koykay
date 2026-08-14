@@ -445,6 +445,12 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering, isPe
     </Transition>
 
     <RecordingMode v-if="showRecording" :song="song" @close="showRecording = false" />
+
+    <!-- TODO(暫時)：追查「歌詞跳回開頭但聲音沒受影響」的回歸，對比真實
+         audio 位置跟畫面拿去算歌詞高亮的時間，抓到分岔當下的數字後移除 -->
+    <div class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
+        （診斷）real={{ audio?.currentTime?.toFixed(2) ?? '-' }} | t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | virt={{ usingVirtualTime }} | seg={{ segmentMode }} | playing={{ isPlaying }} | pending={{ isPendingPlay }}
+    </div>
     </PublicLayout>
 </template>
 
