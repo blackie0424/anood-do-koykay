@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Http;
 class LineWebhookController extends Controller
 {
     private const USAGE_MESSAGE = "輸入頁碼或歌名就可以點歌囉 🎵\n例如：44　或　耶穌\n（群組裡請先 @ 我再輸入）";
-    private const JOIN_MESSAGE = "大家好，我是 Anood 助理 🎵\n輸入「@Anood助理 頁碼」或「@Anood助理 歌名」就可以點歌！\n例如：@Anood助理 44 或 @Anood助理 耶穌";
+    private const JOIN_MESSAGE = "大家好，我是 Anood 助理 🎵\n輸入「@Anood助理 頁碼」或「@Anood助理 歌名」就可以點歌！\n例如：@Anood助理 44 或 @Anood助理 主愛我";
     private const MEMBER_JOINED_MESSAGE = "歡迎新朋友！輸入「@Anood助理 頁碼」可以點達悟族詩歌 🎵";
 
     public function __construct(private LineSongLookupService $lookup)
