@@ -24,8 +24,6 @@ const audio = ref(null)
 const currentTime = ref(0)
 const isPlaying = ref(false)
 const hasError = ref(false)
-const pollCount = ref(0) // TODO(暫時)：chung 要求繼續保留畫面診斷，定位穩定後移除
-const tuCount = ref(0) // TODO(暫時)：診斷用，確認 LINE WebView 冷啟動時 timeupdate 是否真的沒觸發，定位穩定後移除
 
 // 歌詞捲動
 const lyricsContainer = ref(null)
@@ -130,7 +128,7 @@ let timeUpdateTimer = null
 // 住，改用 Date.now() 牆鐘時間估算前進量；一旦真實回報又恢復，立刻切
 // 回真實值，不會永久分岔成兩套時間軸。
 const STALL_TICKS_THRESHOLD = 3 // 連續 3 次（750ms）沒前進才判定回報卡住，避免正常抖動誤判
-const usingVirtualTime = ref(false) // TODO(暫時)：診斷用，顯示是否已切換到虛擬計時 fallback，定位穩定後視情況保留或移除
+const usingVirtualTime = ref(false)
 let lastObservedRealTime = null
 let stallTickCount = 0
 let virtualBaseTime = 0
@@ -169,7 +167,6 @@ function computeCurrentTime() {
 function startTimeUpdateLoop() {
     if (timeUpdateTimer != null) return
     timeUpdateTimer = setInterval(() => {
-        pollCount.value++ // TODO(暫時)：診斷用，定位穩定後移除
         if (audio.value) {
             currentTime.value = computeCurrentTime()
             checkBoundary()
@@ -224,7 +221,6 @@ function checkBoundary() {
 }
 
 function onTimeUpdate() {
-    tuCount.value++ // TODO(暫時)：診斷用，定位穩定後移除
     // 虛擬計時 fallback 期間，timeupdate 若剛好帶著卡住的舊值觸發，
     // 不要覆蓋掉正在估算前進的 currentTime。
     if (!usingVirtualTime.value) {
@@ -316,6 +312,9 @@ async function share() {
         setTimeout(() => { copied.value = false }, 2000)
     }
 }
+
+// 畫面診斷已移除（chung 驗收確認後）；保留這幾個內部狀態給測試用，不會渲染在畫面上
+defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
 </script>
 
 <template>
@@ -421,11 +420,6 @@ async function share() {
     </Transition>
 
     <RecordingMode v-if="showRecording" :song="song" @close="showRecording = false" />
-
-    <!-- TODO(暫時)：chung 要求繼續保留畫面診斷，定位穩定後移除 -->
-    <div class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
-        （診斷）t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | poll={{ pollCount }} | tu={{ tuCount }} | playing={{ isPlaying }} | ready={{ audioReadyState }} | buffering={{ isBuffering }} | virt={{ usingVirtualTime }}
-    </div>
     </PublicLayout>
 </template>
 

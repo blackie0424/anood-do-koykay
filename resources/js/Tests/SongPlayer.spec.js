@@ -440,8 +440,8 @@ describe('SongPlayer — currentTime 回報卡住時 fallback 到 Date.now() 虛
         await vi.advanceTimersByTimeAsync(250)
       }
 
-      expect(wrapper.text()).toContain('virt=false')
-      expect(wrapper.text()).toContain('t=3.00')
+      expect(wrapper.vm.usingVirtualTime).toBe(false)
+      expect(wrapper.vm.currentTime).toBeCloseTo(3.0, 2)
     } finally {
       vi.useRealTimers()
     }
@@ -459,8 +459,8 @@ describe('SongPlayer — currentTime 回報卡住時 fallback 到 Date.now() 虛
 
       await vi.advanceTimersByTimeAsync(250 * 5) // 連續多個 tick 都沒前進
 
-      expect(wrapper.text()).toContain('virt=false')
-      expect(wrapper.text()).toContain('buffering=true')
+      expect(wrapper.vm.usingVirtualTime).toBe(false)
+      expect(wrapper.vm.isBuffering).toBe(true)
     } finally {
       vi.useRealTimers()
     }
@@ -480,18 +480,18 @@ describe('SongPlayer — currentTime 回報卡住時 fallback 到 Date.now() 虛
       // 同一個值 → 第 4 次判定回報卡住，切換到虛擬計時（這個 tick 本身還
       // 是回報基準值，下一個 tick 才會真正開始用估算的往前推進）
       await vi.advanceTimersByTimeAsync(250)
-      expect(wrapper.text()).toContain('virt=false')
+      expect(wrapper.vm.usingVirtualTime).toBe(false)
       await vi.advanceTimersByTimeAsync(250)
-      expect(wrapper.text()).toContain('virt=false')
+      expect(wrapper.vm.usingVirtualTime).toBe(false)
       await vi.advanceTimersByTimeAsync(250)
-      expect(wrapper.text()).toContain('virt=false')
+      expect(wrapper.vm.usingVirtualTime).toBe(false)
       await vi.advanceTimersByTimeAsync(250)
-      expect(wrapper.text()).toContain('virt=true')
-      expect(wrapper.text()).toContain('t=2.00')
+      expect(wrapper.vm.usingVirtualTime).toBe(true)
+      expect(wrapper.vm.currentTime).toBeCloseTo(2.0, 2)
 
-      // 之後即使 audio.currentTime 依然卡住，畫面的 t 仍會用牆鐘時間繼續往前推進
+      // 之後即使 audio.currentTime 依然卡住，currentTime 仍會用牆鐘時間繼續往前推進
       await vi.advanceTimersByTimeAsync(250)
-      expect(wrapper.text()).toContain('t=2.25')
+      expect(wrapper.vm.currentTime).toBeCloseTo(2.25, 2)
     } finally {
       vi.useRealTimers()
     }
@@ -507,13 +507,13 @@ describe('SongPlayer — currentTime 回報卡住時 fallback 到 Date.now() 虛
       await wrapper.find('audio').trigger('playing')
       audioEl.currentTime = 2.0
       await vi.advanceTimersByTimeAsync(250 * 4) // 進入虛擬計時
-      expect(wrapper.text()).toContain('virt=true')
+      expect(wrapper.vm.usingVirtualTime).toBe(true)
 
       audioEl.currentTime = 6.5 // 真實回報恢復了
       await vi.advanceTimersByTimeAsync(250)
 
-      expect(wrapper.text()).toContain('virt=false')
-      expect(wrapper.text()).toContain('t=6.50')
+      expect(wrapper.vm.usingVirtualTime).toBe(false)
+      expect(wrapper.vm.currentTime).toBeCloseTo(6.5, 2)
     } finally {
       vi.useRealTimers()
     }
@@ -530,7 +530,7 @@ describe('SongPlayer — currentTime 回報卡住時 fallback 到 Date.now() 虛
       await wrapper.find('audio').trigger('playing')
       audioEl.currentTime = 2.0
       await vi.advanceTimersByTimeAsync(250 * 4) // 進入虛擬計時，t=2.00
-      expect(wrapper.text()).toContain('virt=true')
+      expect(wrapper.vm.usingVirtualTime).toBe(true)
 
       // 暫停：停止輪詢，但虛擬計時的狀態還留著
       Object.defineProperty(audioEl, 'paused', { value: true, configurable: true })
@@ -544,7 +544,7 @@ describe('SongPlayer — currentTime 回報卡住時 fallback 到 Date.now() 虛
       await wrapper.find('audio').trigger('playing')
       await vi.advanceTimersByTimeAsync(250)
 
-      expect(wrapper.text()).toContain('t=2.25')
+      expect(wrapper.vm.currentTime).toBeCloseTo(2.25, 2)
     } finally {
       vi.useRealTimers()
     }
