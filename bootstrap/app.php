@@ -15,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
         ]);
         $middleware->statefulApi();
+        $middleware->validateCsrfTokens(except: [
+            'webhook/line',
+        ]);
         $middleware->alias([
             'editor.or.admin' => \App\Http\Middleware\RequireEditorOrAdmin::class,
             'admin.only' => \App\Http\Middleware\RequireAdmin::class,
