@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 import BackLink from '@/Components/BackLink.vue'
 import PlayBar from '@/Components/PlayBar.vue'
@@ -103,10 +103,34 @@ function togglePlay() {
     }
 }
 
+// LINE WebView（iOS WKWebView）從外部連結完整載入頁面時，audio 的 timeupdate
+// 事件可能完全不觸發，歌詞高亮會卡住。改用 requestAnimationFrame 逐幀輪詢
+// currentTime，不受 timeupdate 觸發與否影響；timeupdate 仍保留給下方的
+// 逐段/整首播放結束判斷使用。
+let rafId = null
+function tick() {
+    if (audio.value) currentTime.value = audio.value.currentTime
+    rafId = requestAnimationFrame(tick)
+}
+function startTimeUpdateLoop() {
+    if (rafId != null) return
+    rafId = requestAnimationFrame(tick)
+}
+function stopTimeUpdateLoop() {
+    if (rafId != null) {
+        cancelAnimationFrame(rafId)
+        rafId = null
+    }
+}
+onBeforeUnmount(() => { stopTimeUpdateLoop() })
+
+function onPlaying() {
+    isPlaying.value = true
+    startTimeUpdateLoop()
+}
+
 function onTimeUpdate() {
     currentTime.value = audio.value?.currentTime ?? 0
-    // TODO(暫時)：LINE WebView 歌詞高亮診斷，定位後移除
-    console.log('[anood] timeupdate', currentTime.value)
 
     // 逐段播放模式
     if (segmentMode.value) {
@@ -143,6 +167,7 @@ function enterSegmentMode() {
 
 function onEnded() {
     isPlaying.value = false
+    stopTimeUpdateLoop()
     enterSegmentMode()
 }
 
@@ -152,7 +177,12 @@ function onLoaded() {
 
 function onError() { hasError.value = true; isPlaying.value = false }
 
-function onPause() { if (audio.value?.paused) isPlaying.value = false }
+function onPause() {
+    if (audio.value?.paused) {
+        isPlaying.value = false
+        stopTimeUpdateLoop()
+    }
+}
 
 function playLine(line) {
     if (!audio.value || line.start_time === null) return
@@ -286,7 +316,7 @@ async function share() {
 
         <audio v-if="song.audio_full" ref="audio" :src="song.audio_full"
             @timeupdate="onTimeUpdate" @loadedmetadata="onLoaded"
-            @playing="isPlaying = true" @pause="onPause"
+            @playing="onPlaying" @pause="onPause"
             @ended="onEnded" @error="onError" />
 
         <!-- 底部控制列 -->
@@ -311,11 +341,6 @@ async function share() {
     </Transition>
 
     <RecordingMode v-if="showRecording" :song="song" @close="showRecording = false" />
-
-    <!-- TODO(暫時)：LINE WebView 歌詞高亮診斷，定位後移除 -->
-    <div class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
-        （診斷）t={{ currentTime.toFixed(2) }} idx={{ activeLineIndex }} hasStart={{ (song.lines ?? []).some(l => l.start_time != null) }}
-    </div>
     </PublicLayout>
 </template>
 

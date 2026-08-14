@@ -1,7 +1,16 @@
-import { mount } from '@vue/test-utils'
-import { describe, it, expect, vi } from 'vitest'
+import { mount, enableAutoUnmount } from '@vue/test-utils'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import BackLink from '../Components/BackLink.vue'
 import SongPlayer from '../Pages/SongPlayer.vue'
+
+// SongPlayer 播放中會用 requestAnimationFrame 輪詢，卸載時（onBeforeUnmount）才會停止；
+// 沒有這行，任何觸發 'playing' 的測試都會留下一個永遠不會停的 RAF 迴圈。
+enableAutoUnmount(afterEach)
+
+// jsdom 沒有實作 scrollIntoView（既有限制），歌詞自動捲動會呼叫到它；補 no-op polyfill
+if (typeof Element !== 'undefined') {
+  Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || (() => {})
+}
 
 const BASE_SONG = {
   id: 1,
@@ -285,5 +294,94 @@ describe('SongPlayer — togglePlay', () => {
 
     expect(audioEl.currentTime).toBe(6.0)
     expect(played).toBe(true)
+  })
+})
+
+describe('SongPlayer — currentTime 用 requestAnimationFrame 輪詢（不依賴 timeupdate）', () => {
+  it('播放中即使完全不觸發 timeupdate，RAF 輪詢仍會更新歌詞高亮', async () => {
+    const rafCallbacks = []
+    const raf = vi.fn((cb) => { rafCallbacks.push(cb); return rafCallbacks.length })
+    const caf = vi.fn()
+    vi.stubGlobal('requestAnimationFrame', raf)
+    vi.stubGlobal('cancelAnimationFrame', caf)
+
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+
+      await wrapper.find('audio').trigger('playing')
+      expect(raf).toHaveBeenCalledTimes(1)
+
+      // 模擬 LINE WebView：audio.currentTime 已經前進到第二句範圍，但完全不觸發 timeupdate
+      audioEl.currentTime = 6.5
+      rafCallbacks[0]() // 執行一次 RAF callback
+      await wrapper.vm.$nextTick()
+
+      const anoodLine = wrapper.findAll('p').find((p) => p.text() === 'Anood')
+      expect(anoodLine.element.parentElement.className).toContain('bg-blue-100')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('暫停時停止 RAF 輪詢迴圈', async () => {
+    const raf = vi.fn(() => 1)
+    const caf = vi.fn()
+    vi.stubGlobal('requestAnimationFrame', raf)
+    vi.stubGlobal('cancelAnimationFrame', caf)
+
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      Object.defineProperty(audioEl, 'paused', { value: false, configurable: true })
+
+      await wrapper.find('audio').trigger('playing')
+      expect(raf).toHaveBeenCalledTimes(1)
+
+      Object.defineProperty(audioEl, 'paused', { value: true, configurable: true })
+      await wrapper.find('audio').trigger('pause')
+
+      expect(caf).toHaveBeenCalledWith(1)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('播放結束（ended）時停止 RAF 輪詢迴圈', async () => {
+    const raf = vi.fn(() => 1)
+    const caf = vi.fn()
+    vi.stubGlobal('requestAnimationFrame', raf)
+    vi.stubGlobal('cancelAnimationFrame', caf)
+
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      await wrapper.find('audio').trigger('playing')
+      expect(raf).toHaveBeenCalledTimes(1)
+
+      await wrapper.find('audio').trigger('ended')
+
+      expect(caf).toHaveBeenCalledWith(1)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('元件卸載時停止 RAF 輪詢迴圈', async () => {
+    const raf = vi.fn(() => 1)
+    const caf = vi.fn()
+    vi.stubGlobal('requestAnimationFrame', raf)
+    vi.stubGlobal('cancelAnimationFrame', caf)
+
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      await wrapper.find('audio').trigger('playing')
+      expect(raf).toHaveBeenCalledTimes(1)
+
+      wrapper.unmount()
+
+      expect(caf).toHaveBeenCalledWith(1)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
