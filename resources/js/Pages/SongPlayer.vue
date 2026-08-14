@@ -135,6 +135,12 @@ let timeUpdateTimer = null
 // 住，改用 Date.now() 牆鐘時間估算前進量；一旦真實回報又恢復，立刻切
 // 回真實值，不會永久分岔成兩套時間軸。
 const STALL_TICKS_THRESHOLD = 3 // 連續 3 次（750ms）沒前進才判定回報卡住，避免正常抖動誤判
+// 真實回報要接近目前虛擬估算的進度（誤差在這個秒數以內），才信任它、切回真實值。
+// 不能只看「有沒有變化」——這台裝置的 real 曾經只是從 0.00 小小跳到 1.00（可能是
+// 我們自己在暫停恢復時寫入 audio.currentTime 造成的讀回值），但虛擬估算當時已經
+// 到 18 秒，如果只憑「有變化」就切回真實值，畫面會被拉回 1.00 附近，跟實際播放
+// 進度差一大截，歌詞跟著跳回開頭，但真正的聲音其實沒被這個賦值動到、繼續往下播。
+const REAL_RECOVERY_TOLERANCE_SECONDS = 2
 const usingVirtualTime = ref(false)
 let lastObservedRealTime = null
 let stallTickCount = 0
@@ -146,14 +152,22 @@ function computeCurrentTime() {
     const real = audio.value.currentTime
 
     if (usingVirtualTime.value) {
-        if (real !== lastObservedRealTime) {
-            // 真實回報恢復了，切回真實值，不再用估算的
+        const estimate = virtualBaseTime + (Date.now() - virtualBaseWallClock) / 1000
+        const changed = real !== lastObservedRealTime
+        lastObservedRealTime = real
+        // 真實回報要「有變化」（代表瀏覽器真的又開始更新了，不是單純凍結
+        // 在原地）而且「追上目前估算的進度」（誤差在容許範圍內）兩個條件
+        // 都成立，才信任它、切回真實值。只看有沒有變化的話，虛擬計時剛
+        // 啟動的那個 tick，估算值會剛好很接近真實值（因為兩者都源自同一
+        // 個起點），會被誤判成「已經恢復」而立刻跳回去，等於沒有真的切
+        // 到虛擬計時。
+        if (changed && Math.abs(real - estimate) <= REAL_RECOVERY_TOLERANCE_SECONDS) {
+            // 真實回報追上估算的進度了，才信任、切回真實值
             usingVirtualTime.value = false
             stallTickCount = 0
-            lastObservedRealTime = real
             return real
         }
-        return virtualBaseTime + (Date.now() - virtualBaseWallClock) / 1000
+        return estimate
     }
 
     if (lastObservedRealTime !== null && real === lastObservedRealTime && audioReadyState.value >= 3) {

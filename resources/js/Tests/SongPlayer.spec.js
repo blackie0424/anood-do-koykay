@@ -558,7 +558,33 @@ describe('SongPlayer — currentTime 回報卡住時 fallback 到 Date.now() 虛
     }
   })
 
-  it('回報恢復（真實 currentTime 又開始變化）時立刻切回真實值', async () => {
+  it('回報恢復（真實 currentTime 追上目前估算的進度）時切回真實值', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+
+      await wrapper.find('audio').trigger('playing')
+      audioEl.currentTime = 2.0
+      await vi.advanceTimersByTimeAsync(250 * 4) // 進入虛擬計時，估算此時約 2.00
+      expect(wrapper.vm.usingVirtualTime).toBe(true)
+
+      audioEl.currentTime = 2.3 // 真實回報恢復了，追上目前估算的進度（誤差在容許範圍內）
+      await vi.advanceTimersByTimeAsync(250)
+
+      expect(wrapper.vm.usingVirtualTime).toBe(false)
+      expect(wrapper.vm.currentTime).toBeCloseTo(2.3, 2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('真實回報只是小幅跳動、離目前估算進度還差一大截時，不會被誤判成已恢復', async () => {
+    // chung 驗收發現：real 從 0.00 只是小小跳到 1.00，但畫面上虛擬估算的
+    // 進度已經到 18 秒——如果單憑「real 有變化」就信任它切回真實值，
+    // 畫面會被拉回 1.00 附近，跟實際播放進度差一大截，歌詞跟著跳回開頭，
+    // 但真正的聲音根本沒被這個小跳動影響、繼續往下播。
     vi.useFakeTimers()
     try {
       const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
@@ -570,11 +596,16 @@ describe('SongPlayer — currentTime 回報卡住時 fallback 到 Date.now() 虛
       await vi.advanceTimersByTimeAsync(250 * 4) // 進入虛擬計時
       expect(wrapper.vm.usingVirtualTime).toBe(true)
 
-      audioEl.currentTime = 6.5 // 真實回報恢復了
+      // 虛擬計時繼續跑一段時間，估算進度來到約 7.0
+      await vi.advanceTimersByTimeAsync(250 * 20)
+      expect(wrapper.vm.currentTime).toBeCloseTo(7.0, 1)
+
+      // real 只是小幅跳動（0.00 → 1.00），離目前估算的 7.0 還差一大截
+      audioEl.currentTime = 1.0
       await vi.advanceTimersByTimeAsync(250)
 
-      expect(wrapper.vm.usingVirtualTime).toBe(false)
-      expect(wrapper.vm.currentTime).toBeCloseTo(6.5, 2)
+      expect(wrapper.vm.usingVirtualTime).toBe(true) // 不該被誤判成已恢復
+      expect(wrapper.vm.currentTime).toBeGreaterThan(7.0) // 應該繼續前進，不會被拉回 1.00 附近
     } finally {
       vi.useRealTimers()
     }
