@@ -3,8 +3,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import BackLink from '../Components/BackLink.vue'
 import SongPlayer from '../Pages/SongPlayer.vue'
 
-// SongPlayer 播放中會用 requestAnimationFrame 輪詢，卸載時（onBeforeUnmount）才會停止；
-// 沒有這行，任何觸發 'playing' 的測試都會留下一個永遠不會停的 RAF 迴圈。
+// SongPlayer 播放中會用 setInterval 輪詢 currentTime，卸載時（onBeforeUnmount）才會停止；
+// 沒有這行，任何觸發 'playing' 的測試都會留下一個永遠不會停的計時器。
 enableAutoUnmount(afterEach)
 
 // jsdom 沒有實作 scrollIntoView（既有限制），歌詞自動捲動會呼叫到它；補 no-op polyfill
@@ -297,91 +297,73 @@ describe('SongPlayer — togglePlay', () => {
   })
 })
 
-describe('SongPlayer — currentTime 用 requestAnimationFrame 輪詢（不依賴 timeupdate）', () => {
-  it('播放中即使完全不觸發 timeupdate，RAF 輪詢仍會更新歌詞高亮', async () => {
-    const rafCallbacks = []
-    const raf = vi.fn((cb) => { rafCallbacks.push(cb); return rafCallbacks.length })
-    const caf = vi.fn()
-    vi.stubGlobal('requestAnimationFrame', raf)
-    vi.stubGlobal('cancelAnimationFrame', caf)
-
+describe('SongPlayer — currentTime 用 setInterval 輪詢（不依賴 timeupdate／rAF）', () => {
+  it('播放中即使完全不觸發 timeupdate，輪詢仍會更新歌詞高亮', async () => {
+    vi.useFakeTimers()
     try {
       const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
       const audioEl = wrapper.find('audio').element
 
       await wrapper.find('audio').trigger('playing')
-      expect(raf).toHaveBeenCalledTimes(1)
 
-      // 模擬 LINE WebView：audio.currentTime 已經前進到第二句範圍，但完全不觸發 timeupdate
+      // 模擬 LINE WebView 冷啟動：audio.currentTime 已經前進到第二句範圍，
+      // 但完全不觸發 timeupdate（也不模擬 rAF，因為那個管道被證實不可靠）
       audioEl.currentTime = 6.5
-      rafCallbacks[0]() // 執行一次 RAF callback
-      await wrapper.vm.$nextTick()
+      await vi.advanceTimersByTimeAsync(250)
 
       const anoodLine = wrapper.findAll('p').find((p) => p.text() === 'Anood')
       expect(anoodLine.element.parentElement.className).toContain('bg-blue-100')
     } finally {
-      vi.unstubAllGlobals()
+      vi.useRealTimers()
     }
   })
 
-  it('暫停時停止 RAF 輪詢迴圈', async () => {
-    const raf = vi.fn(() => 1)
-    const caf = vi.fn()
-    vi.stubGlobal('requestAnimationFrame', raf)
-    vi.stubGlobal('cancelAnimationFrame', caf)
-
+  it('暫停時停止輪詢', async () => {
+    vi.useFakeTimers()
     try {
       const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
       const audioEl = wrapper.find('audio').element
       Object.defineProperty(audioEl, 'paused', { value: false, configurable: true })
 
       await wrapper.find('audio').trigger('playing')
-      expect(raf).toHaveBeenCalledTimes(1)
+      expect(vi.getTimerCount()).toBeGreaterThan(0)
 
       Object.defineProperty(audioEl, 'paused', { value: true, configurable: true })
       await wrapper.find('audio').trigger('pause')
 
-      expect(caf).toHaveBeenCalledWith(1)
+      expect(vi.getTimerCount()).toBe(0)
     } finally {
-      vi.unstubAllGlobals()
+      vi.useRealTimers()
     }
   })
 
-  it('播放結束（ended）時停止 RAF 輪詢迴圈', async () => {
-    const raf = vi.fn(() => 1)
-    const caf = vi.fn()
-    vi.stubGlobal('requestAnimationFrame', raf)
-    vi.stubGlobal('cancelAnimationFrame', caf)
-
+  it('播放結束（ended）時停止輪詢', async () => {
+    vi.useFakeTimers()
     try {
       const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
       await wrapper.find('audio').trigger('playing')
-      expect(raf).toHaveBeenCalledTimes(1)
+      expect(vi.getTimerCount()).toBeGreaterThan(0)
 
       await wrapper.find('audio').trigger('ended')
 
-      expect(caf).toHaveBeenCalledWith(1)
+      expect(vi.getTimerCount()).toBe(0)
     } finally {
-      vi.unstubAllGlobals()
+      vi.useRealTimers()
     }
   })
 
-  it('元件卸載時停止 RAF 輪詢迴圈', async () => {
-    const raf = vi.fn(() => 1)
-    const caf = vi.fn()
-    vi.stubGlobal('requestAnimationFrame', raf)
-    vi.stubGlobal('cancelAnimationFrame', caf)
-
+  it('元件卸載時停止輪詢', async () => {
+    vi.useFakeTimers()
     try {
       const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
       await wrapper.find('audio').trigger('playing')
-      expect(raf).toHaveBeenCalledTimes(1)
+      expect(vi.getTimerCount()).toBeGreaterThan(0)
 
       wrapper.unmount()
 
-      expect(caf).toHaveBeenCalledWith(1)
+      expect(vi.getTimerCount()).toBe(0)
     } finally {
-      vi.unstubAllGlobals()
+      vi.useRealTimers()
     }
   })
 })

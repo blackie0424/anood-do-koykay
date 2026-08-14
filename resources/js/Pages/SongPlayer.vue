@@ -103,23 +103,24 @@ function togglePlay() {
     }
 }
 
-// LINE WebView（iOS WKWebView）從外部連結完整載入頁面時，audio 的 timeupdate
-// 事件可能完全不觸發，歌詞高亮會卡住。改用 requestAnimationFrame 逐幀輪詢
-// currentTime，不受 timeupdate 觸發與否影響；timeupdate 仍保留給下方的
-// 逐段/整首播放結束判斷使用。
-let rafId = null
-function tick() {
-    if (audio.value) currentTime.value = audio.value.currentTime
-    rafId = requestAnimationFrame(tick)
-}
+// LINE WebView（iOS WKWebView）從外部連結完整載入頁面（冷啟動）時，audio 的
+// timeupdate 事件可能完全不觸發；改用 requestAnimationFrame 逐幀輪詢也不可靠——
+// 冷啟動時 rAF 可能被抑制、排程了卻不會真的執行，直到有使用者互動或 SPA 重繪
+// 才「叫醒」。改用 setInterval：不依賴畫面渲染節奏，冷啟動時也能穩定執行；
+// 250ms 對歌詞高亮已經足夠，不需要每幀更新。timeupdate 仍保留給下方的
+// 逐段/整首播放結束判斷使用（多一層保險）。
+const TIME_UPDATE_INTERVAL_MS = 250
+let timeUpdateTimer = null
 function startTimeUpdateLoop() {
-    if (rafId != null) return
-    rafId = requestAnimationFrame(tick)
+    if (timeUpdateTimer != null) return
+    timeUpdateTimer = setInterval(() => {
+        if (audio.value) currentTime.value = audio.value.currentTime
+    }, TIME_UPDATE_INTERVAL_MS)
 }
 function stopTimeUpdateLoop() {
-    if (rafId != null) {
-        cancelAnimationFrame(rafId)
-        rafId = null
+    if (timeUpdateTimer != null) {
+        clearInterval(timeUpdateTimer)
+        timeUpdateTimer = null
     }
 }
 onBeforeUnmount(() => { stopTimeUpdateLoop() })
