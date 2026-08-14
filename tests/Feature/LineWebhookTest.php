@@ -174,6 +174,79 @@ class LineWebhookTest extends TestCase
         });
     }
 
+    // ── join／memberJoined：群組歡迎訊息 ──────────────────────────
+
+    public function test_join_event_pushes_welcome_message_to_group(): void
+    {
+        Http::fake();
+
+        $payload = ['events' => [[
+            'type' => 'join',
+            'source' => ['type' => 'group', 'groupId' => 'group-123'],
+        ]]];
+        $this->signedPost($payload)->assertStatus(200);
+
+        Http::assertSent(function ($request) {
+            $data = $request->data();
+            return $request->url() === 'https://api.line.me/v2/bot/message/push'
+                && $data['to'] === 'group-123'
+                && str_contains($data['messages'][0]['text'], 'Anood 助理')
+                && str_contains($data['messages'][0]['text'], '點歌');
+        });
+    }
+
+    public function test_join_event_without_group_id_does_nothing(): void
+    {
+        Http::fake();
+
+        $payload = ['events' => [['type' => 'join', 'source' => ['type' => 'user']]]];
+        $this->signedPost($payload)->assertStatus(200);
+
+        Http::assertNothingSent();
+    }
+
+    public function test_member_joined_event_pushes_short_welcome_to_group(): void
+    {
+        Http::fake();
+
+        $payload = ['events' => [[
+            'type' => 'memberJoined',
+            'source' => ['type' => 'group', 'groupId' => 'group-456'],
+        ]]];
+        $this->signedPost($payload)->assertStatus(200);
+
+        Http::assertSent(function ($request) {
+            $data = $request->data();
+            return $request->url() === 'https://api.line.me/v2/bot/message/push'
+                && $data['to'] === 'group-456'
+                && str_contains($data['messages'][0]['text'], '歡迎新朋友');
+        });
+    }
+
+    public function test_member_joined_event_without_group_id_does_nothing(): void
+    {
+        Http::fake();
+
+        $payload = ['events' => [['type' => 'memberJoined', 'source' => ['type' => 'user']]]];
+        $this->signedPost($payload)->assertStatus(200);
+
+        Http::assertNothingSent();
+    }
+
+    public function test_join_event_skips_push_when_access_token_missing(): void
+    {
+        Config::set('services.line.channel_access_token', null);
+        Http::fake();
+
+        $payload = ['events' => [[
+            'type' => 'join',
+            'source' => ['type' => 'group', 'groupId' => 'group-123'],
+        ]]];
+        $this->signedPost($payload)->assertStatus(200);
+
+        Http::assertNothingSent();
+    }
+
     // ── 白箱／邊界：事件型別分支 ────────────────────────────────
 
     public function test_non_message_event_is_skipped(): void
