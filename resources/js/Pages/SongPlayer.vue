@@ -19,6 +19,9 @@ const props = defineProps({ song: Object })
 const isColdBoot = !bootState.hasNavigatedOnce
 bootState.hasNavigatedOnce = true
 const isRehydrating = ref(isColdBoot)
+// TODO(暫時)：診斷用，確認這招「冷啟動悄悄重新導覽」實際上有沒有被觸發、
+// 有沒有正常完成，定位穩定後移除
+const revisitState = ref(isColdBoot ? 'pending' : 'skipped')
 
 onMounted(() => {
     if (!isColdBoot) return
@@ -26,8 +29,10 @@ onMounted(() => {
         replace: true,
         preserveScroll: true,
         preserveState: false,
-        onFinish: () => { isRehydrating.value = false },
-        onError: () => { isRehydrating.value = false },
+        onFinish: () => { isRehydrating.value = false; revisitState.value = 'finished' },
+        onError: () => { isRehydrating.value = false; revisitState.value = 'error' },
+        onCancel: () => { isRehydrating.value = false; revisitState.value = 'cancelled' },
+        onException: () => { isRehydrating.value = false; revisitState.value = 'exception' },
     })
 })
 
@@ -490,7 +495,7 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering, isPe
     <!-- TODO(暫時)：追查「歌詞跳回開頭但聲音沒受影響」的回歸，對比真實
          audio 位置跟畫面拿去算歌詞高亮的時間，抓到分岔當下的數字後移除 -->
     <div class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
-        （診斷）real={{ audio?.currentTime?.toFixed(2) ?? '-' }} | t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | virt={{ usingVirtualTime }} | seg={{ segmentMode }} | playing={{ isPlaying }} | pending={{ isPendingPlay }}
+        （診斷）real={{ audio?.currentTime?.toFixed(2) ?? '-' }} | t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | virt={{ usingVirtualTime }} | seg={{ segmentMode }} | playing={{ isPlaying }} | pending={{ isPendingPlay }} | cold={{ isColdBoot }} | revisit={{ revisitState }}
     </div>
     </template>
     </PublicLayout>
