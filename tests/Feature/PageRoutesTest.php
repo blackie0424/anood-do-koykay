@@ -77,17 +77,20 @@ class PageRoutesTest extends TestCase
         // Inertia 前端內部導覽送出的請求一定會帶 X-Inertia 這個 header：
         // isColdLoad 要是 false，不該再觸發悄悄重新導覽。同時要帶對版本
         // 的 X-Inertia-Version，不然 Inertia 中介層會判定版本不符、回
-        // 409（觸發前端強制整頁重新載入）而不是 200。
+        // 409（觸發前端強制整頁重新載入）而不是 200。這裡直接解析回應內容
+        // 而不是用 assertInertia()——版本比對通過後 Inertia 回傳的是純
+        // JSON（不是包在完整 HTML 裡），assertInertia() 這個 fluent helper
+        // 對這種情況的解析在測試環境下不夠穩定，直接讀 JSON 比較單純可靠。
         $song = Song::factory()->published()->create();
         $version = app(HandleInertiaRequests::class)->version(request());
 
-        $this->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => $version])
-            ->get("/songs/{$song->id}")
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('SongPlayer')
-                ->where('isColdLoad', false)
-            );
+        $response = $this->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => $version])
+            ->get("/songs/{$song->id}");
+
+        $response->assertOk();
+        $page = json_decode($response->getContent(), true);
+        $this->assertSame('SongPlayer', $page['component']);
+        $this->assertFalse($page['props']['isColdLoad']);
     }
 
     // ── 後台（admin） ────────────────────────────────────────────────
