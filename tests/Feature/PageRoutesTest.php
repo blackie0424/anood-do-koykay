@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Song;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -74,10 +75,13 @@ class PageRoutesTest extends TestCase
     public function test_song_show_page_marks_is_cold_load_false_with_inertia_header(): void
     {
         // Inertia 前端內部導覽送出的請求一定會帶 X-Inertia 這個 header：
-        // isColdLoad 要是 false，不該再觸發悄悄重新導覽。
+        // isColdLoad 要是 false，不該再觸發悄悄重新導覽。同時要帶對版本
+        // 的 X-Inertia-Version，不然 Inertia 中介層會判定版本不符、回
+        // 409（觸發前端強制整頁重新載入）而不是 200。
         $song = Song::factory()->published()->create();
+        $version = app(HandleInertiaRequests::class)->version(request());
 
-        $this->withHeaders(['X-Inertia' => 'true'])
+        $this->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => $version])
             ->get("/songs/{$song->id}")
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
