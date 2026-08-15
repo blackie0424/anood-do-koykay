@@ -93,6 +93,20 @@ function returnToCurrentLine() {
     scrollToLine(activeLineIndex.value)
 }
 
+// 外部瀏覽器（Safari）實測發現：如果先設定 currentTime 再呼叫 play()，
+// 遇到「延遲觸發」的播放（例如等 canplay／3 秒 fallback 才真正呼叫
+// play()，不是使用者按下當下就同步執行）時，Safari 會把先設定好的
+// 播放位置重置回開頭，等於白設定。改成先呼叫 play()、等瀏覽器確認真的
+// 開始播放（play() 的 promise resolve）之後，才設定播放位置，這是處理
+// 這類瀏覽器限制比較穩妥的順序。統一用這個 helper，避免各處各做各的。
+function playFrom(time) {
+    audio.value.play()
+        .then(() => {
+            if (audio.value) audio.value.currentTime = time
+        })
+        .catch(() => { hasError.value = true })
+}
+
 function togglePlay() {
     // 冷啟動排程中的播放還沒執行完，忽略這次按下，避免跟排程中的播放
     // 互相搶著設定 currentTime／呼叫 play()
@@ -103,13 +117,13 @@ function togglePlay() {
         segmentLine.value = null
         autoScroll.value = true
         userScrolled.value = false
-        audio.value.currentTime = effectiveStart.value
-        audio.value.play().catch(() => { hasError.value = true })
+        playFrom(effectiveStart.value)
     } else {
         if (isPlaying.value) {
             audio.value.pause()
+        } else if (audio.value.currentTime < 0.3) {
+            playFrom(effectiveStart.value)
         } else {
-            if (audio.value.currentTime < 0.3) audio.value.currentTime = effectiveStart.value
             audio.value.play().catch(() => { hasError.value = true })
         }
     }
@@ -301,8 +315,7 @@ function playLine(line) {
     if (segmentMode.value) {
         segmentLine.value = line
     }
-    audio.value.currentTime = line.start_time
-    audio.value.play().catch(() => { hasError.value = true })
+    playFrom(line.start_time)
 }
 
 const showPlayOverlay = ref(true)
@@ -312,8 +325,7 @@ function startPlayFromOverlay() {
     if (audio.value && props.song?.audio_full && !hasError.value) {
         const doPlay = () => {
             isPendingPlay.value = false
-            audio.value.currentTime = effectiveStart.value
-            audio.value.play().catch(() => { hasError.value = true })
+            playFrom(effectiveStart.value)
         }
         if (audio.value.readyState >= 2) {
             doPlay()

@@ -311,6 +311,23 @@ describe('SongPlayer — startPlayFromOverlay', () => {
       vi.useRealTimers()
     }
   })
+
+  it('play() 過程中瀏覽器把 currentTime 重置回 0（模擬 Safari 延遲觸發播放時的重置行為），播放位置最後仍正確落在 effectiveStart', async () => {
+    // chung 實測外部 Safari 發現：從外部連結進入、資料還沒備妥（走 canplay／
+    // 3 秒 fallback 這條延遲播放路徑）時，明明有把 currentTime 設到後台
+    // 指定的秒數，但真正開始播放時卻從頭播。根因：先設定 currentTime 再
+    // 呼叫 play() 的順序，遇到延遲觸發的 play() 時會被 Safari 重置掉。
+    // 這裡直接模擬「play() 呼叫的當下會把 currentTime 重置成 0」這個行為，
+    // 驗證修法（先 play()、等 resolve 後才設定 currentTime）能撐過這種情況。
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const audioEl = wrapper.find('audio').element
+    audioEl.play = async () => { audioEl.currentTime = 0 }
+    Object.defineProperty(audioEl, 'readyState', { value: 2, configurable: true })
+
+    await wrapper.find('[aria-label="點擊開始播放"]').trigger('click')
+
+    expect(audioEl.currentTime).toBe(2.0)
+  })
 })
 
 describe('SongPlayer — 準備中狀態（等待 canplay／3 秒 fallback 期間避免使用者重複按下播放）', () => {
@@ -412,6 +429,58 @@ describe('SongPlayer — togglePlay', () => {
 
     expect(audioEl.currentTime).toBe(6.0)
     expect(played).toBe(true)
+  })
+
+  it('play() 過程中瀏覽器把 currentTime 重置回 0，播放位置最後仍正確落在 effectiveStart', async () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const audioEl = wrapper.find('audio').element
+    audioEl.currentTime = 0
+    audioEl.play = async () => { audioEl.currentTime = 0 }
+
+    await wrapper.find('button[aria-label="播放"]').trigger('click')
+
+    expect(audioEl.currentTime).toBe(2.0)
+  })
+})
+
+describe('SongPlayer — playLine（點歌詞跳段播放）', () => {
+  it('點歌詞行會從該行 start_time 開始播放', async () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const audioEl = wrapper.find('audio').element
+    let played = false
+    audioEl.play = async () => { played = true }
+
+    const anoodLine = wrapper.findAll('p').find((p) => p.text() === 'Anood')
+    await anoodLine.element.parentElement.dispatchEvent(new Event('click', { bubbles: true }))
+    await wrapper.vm.$nextTick()
+
+    expect(audioEl.currentTime).toBe(6.0)
+    expect(played).toBe(true)
+  })
+
+  it('start_time 為 null 的行點擊不會播放', async () => {
+    const wrapper = mount(SongPlayer, { props: { song: songNoTimes } })
+    const audioEl = wrapper.find('audio').element
+    let played = false
+    audioEl.play = async () => { played = true }
+
+    const maomawLine = wrapper.findAll('p').find((p) => p.text() === 'Maomaw')
+    await maomawLine.element.parentElement.dispatchEvent(new Event('click', { bubbles: true }))
+    await wrapper.vm.$nextTick()
+
+    expect(played).toBe(false)
+  })
+
+  it('play() 過程中瀏覽器把 currentTime 重置回 0，播放位置最後仍正確落在該行 start_time', async () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const audioEl = wrapper.find('audio').element
+    audioEl.play = async () => { audioEl.currentTime = 0 }
+
+    const anoodLine = wrapper.findAll('p').find((p) => p.text() === 'Anood')
+    await anoodLine.element.parentElement.dispatchEvent(new Event('click', { bubbles: true }))
+    await wrapper.vm.$nextTick()
+
+    expect(audioEl.currentTime).toBe(6.0)
   })
 })
 
