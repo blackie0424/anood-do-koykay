@@ -83,8 +83,11 @@ class LineWebhookController extends Controller
 
         $song = $this->lookup->find($query);
 
+        // openExternalBrowser=1 讓 LINE App 改用系統預設瀏覽器（Safari/Chrome）
+        // 開啟，避開 LINE 內建瀏覽器對音訊播放較嚴格的限制；後端 SongController
+        // 偵測到這個參數會轉址清掉，不會留在網址上污染 Inertia 路由。
         $reply = $song
-            ? $song->title_native."\n".rtrim(config('app.url'), '/')."/songs/{$song->id}"
+            ? $song->title_native."\n".rtrim(config('app.url'), '/')."/songs/{$song->id}?openExternalBrowser=1"
             : "找不到「{$query}」，請確認頁碼或歌名";
 
         $this->sendReply($replyToken, $reply);

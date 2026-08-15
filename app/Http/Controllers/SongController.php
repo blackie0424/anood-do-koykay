@@ -20,9 +20,20 @@ class SongController extends Controller
         return Inertia::render('SongList', ['songs' => $this->paginatorToArray($songs)]);
     }
 
-    public function showPage(Song $song)
+    public function showPage(Request $request, Song $song)
     {
         abort_if($song->status !== 'published', 404);
+
+        // LINE App 用 openExternalBrowser 這個參數觸發「改用外部瀏覽器開
+        // 啟」，切換這件事發生在 LINE App 自己那端，跟我們的伺服器無關；
+        // 但外部瀏覽器（Safari）真的打進來時，網址上還留著這個參數，直接
+        // 讓它留在網址上會污染 Inertia 的前端路由狀態，這裡先轉址清掉。
+        if ($request->has('openExternalBrowser')) {
+            $query = $request->except('openExternalBrowser');
+            $url = $request->url().(empty($query) ? '' : '?'.http_build_query($query));
+            return redirect($url);
+        }
+
         $song->load('lines');
         return Inertia::render('SongPlayer', ['song' => $song]);
     }

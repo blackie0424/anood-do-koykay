@@ -97,10 +97,13 @@ class LineWebhookTest extends TestCase
         });
     }
 
-    public function test_book_number_query_reply_link_has_no_extra_query_params(): void
+    public function test_book_number_query_reply_link_forces_external_browser(): void
     {
-        // 曾短暫加過 ?openExternalBrowser=1，後來評估會干擾 Inertia 路由而移除，
-        // 這條測試固定「回覆連結就是乾淨的 /songs/{id}」這個行為
+        // 曾短暫移除過 ?openExternalBrowser=1（怕污染 Inertia 路由），現在
+        // SongController 那邊已經會偵測這個參數並轉址清掉（見
+        // PageRoutesTest::test_song_show_page_with_open_external_browser_param_redirects_to_clean_url），
+        // 所以重新加回來，讓 LINE App 改用外部瀏覽器開啟，避開 LINE 內建
+        // 瀏覽器對音訊播放較嚴格的限制。
         Http::fake();
         $song = Song::factory()->published()->create(['book_number' => '44']);
 
@@ -108,7 +111,7 @@ class LineWebhookTest extends TestCase
 
         Http::assertSent(function ($request) use ($song) {
             $text = $request->data()['messages'][0]['text'] ?? '';
-            return str_contains($text, "/songs/{$song->id}") && !str_contains($text, '?');
+            return str_contains($text, "/songs/{$song->id}?openExternalBrowser=1");
         });
     }
 
