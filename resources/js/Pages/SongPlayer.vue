@@ -99,10 +99,17 @@ function returnToCurrentLine() {
 // 播放位置重置回開頭，等於白設定。改成先呼叫 play()、等瀏覽器確認真的
 // 開始播放（play() 的 promise resolve）之後，才設定播放位置，這是處理
 // 這類瀏覽器限制比較穩妥的順序。統一用這個 helper，避免各處各做各的。
+// TODO(暫時)：診斷用，記錄最後一次嘗試寫入 currentTime 的秒數，跟畫面上
+// real= 對比，確認「寫入這個動作本身有沒有生效」，定位穩定後移除
+const lastSeekAttempt = ref(null)
+
 function playFrom(time) {
     audio.value.play()
         .then(() => {
-            if (audio.value) audio.value.currentTime = time
+            if (audio.value) {
+                audio.value.currentTime = time
+                lastSeekAttempt.value = time
+            }
         })
         .catch(() => { hasError.value = true })
 }
@@ -475,7 +482,7 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering, isPe
     <!-- TODO(暫時)：追查「歌詞跳回開頭但聲音沒受影響」的回歸，對比真實
          audio 位置跟畫面拿去算歌詞高亮的時間，抓到分岔當下的數字後移除 -->
     <div class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
-        （診斷）real={{ audio?.currentTime?.toFixed(2) ?? '-' }} | t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | virt={{ usingVirtualTime }} | seg={{ segmentMode }} | playing={{ isPlaying }} | pending={{ isPendingPlay }}
+        （診斷）real={{ audio?.currentTime?.toFixed(2) ?? '-' }} | seek={{ lastSeekAttempt?.toFixed(2) ?? '-' }} | t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | virt={{ usingVirtualTime }} | seg={{ segmentMode }} | playing={{ isPlaying }} | pending={{ isPendingPlay }}
     </div>
     </PublicLayout>
 </template>
