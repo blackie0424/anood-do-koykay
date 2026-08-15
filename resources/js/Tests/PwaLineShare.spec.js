@@ -3,12 +3,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { router } from '@inertiajs/vue3'
 import SongList from '../Pages/SongList.vue'
 import SongPlayer from '../Pages/SongPlayer.vue'
-import { bootState } from '../utils/bootState'
 
-// SongPlayer 冷啟動時會呼叫 router.visit 悄悄重新導覽（見 SongPlayer.spec.js
-// 的專門測試），這裡跟分享功能無關，統一標記成「非冷啟動」略過那段邏輯。
+// SongPlayer 冷啟動（isColdLoad prop 為 true）時會呼叫 router.visit 悄悄
+// 重新導覽（見 SongPlayer.spec.js 的專門測試），這裡跟分享功能無關；不
+// 傳 isColdLoad（預設 false）就不會觸發，但 router.visit 還是先 mock 掉
+// 保險。
 beforeEach(() => {
-    bootState.hasNavigatedOnce = true
     vi.spyOn(router, 'visit').mockImplementation(() => {})
 })
 

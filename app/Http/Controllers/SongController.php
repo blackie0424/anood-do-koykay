@@ -20,11 +20,19 @@ class SongController extends Controller
         return Inertia::render('SongList', ['songs' => $this->paginatorToArray($songs)]);
     }
 
-    public function showPage(Song $song)
+    public function showPage(Request $request, Song $song)
     {
         abort_if($song->status !== 'published', 404);
         $song->load('lines');
-        return Inertia::render('SongPlayer', ['song' => $song]);
+
+        // 用 X-Inertia 這個 header 判斷這次請求是不是 Inertia 前端內部導覽
+        // 送出來的（一定會帶這個 header），還是瀏覽器真的整頁載入（一定不會
+        // 帶）。這是請求當下的真實狀態，不會被瀏覽器的預先載入／快取等行為
+        // 影響，比在前端用 JS 記憶體自己判斷「是不是第一次載入」可靠。
+        return Inertia::render('SongPlayer', [
+            'song' => $song,
+            'isColdLoad' => !$request->hasHeader('X-Inertia'),
+        ]);
     }
 
     public function readerPage(Song $song)

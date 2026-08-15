@@ -6,9 +6,8 @@ import BackLink from '@/Components/BackLink.vue'
 import PlayBar from '@/Components/PlayBar.vue'
 import ReportModal from '@/Components/ReportModal.vue'
 import RecordingMode from '@/Components/RecordingMode.vue'
-import { bootState } from '@/utils/bootState'
 
-const props = defineProps({ song: Object })
+const props = defineProps({ song: Object, isColdLoad: { type: Boolean, default: false } })
 
 // 根因確認：問題出在「瀏覽器完整重新載入頁面」（冷啟動）這件事本身，跟
 // LINE／Safari／PWA 等瀏覽器種類無關——用 chung 反覆驗證過的「直接貼網址
@@ -20,10 +19,15 @@ const props = defineProps({ song: Object })
 // 修法：冷啟動時，畫面先顯示「載入中…」，掛載後立刻悄悄用 Inertia 的
 // router.visit 把同一頁重新導覽一次（不是瀏覽器整頁重新載入），讓
 // <audio> 元素改走「前端內部導覽」這條已驗證沒問題的路徑掛載，重新導覽
-// 完成後才顯示真正的播放介面。用 bootState 這個「只有整頁重新載入才會
-// 重置」的模組層級旗標判斷是否為冷啟動，只會觸發一次，不會無限循環。
-const isColdBoot = !bootState.hasNavigatedOnce
-bootState.hasNavigatedOnce = true
+// 完成後才顯示真正的播放介面。
+//
+// 「是不是冷啟動」原本用前端 JS 記憶體裡的旗標判斷，但實測發現瀏覽器對
+// 反覆造訪過的網址可能會做預先載入，導致這個旗標在畫面顯示出來之前就已
+// 經被設成「已載入過」，判斷失準。改成完全交給後端判斷：Inertia 前端
+// 內部導覽送出的請求一定會帶 X-Inertia 這個 header，瀏覽器真的整頁載入
+// 則一定不會帶——這是請求當下的真實狀態，不會被瀏覽器的預先載入／快取
+// 影響（見 SongController::showPage）。
+const isColdBoot = props.isColdLoad
 const isRehydrating = ref(isColdBoot)
 // TODO(暫時)：診斷用，確認這招「冷啟動悄悄重新導覽」有沒有被觸發、
 // 有沒有正常完成，定位穩定後移除

@@ -57,6 +57,35 @@ class PageRoutesTest extends TestCase
         $this->get("/songs/{$song->id}")->assertNotFound();
     }
 
+    public function test_song_show_page_marks_is_cold_load_true_without_inertia_header(): void
+    {
+        // 瀏覽器真的整頁載入（沒有 X-Inertia 這個 header）：isColdLoad 要是 true，
+        // 前端才會知道要悄悄用內部導覽重新整理一次。
+        $song = Song::factory()->published()->create();
+
+        $this->get("/songs/{$song->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('SongPlayer')
+                ->where('isColdLoad', true)
+            );
+    }
+
+    public function test_song_show_page_marks_is_cold_load_false_with_inertia_header(): void
+    {
+        // Inertia 前端內部導覽送出的請求一定會帶 X-Inertia 這個 header：
+        // isColdLoad 要是 false，不該再觸發悄悄重新導覽。
+        $song = Song::factory()->published()->create();
+
+        $this->withHeaders(['X-Inertia' => 'true'])
+            ->get("/songs/{$song->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('SongPlayer')
+                ->where('isColdLoad', false)
+            );
+    }
+
     // ── 後台（admin） ────────────────────────────────────────────────
 
     public function test_admin_songs_index_renders_admin_songs(): void

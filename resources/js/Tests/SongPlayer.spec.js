@@ -4,17 +4,15 @@ import { router } from '@inertiajs/vue3'
 import BackLink from '../Components/BackLink.vue'
 import PlayBar from '../Components/PlayBar.vue'
 import SongPlayer from '../Pages/SongPlayer.vue'
-import { bootState } from '../utils/bootState'
 
 // SongPlayer 播放中會用 setInterval 輪詢 currentTime，卸載時（onBeforeUnmount）才會停止；
 // 沒有這行，任何觸發 'playing' 的測試都會留下一個永遠不會停的計時器。
 enableAutoUnmount(afterEach)
 
-// bootState 是跨測試共用的模組層級狀態（本來就是設計成整個分頁只重置一次）。
-// 預設把它設成「已經導覽過」，讓大部分測試維持原本「非冷啟動」的行為
-// （內容直接渲染，不會呼叫 router.visit）；冷啟動那組測試會自己覆寫。
+// 「是不是冷啟動」現在完全由後端透過 isColdLoad 這個 prop 告訴前端
+// （見 SongController::showPage），測試不用碰任何模組層級狀態；預設不傳
+// （對應 defineProps 的 default: false），冷啟動那組測試會自己傳 true。
 beforeEach(() => {
-  bootState.hasNavigatedOnce = true
   vi.spyOn(router, 'visit').mockImplementation(() => {})
 })
 
@@ -60,10 +58,8 @@ const songNoTimes = {
 }
 
 describe('SongPlayer — 冷啟動時悄悄用 Inertia 導覽重新整理，繞開整頁重新載入的播放問題', () => {
-  it('非冷啟動（bootState 已標記導覽過）時直接渲染內容，不會呼叫 router.visit', () => {
-    bootState.hasNavigatedOnce = true // beforeEach 已設，這裡明確寫出來方便閱讀
-
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+  it('isColdLoad=false（後端判斷不是冷啟動）時直接渲染內容，不會呼叫 router.visit', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes, isColdLoad: false } })
 
     expect(wrapper.find('audio').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('載入中…')
@@ -72,10 +68,8 @@ describe('SongPlayer — 冷啟動時悄悄用 Inertia 導覽重新整理，繞�
     expect(wrapper.text()).toContain('revisit=skipped')
   })
 
-  it('冷啟動時先顯示載入中，不渲染播放介面，並悄悄用 router.visit 重新導覽同一頁', () => {
-    bootState.hasNavigatedOnce = false
-
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+  it('isColdLoad=true（後端判斷是冷啟動）時先顯示載入中，不渲染播放介面，並悄悄用 router.visit 重新導覽同一頁', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes, isColdLoad: true } })
 
     expect(wrapper.text()).toContain('載入中…')
     expect(wrapper.find('audio').exists()).toBe(false)
@@ -87,10 +81,9 @@ describe('SongPlayer — 冷啟動時悄悄用 Inertia 導覽重新整理，繞�
   })
 
   it('重新導覽完成（onFinish）後，改顯示正常的播放介面，診斷顯示 revisit=finished', async () => {
-    bootState.hasNavigatedOnce = false
     router.visit.mockImplementation((url, options) => options.onFinish())
 
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes, isColdLoad: true } })
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).not.toContain('載入中…')
@@ -100,10 +93,9 @@ describe('SongPlayer — 冷啟動時悄悄用 Inertia 導覽重新整理，繞�
   })
 
   it('重新導覽失敗（onError）時也會降級顯示正常內容，不會卡在載入中，診斷顯示 revisit=error', async () => {
-    bootState.hasNavigatedOnce = false
     router.visit.mockImplementation((url, options) => options.onError())
 
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes, isColdLoad: true } })
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).not.toContain('載入中…')
