@@ -1,12 +1,22 @@
 import { mount, enableAutoUnmount } from '@vue/test-utils'
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import { router } from '@inertiajs/vue3'
 import BackLink from '../Components/BackLink.vue'
 import PlayBar from '../Components/PlayBar.vue'
 import SongPlayer from '../Pages/SongPlayer.vue'
+import { bootState } from '../utils/bootState'
 
 // SongPlayer 播放中會用 setInterval 輪詢 currentTime，卸載時（onBeforeUnmount）才會停止；
 // 沒有這行，任何觸發 'playing' 的測試都會留下一個永遠不會停的計時器。
 enableAutoUnmount(afterEach)
+
+// bootState 是跨測試共用的模組層級狀態（本來就是設計成整個分頁只重置一次）。
+// 預設把它設成「已經導覽過」，讓大部分測試維持原本「非冷啟動」的行為
+// （內容直接渲染，不會呼叫 router.visit）；冷啟動那組測試會自己覆寫。
+beforeEach(() => {
+  bootState.hasNavigatedOnce = true
+  vi.spyOn(router, 'visit').mockImplementation(() => {})
+})
 
 // jsdom 沒有實作 scrollIntoView（既有限制），歌詞自動捲動會呼叫到它；補 no-op polyfill
 if (typeof Element !== 'undefined') {
@@ -48,6 +58,54 @@ const songNoTimes = {
     { id: 1, order: 1, text_native: 'Maomaw', start_time: null, end_time: null },
   ],
 }
+
+describe('SongPlayer — 冷啟動時悄悄用 Inertia 導覽重新整理，繞開 LINE WebView 的 audio 回報 bug', () => {
+  it('非冷啟動（bootState 已標記導覽過）時直接渲染內容，不會呼叫 router.visit', () => {
+    bootState.hasNavigatedOnce = true // beforeEach 已設，這裡明確寫出來方便閱讀
+
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+
+    expect(wrapper.find('audio').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('載入中…')
+    expect(router.visit).not.toHaveBeenCalled()
+  })
+
+  it('冷啟動時先顯示載入中，不渲染播放介面，並悄悄用 router.visit 重新導覽同一頁', () => {
+    bootState.hasNavigatedOnce = false
+
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+
+    expect(wrapper.text()).toContain('載入中…')
+    expect(wrapper.find('audio').exists()).toBe(false)
+    expect(router.visit).toHaveBeenCalledTimes(1)
+    const [url, options] = router.visit.mock.calls[0]
+    expect(url).toBe(window.location.pathname + window.location.search)
+    expect(options.replace).toBe(true)
+    expect(options.preserveState).toBe(false)
+  })
+
+  it('重新導覽完成（onFinish）後，改顯示正常的播放介面', async () => {
+    bootState.hasNavigatedOnce = false
+    router.visit.mockImplementation((url, options) => options.onFinish())
+
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).not.toContain('載入中…')
+    expect(wrapper.find('audio').exists()).toBe(true)
+  })
+
+  it('重新導覽失敗（onError）時也會降級顯示正常內容，不會卡在載入中', async () => {
+    bootState.hasNavigatedOnce = false
+    router.visit.mockImplementation((url, options) => options.onError())
+
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).not.toContain('載入中…')
+    expect(wrapper.find('audio').exists()).toBe(true)
+  })
+})
 
 describe('SongPlayer — 基本渲染', () => {
   it('renders song title', () => {
