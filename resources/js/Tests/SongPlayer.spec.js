@@ -1,12 +1,22 @@
 import { mount, enableAutoUnmount } from '@vue/test-utils'
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import { router } from '@inertiajs/vue3'
 import BackLink from '../Components/BackLink.vue'
 import PlayBar from '../Components/PlayBar.vue'
 import SongPlayer from '../Pages/SongPlayer.vue'
+import { bootState } from '../utils/bootState'
 
 // SongPlayer 播放中會用 setInterval 輪詢 currentTime，卸載時（onBeforeUnmount）才會停止；
 // 沒有這行，任何觸發 'playing' 的測試都會留下一個永遠不會停的計時器。
 enableAutoUnmount(afterEach)
+
+// bootState 是跨測試共用的模組層級狀態（本來就是設計成整個分頁只重置一次）。
+// 預設把它設成「已經導覽過」，讓大部分測試維持原本「非冷啟動」的行為
+// （內容直接渲染，不會呼叫 router.visit）；冷啟動那組測試會自己覆寫。
+beforeEach(() => {
+  bootState.hasNavigatedOnce = true
+  vi.spyOn(router, 'visit').mockImplementation(() => {})
+})
 
 // jsdom 沒有實作 scrollIntoView（既有限制），歌詞自動捲動會呼叫到它；補 no-op polyfill
 if (typeof Element !== 'undefined') {
@@ -48,6 +58,59 @@ const songNoTimes = {
     { id: 1, order: 1, text_native: 'Maomaw', start_time: null, end_time: null },
   ],
 }
+
+describe('SongPlayer — 冷啟動時悄悄用 Inertia 導覽重新整理，繞開整頁重新載入的播放問題', () => {
+  it('非冷啟動（bootState 已標記導覽過）時直接渲染內容，不會呼叫 router.visit', () => {
+    bootState.hasNavigatedOnce = true // beforeEach 已設，這裡明確寫出來方便閱讀
+
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+
+    expect(wrapper.find('audio').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('載入中…')
+    expect(router.visit).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('cold=false')
+    expect(wrapper.text()).toContain('revisit=skipped')
+  })
+
+  it('冷啟動時先顯示載入中，不渲染播放介面，並悄悄用 router.visit 重新導覽同一頁', () => {
+    bootState.hasNavigatedOnce = false
+
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+
+    expect(wrapper.text()).toContain('載入中…')
+    expect(wrapper.find('audio').exists()).toBe(false)
+    expect(router.visit).toHaveBeenCalledTimes(1)
+    const [url, options] = router.visit.mock.calls[0]
+    expect(url).toBe(window.location.pathname + window.location.search)
+    expect(options.replace).toBe(true)
+    expect(options.preserveState).toBe(false)
+  })
+
+  it('重新導覽完成（onFinish）後，改顯示正常的播放介面，診斷顯示 revisit=finished', async () => {
+    bootState.hasNavigatedOnce = false
+    router.visit.mockImplementation((url, options) => options.onFinish())
+
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).not.toContain('載入中…')
+    expect(wrapper.find('audio').exists()).toBe(true)
+    expect(wrapper.text()).toContain('cold=true')
+    expect(wrapper.text()).toContain('revisit=finished')
+  })
+
+  it('重新導覽失敗（onError）時也會降級顯示正常內容，不會卡在載入中，診斷顯示 revisit=error', async () => {
+    bootState.hasNavigatedOnce = false
+    router.visit.mockImplementation((url, options) => options.onError())
+
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).not.toContain('載入中…')
+    expect(wrapper.find('audio').exists()).toBe(true)
+    expect(wrapper.text()).toContain('revisit=error')
+  })
+})
 
 describe('SongPlayer — 基本渲染', () => {
   it('renders song title', () => {
@@ -311,23 +374,6 @@ describe('SongPlayer — startPlayFromOverlay', () => {
       vi.useRealTimers()
     }
   })
-
-  it('play() 過程中瀏覽器把 currentTime 重置回 0（模擬 Safari 延遲觸發播放時的重置行為），播放位置最後仍正確落在 effectiveStart', async () => {
-    // chung 實測外部 Safari 發現：從外部連結進入、資料還沒備妥（走 canplay／
-    // 3 秒 fallback 這條延遲播放路徑）時，明明有把 currentTime 設到後台
-    // 指定的秒數，但真正開始播放時卻從頭播。根因：先設定 currentTime 再
-    // 呼叫 play() 的順序，遇到延遲觸發的 play() 時會被 Safari 重置掉。
-    // 這裡直接模擬「play() 呼叫的當下會把 currentTime 重置成 0」這個行為，
-    // 驗證修法（先 play()、等 resolve 後才設定 currentTime）能撐過這種情況。
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-    const audioEl = wrapper.find('audio').element
-    audioEl.play = async () => { audioEl.currentTime = 0 }
-    Object.defineProperty(audioEl, 'readyState', { value: 2, configurable: true })
-
-    await wrapper.find('[aria-label="點擊開始播放"]').trigger('click')
-
-    expect(audioEl.currentTime).toBe(2.0)
-  })
 })
 
 describe('SongPlayer — 準備中狀態（等待 canplay／3 秒 fallback 期間避免使用者重複按下播放）', () => {
@@ -430,17 +476,6 @@ describe('SongPlayer — togglePlay', () => {
     expect(audioEl.currentTime).toBe(6.0)
     expect(played).toBe(true)
   })
-
-  it('play() 過程中瀏覽器把 currentTime 重置回 0，播放位置最後仍正確落在 effectiveStart', async () => {
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-    const audioEl = wrapper.find('audio').element
-    audioEl.currentTime = 0
-    audioEl.play = async () => { audioEl.currentTime = 0 }
-
-    await wrapper.find('button[aria-label="播放"]').trigger('click')
-
-    expect(audioEl.currentTime).toBe(2.0)
-  })
 })
 
 describe('SongPlayer — playLine（點歌詞跳段播放）', () => {
@@ -469,18 +504,6 @@ describe('SongPlayer — playLine（點歌詞跳段播放）', () => {
     await wrapper.vm.$nextTick()
 
     expect(played).toBe(false)
-  })
-
-  it('play() 過程中瀏覽器把 currentTime 重置回 0，播放位置最後仍正確落在該行 start_time', async () => {
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-    const audioEl = wrapper.find('audio').element
-    audioEl.play = async () => { audioEl.currentTime = 0 }
-
-    const anoodLine = wrapper.findAll('p').find((p) => p.text() === 'Anood')
-    await anoodLine.element.parentElement.dispatchEvent(new Event('click', { bubbles: true }))
-    await wrapper.vm.$nextTick()
-
-    expect(audioEl.currentTime).toBe(6.0)
   })
 })
 

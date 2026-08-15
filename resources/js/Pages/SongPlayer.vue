@@ -1,12 +1,46 @@
 <script setup>
-import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { router } from '@inertiajs/vue3'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 import BackLink from '@/Components/BackLink.vue'
 import PlayBar from '@/Components/PlayBar.vue'
 import ReportModal from '@/Components/ReportModal.vue'
 import RecordingMode from '@/Components/RecordingMode.vue'
+import { bootState } from '@/utils/bootState'
 
 const props = defineProps({ song: Object })
+
+// 根因確認：問題出在「瀏覽器完整重新載入頁面」（冷啟動）這件事本身，跟
+// LINE／Safari／PWA 等瀏覽器種類無關——用 chung 反覆驗證過的「直接貼網址
+// 進入」跟「從歌曲清單點連結進入」兩種方式對照，前者（冷啟動）會壞、後者
+// （Inertia 前端內部導覽）完全正常，兩者拿到的 song props 資料一模一樣
+// （SongController::showPage 對兩種情況回傳同一包資料），差異純粹是瀏覽器
+// 有沒有真的重新整頁。
+//
+// 修法：冷啟動時，畫面先顯示「載入中…」，掛載後立刻悄悄用 Inertia 的
+// router.visit 把同一頁重新導覽一次（不是瀏覽器整頁重新載入），讓
+// <audio> 元素改走「前端內部導覽」這條已驗證沒問題的路徑掛載，重新導覽
+// 完成後才顯示真正的播放介面。用 bootState 這個「只有整頁重新載入才會
+// 重置」的模組層級旗標判斷是否為冷啟動，只會觸發一次，不會無限循環。
+const isColdBoot = !bootState.hasNavigatedOnce
+bootState.hasNavigatedOnce = true
+const isRehydrating = ref(isColdBoot)
+// TODO(暫時)：診斷用，確認這招「冷啟動悄悄重新導覽」有沒有被觸發、
+// 有沒有正常完成，定位穩定後移除
+const revisitState = ref(isColdBoot ? 'pending' : 'skipped')
+
+onMounted(() => {
+    if (!isColdBoot) return
+    router.visit(window.location.pathname + window.location.search, {
+        replace: true,
+        preserveScroll: true,
+        preserveState: false,
+        onFinish: () => { isRehydrating.value = false; revisitState.value = 'finished' },
+        onError: () => { isRehydrating.value = false; revisitState.value = 'error' },
+        onCancel: () => { isRehydrating.value = false; revisitState.value = 'cancelled' },
+        onException: () => { isRehydrating.value = false; revisitState.value = 'exception' },
+    })
+})
 
 // 接唱錄音：需有原音（audio_full）且至少一段有時間軸才可用
 const canRecord = computed(() =>
@@ -93,25 +127,14 @@ function returnToCurrentLine() {
     scrollToLine(activeLineIndex.value)
 }
 
-// 外部瀏覽器（Safari）實測發現：如果先設定 currentTime 再呼叫 play()，
-// 遇到「延遲觸發」的播放（例如等 canplay／3 秒 fallback 才真正呼叫
-// play()，不是使用者按下當下就同步執行）時，Safari 會把先設定好的
-// 播放位置重置回開頭，等於白設定。改成先呼叫 play()、等瀏覽器確認真的
-// 開始播放（play() 的 promise resolve）之後，才設定播放位置，這是處理
-// 這類瀏覽器限制比較穩妥的順序。統一用這個 helper，避免各處各做各的。
-// TODO(暫時)：診斷用，記錄最後一次嘗試寫入 currentTime 的秒數，跟畫面上
-// real= 對比，確認「寫入這個動作本身有沒有生效」，定位穩定後移除
-const lastSeekAttempt = ref(null)
-
+// 根因確定是「冷啟動（瀏覽器完整重新載入）」本身，不是設定 currentTime
+// 跟呼叫 play() 的先後順序（曾經以為是順序問題、改成先 play() 再設定
+// 秒數，後來證實無效——即使順序改了，冷啟動時 real 還是不會跟著走）。
+// 冷啟動的問題改由下方的「悄悄用前端框架內部導覽重新整理一次」機制處理，
+// 這裡維持原本單純的寫法：先設定播放位置，再呼叫播放。
 function playFrom(time) {
-    audio.value.play()
-        .then(() => {
-            if (audio.value) {
-                audio.value.currentTime = time
-                lastSeekAttempt.value = time
-            }
-        })
-        .catch(() => { hasError.value = true })
+    audio.value.currentTime = time
+    audio.value.play().catch(() => { hasError.value = true })
 }
 
 function togglePlay() {
@@ -377,6 +400,10 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering, isPe
 
 <template>
     <PublicLayout>
+    <div v-if="isRehydrating" class="h-dvh flex items-center justify-center bg-stone-50">
+        <p class="text-stone-500 text-lg">載入中…</p>
+    </div>
+    <template v-else>
     <div class="h-dvh flex flex-col overflow-hidden bg-stone-50 relative">
         <!-- 返回 bar（sticky 固定頂部，捲動不消失） -->
         <div class="sticky top-0 z-10 flex-shrink-0 bg-white border-b border-stone-200 px-3 py-2">
@@ -478,11 +505,13 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering, isPe
     </Transition>
 
     <RecordingMode v-if="showRecording" :song="song" @close="showRecording = false" />
+    </template>
 
-    <!-- TODO(暫時)：追查「歌詞跳回開頭但聲音沒受影響」的回歸，對比真實
-         audio 位置跟畫面拿去算歌詞高亮的時間，抓到分岔當下的數字後移除 -->
+    <!-- TODO(暫時)：chung 仍在驗證冷啟動修法，繼續保留畫面診斷；追查「歌詞
+         跳回開頭但聲音沒受影響」那輪的 real／t 對比，跟這次的 cold／revisit
+         都留著，定位穩定後一起移除 -->
     <div class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
-        （診斷）real={{ audio?.currentTime?.toFixed(2) ?? '-' }} | seek={{ lastSeekAttempt?.toFixed(2) ?? '-' }} | t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | virt={{ usingVirtualTime }} | seg={{ segmentMode }} | playing={{ isPlaying }} | pending={{ isPendingPlay }}
+        （診斷）real={{ audio?.currentTime?.toFixed(2) ?? '-' }} | t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | virt={{ usingVirtualTime }} | seg={{ segmentMode }} | playing={{ isPlaying }} | pending={{ isPendingPlay }} | cold={{ isColdBoot }} | revisit={{ revisitState }}
     </div>
     </PublicLayout>
 </template>

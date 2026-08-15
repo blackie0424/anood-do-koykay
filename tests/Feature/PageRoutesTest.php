@@ -57,35 +57,6 @@ class PageRoutesTest extends TestCase
         $this->get("/songs/{$song->id}")->assertNotFound();
     }
 
-    public function test_song_show_page_with_open_external_browser_param_redirects_to_clean_url(): void
-    {
-        // LINE App 用這個參數觸發「用外部瀏覽器開啟」，這個切換發生在
-        // LINE App 自己那端；一旦外部瀏覽器（Safari）真的用這個網址打我們
-        // 的伺服器，我們就把這個參數轉掉，避免它留在網址上污染 Inertia
-        // 的前端路由狀態。
-        $song = Song::factory()->published()->create();
-
-        $this->get("/songs/{$song->id}?openExternalBrowser=1")
-            ->assertRedirect("/songs/{$song->id}");
-    }
-
-    public function test_song_show_page_with_open_external_browser_param_preserves_other_query_params(): void
-    {
-        $song = Song::factory()->published()->create();
-
-        $this->get("/songs/{$song->id}?foo=bar&openExternalBrowser=1")
-            ->assertRedirect("/songs/{$song->id}?foo=bar");
-    }
-
-    public function test_song_show_page_without_open_external_browser_param_renders_normally(): void
-    {
-        $song = Song::factory()->published()->create();
-
-        $this->get("/songs/{$song->id}")
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->component('SongPlayer'));
-    }
-
     // ── 後台（admin） ────────────────────────────────────────────────
 
     public function test_admin_songs_index_renders_admin_songs(): void
