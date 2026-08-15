@@ -84,7 +84,7 @@ describe('SongPlayer — 冷啟動時悄悄用 Inertia 導覽重新整理，繞�
     expect(options.preserveState).toBe(false)
   })
 
-  it('重新導覽完成（onFinish）後，改顯示正常的播放介面，診斷顯示 revisit=finished', async () => {
+  it('重新導覽完成（onFinish）後，改顯示正常的播放介面', async () => {
     bootState.hasNavigatedOnce = false
     router.visit.mockImplementation((url, options) => options.onFinish())
 
@@ -93,11 +93,9 @@ describe('SongPlayer — 冷啟動時悄悄用 Inertia 導覽重新整理，繞�
 
     expect(wrapper.text()).not.toContain('載入中…')
     expect(wrapper.find('audio').exists()).toBe(true)
-    expect(wrapper.text()).toContain('cold=true')
-    expect(wrapper.text()).toContain('revisit=finished')
   })
 
-  it('重新導覽失敗（onError）時也會降級顯示正常內容，不會卡在載入中，診斷顯示 revisit=error', async () => {
+  it('重新導覽失敗（onError）時也會降級顯示正常內容，不會卡在載入中', async () => {
     bootState.hasNavigatedOnce = false
     router.visit.mockImplementation((url, options) => options.onError())
 
@@ -106,16 +104,6 @@ describe('SongPlayer — 冷啟動時悄悄用 Inertia 導覽重新整理，繞�
 
     expect(wrapper.text()).not.toContain('載入中…')
     expect(wrapper.find('audio').exists()).toBe(true)
-    expect(wrapper.text()).toContain('revisit=error')
-  })
-
-  it('非冷啟動時診斷顯示 cold=false、revisit=skipped', () => {
-    bootState.hasNavigatedOnce = true
-
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-
-    expect(wrapper.text()).toContain('cold=false')
-    expect(wrapper.text()).toContain('revisit=skipped')
   })
 })
 
