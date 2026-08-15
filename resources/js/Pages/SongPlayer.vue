@@ -1,35 +1,12 @@
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { router } from '@inertiajs/vue3'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 import BackLink from '@/Components/BackLink.vue'
 import PlayBar from '@/Components/PlayBar.vue'
 import ReportModal from '@/Components/ReportModal.vue'
 import RecordingMode from '@/Components/RecordingMode.vue'
-import { bootState } from '@/utils/bootState'
 
 const props = defineProps({ song: Object })
-
-// LINE WebView（iOS WKWebView）冷啟動（瀏覽器完整重新整頁載入）時，部分
-// 裝置的 audio.currentTime 回報會不正常（詳見下方虛擬計時的說明）。已經
-// 確認：只要 <audio> 元素改成透過 Inertia 前端框架內部導覽（不是瀏覽器
-// 整頁重新載入）掛載出來，這個回報就正常——所以冷啟動時，悄悄用 Inertia
-// 導覽把同一頁重新整理一次，讓 <audio> 元素改走這條沒問題的掛載路徑。
-// 虛擬計時 fallback 保留當備援，避免這招在其他裝置/情境下沒用。
-const isColdBoot = !bootState.hasNavigatedOnce
-bootState.hasNavigatedOnce = true
-const isRehydrating = ref(isColdBoot)
-
-onMounted(() => {
-    if (!isColdBoot) return
-    router.visit(window.location.pathname + window.location.search, {
-        replace: true,
-        preserveScroll: true,
-        preserveState: false,
-        onFinish: () => { isRehydrating.value = false },
-        onError: () => { isRehydrating.value = false },
-    })
-})
 
 // 接唱錄音：需有原音（audio_full）且至少一段有時間軸才可用
 const canRecord = computed(() =>
@@ -381,10 +358,6 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering, isPe
 
 <template>
     <PublicLayout>
-    <div v-if="isRehydrating" class="h-dvh flex items-center justify-center bg-stone-50">
-        <p class="text-stone-500 text-lg">載入中…</p>
-    </div>
-    <template v-else>
     <div class="h-dvh flex flex-col overflow-hidden bg-stone-50 relative">
         <!-- 返回 bar（sticky 固定頂部，捲動不消失） -->
         <div class="sticky top-0 z-10 flex-shrink-0 bg-white border-b border-stone-200 px-3 py-2">
@@ -492,7 +465,6 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering, isPe
     <div class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
         （診斷）real={{ audio?.currentTime?.toFixed(2) ?? '-' }} | t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | virt={{ usingVirtualTime }} | seg={{ segmentMode }} | playing={{ isPlaying }} | pending={{ isPendingPlay }}
     </div>
-    </template>
     </PublicLayout>
 </template>
 

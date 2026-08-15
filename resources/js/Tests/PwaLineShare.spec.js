@@ -1,16 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { router } from '@inertiajs/vue3'
 import SongList from '../Pages/SongList.vue'
 import SongPlayer from '../Pages/SongPlayer.vue'
-import { bootState } from '../utils/bootState'
-
-// SongPlayer 冷啟動時會呼叫 router.visit 悄悄重新導覽（見 SongPlayer.spec.js
-// 的專門測試），這裡跟分享功能無關，統一標記成「非冷啟動」略過那段邏輯。
-beforeEach(() => {
-    bootState.hasNavigatedOnce = true
-    vi.spyOn(router, 'visit').mockImplementation(() => {})
-})
 
 const SONGS = {
     data: [
