@@ -508,7 +508,7 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
          跳回開頭但聲音沒受影響」那輪的 real／t 對比，跟這次的 cold／revisit
          都留著，定位穩定後一起移除 -->
     <div class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
-        （診斷）real={{ audio?.currentTime?.toFixed(2) ?? '-' }} | t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | virt={{ usingVirtualTime }} | seg={{ segmentMode }} | playing={{ isPlaying }} | cold={{ isColdBoot }} | revisit={{ revisitState }}
+        （診斷）real={{ audio?.currentTime?.toFixed(2) ?? '-' }} | t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | virt={{ usingVirtualTime }} | seg={{ segmentMode }} | playing={{ isPlaying }} | cold={{ isColdBoot }} | revisit={{ revisitState }} | src=…{{ audioSrc?.slice(-14) ?? '-' }}
     </div>
     </PublicLayout>
 </template>
