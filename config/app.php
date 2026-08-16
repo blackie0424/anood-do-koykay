@@ -10,6 +10,10 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // 歌曲播放頁的診斷資訊列（播放位置、歌詞高亮索引、音檔網址等）。
+    // 平常關閉；播放出問題要現場排查時開啟，開啟期間所有使用者都看得到。
+    'player_diagnostics' => (bool) env('PLAYER_DIAGNOSTICS', false),
+
     'timezone' => 'Asia/Taipei',
 
     'locale' => 'zh_TW',

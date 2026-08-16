@@ -2,12 +2,15 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Admin;
+use App\Http\Controllers\LineWebhookController;
 use App\Http\Controllers\SongController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [SongController::class, 'indexPage']);
 Route::get('/songs/{song}', [SongController::class, 'showPage']);
 Route::get('/songs/{song}/reader', [SongController::class, 'readerPage']);
+
+Route::post('/webhook/line', [LineWebhookController::class, 'handle']);
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'webLogin']);
