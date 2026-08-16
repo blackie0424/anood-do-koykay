@@ -329,7 +329,11 @@ describe('SongPlayer — startPlayFromOverlay', () => {
     expect(played).toBe(true)
   })
 
-  it('readyState < 2 時等待 canplay 後再套用 effectiveStart 並播放', async () => {
+  it('readyState < 2（資料還沒備妥）時仍然立刻同步呼叫 play()，不等 canplay 或計時器', async () => {
+    // chung 實測確認：手機瀏覽器對「延遲呼叫的 play()」處理跟電腦不一樣——
+    // 等 canplay 事件或用計時器延遲呼叫，在手機上會導致設定好的播放位置
+    // 失效、直接從頭播（電腦沒有這個問題）。改成點擊當下不管 readyState
+    // 是多少都直接同步呼叫，不再等待。
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
     const audioEl = wrapper.find('audio').element
     let played = false
@@ -337,95 +341,9 @@ describe('SongPlayer — startPlayFromOverlay', () => {
     Object.defineProperty(audioEl, 'readyState', { value: 0, configurable: true })
 
     await wrapper.find('[aria-label="點擊開始播放"]').trigger('click')
-    expect(played).toBe(false)
-
-    audioEl.dispatchEvent(new Event('canplay'))
-    await wrapper.vm.$nextTick()
 
     expect(audioEl.currentTime).toBe(2.0)
     expect(played).toBe(true)
-  })
-
-  it('readyState < 2 時 canplay 遲遲不觸發，3 秒後保險強制播放', async () => {
-    vi.useFakeTimers()
-    try {
-      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-      const audioEl = wrapper.find('audio').element
-      let played = false
-      audioEl.play = async () => { played = true }
-      Object.defineProperty(audioEl, 'readyState', { value: 0, configurable: true })
-
-      await wrapper.find('[aria-label="點擊開始播放"]').trigger('click')
-      expect(played).toBe(false)
-
-      await vi.advanceTimersByTimeAsync(3000)
-
-      expect(audioEl.currentTime).toBe(2.0)
-      expect(played).toBe(true)
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-})
-
-describe('SongPlayer — 準備中狀態（等待 canplay／3 秒 fallback 期間避免使用者重複按下播放）', () => {
-  it('readyState < 2 時點擊灰底畫面後，播放鈕顯示「準備中…」且被停用', async () => {
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-    const audioEl = wrapper.find('audio').element
-    audioEl.play = async () => {}
-    Object.defineProperty(audioEl, 'readyState', { value: 0, configurable: true })
-
-    await wrapper.find('[aria-label="點擊開始播放"]').trigger('click')
-
-    expect(wrapper.vm.isPendingPlay).toBe(true)
-    expect(wrapper.findComponent(PlayBar).props('label')).toBe('準備中…')
-    expect(wrapper.findComponent(PlayBar).props('disabled')).toBe(true)
-  })
-
-  it('canplay 觸發、實際開始播放後，準備中狀態解除', async () => {
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-    const audioEl = wrapper.find('audio').element
-    audioEl.play = async () => {}
-    Object.defineProperty(audioEl, 'readyState', { value: 0, configurable: true })
-
-    await wrapper.find('[aria-label="點擊開始播放"]').trigger('click')
-    expect(wrapper.vm.isPendingPlay).toBe(true)
-
-    audioEl.dispatchEvent(new Event('canplay'))
-    await wrapper.vm.$nextTick()
-
-    expect(wrapper.vm.isPendingPlay).toBe(false)
-    expect(wrapper.findComponent(PlayBar).props('disabled')).toBe(false)
-  })
-
-  it('準備中期間再按一次播放鈕不會重複呼叫 play 或把 currentTime 重設兩次', async () => {
-    vi.useFakeTimers()
-    try {
-      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-      const audioEl = wrapper.find('audio').element
-      let playCallCount = 0
-      audioEl.play = async () => { playCallCount++ }
-      Object.defineProperty(audioEl, 'readyState', { value: 0, configurable: true })
-
-      await wrapper.find('[aria-label="點擊開始播放"]').trigger('click')
-      expect(wrapper.vm.isPendingPlay).toBe(true)
-
-      // 準備中期間使用者以為沒反應，又按了一次底部播放鈕；即使畫面上按鈕
-      // 已 disabled，這裡直接觸發 @play 事件，驗證邏輯本身也擋得住
-      // （不能只靠畫面 disabled 這一層防護）
-      wrapper.findComponent(PlayBar).vm.$emit('play')
-      await wrapper.vm.$nextTick()
-
-      expect(playCallCount).toBe(0) // 排程中的播放還沒真的執行，第二次按下應該被忽略
-
-      // 3 秒後排程的播放才真正執行，只呼叫一次 play
-      await vi.advanceTimersByTimeAsync(3000)
-
-      expect(playCallCount).toBe(1)
-      expect(audioEl.currentTime).toBe(2.0)
-    } finally {
-      vi.useRealTimers()
-    }
   })
 })
 

@@ -62,10 +62,6 @@ const audio = ref(null)
 const currentTime = ref(0)
 const isPlaying = ref(false)
 const hasError = ref(false)
-// 冷啟動時資料還沒備妥，「開始播放」被排程等 canplay／3 秒 fallback，這段
-// 等待期間為 true。用來讓畫面顯示「準備中…」、播放鈕暫時不可按，避免使用
-// 者以為沒反應而重複按下，導致排程中的播放又把進度拉回開頭。
-const isPendingPlay = ref(false)
 
 // 歌詞捲動
 const lyricsContainer = ref(null)
@@ -80,7 +76,6 @@ const segmentLine = ref(null)
 
 // 底部播放列說明文字：逐段模式提示點歌詞、播放中提示播放中
 const segmentLabel = computed(() => {
-    if (isPendingPlay.value) return '準備中…'
     if (isBuffering.value) return '載入中…'
     if (segmentMode.value) return '點選歌詞播放'
     if (isPlaying.value) return '播放中…'
@@ -142,9 +137,7 @@ function playFrom(time) {
 }
 
 function togglePlay() {
-    // 冷啟動排程中的播放還沒執行完，忽略這次按下，避免跟排程中的播放
-    // 互相搶著設定 currentTime／呼叫 play()
-    if (!audio.value || isPendingPlay.value) return
+    if (!audio.value) return
     if (segmentMode.value) {
         // 退出逐段模式，從 effectiveStart 播放整首
         segmentMode.value = false
@@ -354,30 +347,18 @@ function playLine(line) {
 
 const showPlayOverlay = ref(true)
 
+// chung 實測確認：手機瀏覽器（iOS）跟電腦瀏覽器對「使用者手勢」的認定
+// 嚴格程度不同——電腦上，等 canplay 事件或用計時器延遲呼叫 play() 都
+// 沒事；手機上，只要 play() 不是在使用者點擊當下「同步」呼叫，瀏覽器就
+// 可能不把它當一次合法的播放操作，導致設定好的播放位置形同沒設定、直接
+// 從頭播。改成點擊當下直接同步呼叫，不再等 canplay／計時器——瀏覽器
+// 本身就有能力處理「資料還沒完全備妥就先播、邊播邊載」，不需要我們自己
+// 等待。播放位置設定交給 playFrom() 內部（呼叫 play() 前先設定
+// currentTime）跟 onLoaded（metadata 一讀到就設定）兩層。
 function startPlayFromOverlay() {
     showPlayOverlay.value = false
     if (audio.value && props.song?.audio_full && !hasError.value) {
-        const doPlay = () => {
-            isPendingPlay.value = false
-            playFrom(effectiveStart.value)
-        }
-        if (audio.value.readyState >= 2) {
-            doPlay()
-        } else {
-            // 從外部連結完整載入頁面時，Safari 的 canplay 有時遲遲不觸發，
-            // 加保險：3 秒後若還沒播放就強制播放一次。等待期間標記
-            // isPendingPlay，畫面顯示「準備中…」且播放鈕暫時不可按。
-            isPendingPlay.value = true
-            let played = false
-            const play = () => {
-                if (played || !audio.value) return
-                played = true
-                audio.value.removeEventListener('canplay', play)
-                doPlay()
-            }
-            audio.value.addEventListener('canplay', play, { once: true })
-            setTimeout(play, 3000)
-        }
+        playFrom(effectiveStart.value)
     }
 }
 
@@ -399,7 +380,7 @@ async function share() {
 }
 
 // 畫面診斷已移除（chung 驗收確認後）；保留這幾個內部狀態給測試用，不會渲染在畫面上
-defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering, isPendingPlay })
+defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
 </script>
 
 <template>
@@ -488,7 +469,7 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering, isPe
             @ended="onEnded" @error="onError" />
 
         <!-- 底部控制列 -->
-        <PlayBar :playing="isPlaying" :disabled="!song.audio_full || hasError || isPendingPlay" :label="segmentLabel" @play="togglePlay" />
+        <PlayBar :playing="isPlaying" :disabled="!song.audio_full || hasError" :label="segmentLabel" @play="togglePlay" />
     </div>
 
     <!-- 進入頁面播放提示覆蓋層 -->
@@ -515,7 +496,7 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering, isPe
          跳回開頭但聲音沒受影響」那輪的 real／t 對比，跟這次的 cold／revisit
          都留著，定位穩定後一起移除 -->
     <div class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
-        （診斷）real={{ audio?.currentTime?.toFixed(2) ?? '-' }} | t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | virt={{ usingVirtualTime }} | seg={{ segmentMode }} | playing={{ isPlaying }} | pending={{ isPendingPlay }} | cold={{ isColdBoot }} | revisit={{ revisitState }}
+        （診斷）real={{ audio?.currentTime?.toFixed(2) ?? '-' }} | t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | virt={{ usingVirtualTime }} | seg={{ segmentMode }} | playing={{ isPlaying }} | cold={{ isColdBoot }} | revisit={{ revisitState }}
     </div>
     </PublicLayout>
 </template>
