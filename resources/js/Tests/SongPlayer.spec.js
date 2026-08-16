@@ -104,6 +104,29 @@ describe('SongPlayer — 冷啟動時悄悄用 Inertia 導覽重新整理，繞�
   })
 })
 
+describe('SongPlayer — 音檔網址帶快取破壞參數（繞開 iOS 快取重播的 seek 失效）', () => {
+  it('audio 的 src 是 audio_full 加上 cb= 參數，不是裸網址', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const src = wrapper.find('audio').attributes('src')
+
+    expect(src).toMatch(/^\/audio\/1\.mp3\?cb=\d+$/)
+  })
+
+  it('audio_full 已有 query string 時用 & 串接', () => {
+    const song = { ...songWithLyricTimes, audio_full: '/audio/1.mp3?sig=abc' }
+    const wrapper = mount(SongPlayer, { props: { song } })
+    const src = wrapper.find('audio').attributes('src')
+
+    expect(src).toMatch(/^\/audio\/1\.mp3\?sig=abc&cb=\d+$/)
+  })
+
+  it('無 audio_full 時不渲染 audio 元素、不噴錯', () => {
+    const wrapper = mount(SongPlayer, { props: { song: { ...BASE_SONG, audio_full: null, lines: [] } } })
+
+    expect(wrapper.find('audio').exists()).toBe(false)
+  })
+})
+
 describe('SongPlayer — 基本渲染', () => {
   it('renders song title', () => {
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })

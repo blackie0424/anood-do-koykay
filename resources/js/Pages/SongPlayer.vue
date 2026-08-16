@@ -63,6 +63,18 @@ const currentTime = ref(0)
 const isPlaying = ref(false)
 const hasError = ref(false)
 
+// iOS WebKit（手機 Safari／Chrome／LINE 內建瀏覽器共用同一引擎）從瀏覽器
+// 快取重播同一個音檔時，媒體載入器的可搜尋範圍（seekable）會失效，這時
+// 設定 currentTime 會被夾回 0——這正是 chung 實測到「第一次進入正常（音
+// 檔還沒被快取，從網路載入，看得到讀取過程）、之後每次都直接從頭播（音
+// 檔已在快取、瞬間就緒）」的原因；桌面瀏覽器沒有這個問題所以永遠正常。
+// 修法：每次頁面載入給音檔網址帶一個不同的 query 參數，瀏覽器視為新資源
+// 強制走網路（CDN 已實測正確支援 Range/206 分段載入），繞開快取重播。
+// 代價：音檔不會被瀏覽器快取、每次進入都重新下載（單檔約 2~3MB）。
+const audioSrc = props.song?.audio_full
+    ? `${props.song.audio_full}${props.song.audio_full.includes('?') ? '&' : '?'}cb=${Date.now()}`
+    : null
+
 // 歌詞捲動
 const lyricsContainer = ref(null)
 const lineRefs = ref([])
@@ -463,7 +475,7 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
             </button>
         </Transition>
 
-        <audio v-if="song.audio_full" ref="audio" :src="song.audio_full"
+        <audio v-if="song.audio_full" ref="audio" :src="audioSrc"
             @timeupdate="onTimeUpdate" @loadedmetadata="onLoaded"
             @playing="onPlaying" @pause="onPause"
             @ended="onEnded" @error="onError" />
