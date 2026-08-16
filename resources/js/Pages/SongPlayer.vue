@@ -63,18 +63,6 @@ const currentTime = ref(0)
 const isPlaying = ref(false)
 const hasError = ref(false)
 
-// iOS WebKit（手機 Safari／Chrome／LINE 內建瀏覽器共用同一引擎）從瀏覽器
-// 快取重播同一個音檔時，媒體載入器的可搜尋範圍（seekable）會失效，這時
-// 設定 currentTime 會被夾回 0——這正是 chung 實測到「第一次進入正常（音
-// 檔還沒被快取，從網路載入，看得到讀取過程）、之後每次都直接從頭播（音
-// 檔已在快取、瞬間就緒）」的原因；桌面瀏覽器沒有這個問題所以永遠正常。
-// 修法：每次頁面載入給音檔網址帶一個不同的 query 參數，瀏覽器視為新資源
-// 強制走網路（CDN 已實測正確支援 Range/206 分段載入），繞開快取重播。
-// 代價：音檔不會被瀏覽器快取、每次進入都重新下載（單檔約 2~3MB）。
-const audioSrc = props.song?.audio_full
-    ? `${props.song.audio_full}${props.song.audio_full.includes('?') ? '&' : '?'}cb=${Date.now()}`
-    : null
-
 // 歌詞捲動
 const lyricsContainer = ref(null)
 const lineRefs = ref([])
@@ -103,6 +91,40 @@ const effectiveStart = computed(() => {
 const effectiveEnd = computed(() => {
     const times = (props.song?.lines ?? []).map(l => l.end_time).filter(t => t != null)
     return times.length > 0 ? Math.max(...times) : (props.song?.audio_end ?? null)
+})
+
+// iOS 手機（Safari／Chrome／LINE 內建瀏覽器共用同一 WebKit 引擎）反覆整頁
+// 載入同一頁時，「第一次正常、之後 seek 失效／currentTime 回報凍結」。已
+// 排除：音檔快取（帶了唯一 cb 參數、每次網址都不同仍然壞，見 git 歷史）、
+// 導覽方式、play() 呼叫時機。剩下唯一跨頁面殘留的是 WebView 的媒體解碼器
+// 狀態——舊頁面的 <audio> 從沒被明確釋放，殘留污染下一次載入。兩層處理：
+// 1) src 直接帶 Media Fragment（#t=起始秒）：起始位置在媒體引擎載入層級
+//    就決定，不依賴 JS 的 currentTime seek（JS seek 保留當第二層保險）。
+// 2) 離開頁面（pagehide／元件卸載）時明確釋放媒體資源（見 releaseAudio），
+//    這是 iOS 上「第一次好、之後都壞」這種模式的標準緩解手法。
+const audioSrc = computed(() => {
+    if (!props.song?.audio_full) return null
+    return effectiveStart.value > 0
+        ? `${props.song.audio_full}#t=${effectiveStart.value}`
+        : props.song.audio_full
+})
+
+// 明確釋放媒體資源：暫停、清掉 src、呼叫 load() 讓瀏覽器立刻放掉解碼器。
+// 整頁離開（pagehide）跟 SPA 卸載（onBeforeUnmount）都要做。
+function releaseAudio() {
+    if (!audio.value) return
+    try {
+        audio.value.pause()
+        audio.value.removeAttribute('src')
+        audio.value.load()
+    } catch (e) {
+        // 釋放失敗不影響離開頁面
+    }
+}
+onMounted(() => { window.addEventListener('pagehide', releaseAudio) })
+onBeforeUnmount(() => {
+    window.removeEventListener('pagehide', releaseAudio)
+    releaseAudio()
 })
 
 const activeLineIndex = computed(() => {

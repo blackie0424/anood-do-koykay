@@ -21,6 +21,14 @@ if (typeof Element !== 'undefined') {
   Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || (() => {})
 }
 
+// jsdom 的 HTMLMediaElement pause/load 只會噴「Not implemented」噪音；
+// 卸載時的 releaseAudio 會呼叫它們，這裡統一改成 no-op（個別測試要驗證
+// 呼叫行為時會自己蓋成 vi.fn()）
+if (typeof HTMLMediaElement !== 'undefined') {
+  HTMLMediaElement.prototype.pause = () => {}
+  HTMLMediaElement.prototype.load = () => {}
+}
+
 const BASE_SONG = {
   id: 1,
   title_native: 'Do Koykay',
@@ -104,26 +112,73 @@ describe('SongPlayer — 冷啟動時悄悄用 Inertia 導覽重新整理，繞�
   })
 })
 
-describe('SongPlayer — 音檔網址帶快取破壞參數（繞開 iOS 快取重播的 seek 失效）', () => {
-  it('audio 的 src 是 audio_full 加上 cb= 參數，不是裸網址', () => {
+describe('SongPlayer — 音檔 src 帶 Media Fragment 起始秒數（#t=），不依賴 JS seek', () => {
+  it('有起始秒數（歌詞時間）時 src 是 audio_full 加 #t=effectiveStart', () => {
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-    const src = wrapper.find('audio').attributes('src')
 
-    expect(src).toMatch(/^\/audio\/1\.mp3\?cb=\d+$/)
+    expect(wrapper.find('audio').attributes('src')).toBe('/audio/1.mp3#t=2')
   })
 
-  it('audio_full 已有 query string 時用 & 串接', () => {
-    const song = { ...songWithLyricTimes, audio_full: '/audio/1.mp3?sig=abc' }
-    const wrapper = mount(SongPlayer, { props: { song } })
-    const src = wrapper.find('audio').attributes('src')
+  it('無歌詞時間時 fallback 用 audio_start 當 #t 起始秒數', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songNoLyricTimes } })
 
-    expect(src).toMatch(/^\/audio\/1\.mp3\?sig=abc&cb=\d+$/)
+    expect(wrapper.find('audio').attributes('src')).toBe('/audio/1.mp3#t=5')
+  })
+
+  it('起始秒數為 0（無任何時間設定）時不加 fragment，維持裸網址', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songNoTimes } })
+
+    expect(wrapper.find('audio').attributes('src')).toBe('/audio/1.mp3')
   })
 
   it('無 audio_full 時不渲染 audio 元素、不噴錯', () => {
     const wrapper = mount(SongPlayer, { props: { song: { ...BASE_SONG, audio_full: null, lines: [] } } })
 
     expect(wrapper.find('audio').exists()).toBe(false)
+  })
+})
+
+describe('SongPlayer — 離開頁面時明確釋放媒體資源（iOS 解碼器殘留緩解）', () => {
+  it('pagehide 時暫停並清掉 src、呼叫 load() 釋放解碼器', async () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const audioEl = wrapper.find('audio').element
+    const pause = vi.fn()
+    const load = vi.fn()
+    audioEl.pause = pause
+    audioEl.load = load
+
+    window.dispatchEvent(new Event('pagehide'))
+
+    expect(pause).toHaveBeenCalled()
+    expect(load).toHaveBeenCalled()
+    expect(audioEl.getAttribute('src')).toBeNull()
+  })
+
+  it('元件卸載（SPA 導覽離開）時也會釋放媒體資源', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const audioEl = wrapper.find('audio').element
+    const pause = vi.fn()
+    const load = vi.fn()
+    audioEl.pause = pause
+    audioEl.load = load
+
+    wrapper.unmount()
+
+    expect(pause).toHaveBeenCalled()
+    expect(load).toHaveBeenCalled()
+  })
+
+  it('卸載後再觸發 pagehide 不會重複執行（監聽器已移除）', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const audioEl = wrapper.find('audio').element
+    const pause = vi.fn()
+    audioEl.pause = pause
+    wrapper.unmount()
+    pause.mockClear()
+
+    window.dispatchEvent(new Event('pagehide'))
+
+    expect(pause).not.toHaveBeenCalled()
   })
 })
 
