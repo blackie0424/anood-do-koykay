@@ -43,6 +43,44 @@ class LineWebhookTest extends TestCase
         ];
     }
 
+    /**
+     * 群組／多人聊天室的文字訊息事件。
+     *
+     * @param  string  $mention  'bot'（明確 @ 機器人）｜'all'（@全體成員）｜'none'（沒有 @）
+     */
+    private function groupTextEvent(string $text, string $mention = 'bot', string $sourceType = 'group'): array
+    {
+        $source = $sourceType === 'room'
+            ? ['type' => 'room', 'roomId' => 'room-123', 'userId' => 'user-456']
+            : ['type' => 'group', 'groupId' => 'group-123', 'userId' => 'user-456'];
+
+        $message = ['type' => 'text', 'text' => $text];
+
+        if ($mention === 'bot') {
+            $message['mention'] = ['mentionees' => [
+                ['index' => 0, 'length' => 6, 'type' => 'user', 'userId' => 'bot-user', 'isSelf' => true],
+            ]];
+        } elseif ($mention === 'all') {
+            $message['mention'] = ['mentionees' => [
+                ['index' => 0, 'length' => 4, 'type' => 'all'],
+            ]];
+        }
+
+        return [
+            'events' => [[
+                'type' => 'message',
+                'replyToken' => 'reply-token-1',
+                'source' => $source,
+                'message' => $message,
+            ]],
+        ];
+    }
+
+    private function assertNoReplySent(): void
+    {
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/v2/bot/message/'));
+    }
+
     // ── Signature 驗證 ──────────────────────────────────────────
 
     public function test_invalid_signature_returns_400(): void
@@ -121,7 +159,7 @@ class LineWebhookTest extends TestCase
         $this->signedPost($this->textEvent('999'))->assertStatus(200);
 
         Http::assertSent(function ($request) {
-            return ($request->data()['messages'][0]['text'] ?? null) === '找不到「999」，請確認頁碼或歌名';
+            return ($request->data()['messages'][0]['text'] ?? null) === '找不到「999」這首歌，請確認頁碼或歌名';
         });
     }
 
@@ -133,7 +171,7 @@ class LineWebhookTest extends TestCase
         $this->signedPost($this->textEvent('44'))->assertStatus(200);
 
         Http::assertSent(function ($request) {
-            return ($request->data()['messages'][0]['text'] ?? null) === '找不到「44」，請確認頁碼或歌名';
+            return ($request->data()['messages'][0]['text'] ?? null) === '找不到「44」這首歌，請確認頁碼或歌名';
         });
     }
 
@@ -155,7 +193,7 @@ class LineWebhookTest extends TestCase
 
         $this->signedPost($this->textEvent('查無此歌'))->assertStatus(200);
 
-        Http::assertSent(fn ($request) => ($request->data()['messages'][0]['text'] ?? null) === '找不到「查無此歌」，請確認頁碼或歌名');
+        Http::assertSent(fn ($request) => ($request->data()['messages'][0]['text'] ?? null) === '找不到「查無此歌」這首歌，請確認頁碼或歌名');
     }
 
     // ── 群組 @mention ────────────────────────────────────────────
@@ -189,6 +227,146 @@ class LineWebhookTest extends TestCase
             $text = $request->data()['messages'][0]['text'] ?? '';
             return str_contains($text, '輸入頁碼或歌名就可以點歌') && !str_contains($text, '找不到');
         });
+    }
+
+    // ── 群組只在被 @ 時回應（避免干擾群組聊天） ──────────────────
+
+    public function test_group_message_without_mention_is_ignored(): void
+    {
+        Http::fake();
+        Song::factory()->published()->create(['book_number' => '44']);
+
+        $this->signedPost($this->groupTextEvent('44', 'none'))->assertStatus(200);
+
+        $this->assertNoReplySent();
+    }
+
+    public function test_group_message_that_looks_like_chat_is_ignored(): void
+    {
+        // 這正是問題情境：群組裡的一般聊天，不該被當成點歌查詢而被回「找不到」
+        Http::fake();
+
+        $this->signedPost($this->groupTextEvent('今天在改播放器的 bug', 'none'))->assertStatus(200);
+
+        $this->assertNoReplySent();
+    }
+
+    public function test_group_mention_all_does_not_trigger_bot(): void
+    {
+        Http::fake();
+        Song::factory()->published()->create(['book_number' => '44']);
+
+        $this->signedPost($this->groupTextEvent('@全體成員 44', 'all'))->assertStatus(200);
+
+        $this->assertNoReplySent();
+    }
+
+    public function test_group_message_mentioning_bot_replies_with_song_link(): void
+    {
+        Http::fake();
+        $song = Song::factory()->published()->create(['book_number' => '44']);
+
+        $this->signedPost($this->groupTextEvent('@Anood助理 44', 'bot'))->assertStatus(200);
+
+        Http::assertSent(function ($request) use ($song) {
+            return $request->url() === 'https://api.line.me/v2/bot/message/reply'
+                && str_contains($request->data()['messages'][0]['text'] ?? '', "/songs/{$song->id}");
+        });
+    }
+
+    public function test_group_message_mentioning_bot_without_query_replies_with_usage(): void
+    {
+        Http::fake();
+
+        $this->signedPost($this->groupTextEvent('@Anood助理', 'bot'))->assertStatus(200);
+
+        Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', '輸入頁碼或歌名就可以點歌'));
+    }
+
+    public function test_room_message_without_mention_is_ignored(): void
+    {
+        Http::fake();
+
+        $this->signedPost($this->groupTextEvent('44', 'none', 'room'))->assertStatus(200);
+
+        $this->assertNoReplySent();
+    }
+
+    public function test_room_message_mentioning_bot_replies(): void
+    {
+        Http::fake();
+        $song = Song::factory()->published()->create(['book_number' => '44']);
+
+        $this->signedPost($this->groupTextEvent('@Anood助理 44', 'bot', 'room'))->assertStatus(200);
+
+        Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', "/songs/{$song->id}"));
+    }
+
+    public function test_direct_message_replies_without_needing_mention(): void
+    {
+        Http::fake();
+        $song = Song::factory()->published()->create(['book_number' => '44']);
+
+        $payload = [
+            'events' => [[
+                'type' => 'message',
+                'replyToken' => 'reply-token-1',
+                'source' => ['type' => 'user', 'userId' => 'user-456'],
+                'message' => ['type' => 'text', 'text' => '44'],
+            ]],
+        ];
+        $this->signedPost($payload)->assertStatus(200);
+
+        Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', "/songs/{$song->id}"));
+    }
+
+    // ── 群組找不到歌時，回覆冠上發話者名字 ────────────────────────
+
+    public function test_group_not_found_reply_includes_sender_display_name(): void
+    {
+        Http::fake([
+            'api.line.me/v2/bot/group/*/member/*' => Http::response(['displayName' => '小明'], 200),
+            '*' => Http::response([], 200),
+        ]);
+
+        $this->signedPost($this->groupTextEvent('@Anood助理 查無此歌', 'bot'))->assertStatus(200);
+
+        Http::assertSent(function ($request) {
+            if ($request->url() !== 'https://api.line.me/v2/bot/message/reply') {
+                return false;
+            }
+
+            return ($request->data()['messages'][0]['text'] ?? null) === '小明，找不到「查無此歌」這首歌，請確認頁碼或歌名';
+        });
+    }
+
+    public function test_group_not_found_reply_falls_back_when_profile_api_fails(): void
+    {
+        Http::fake([
+            'api.line.me/v2/bot/group/*/member/*' => Http::response([], 500),
+            '*' => Http::response([], 200),
+        ]);
+
+        $this->signedPost($this->groupTextEvent('@Anood助理 查無此歌', 'bot'))->assertStatus(200);
+
+        Http::assertSent(function ($request) {
+            if ($request->url() !== 'https://api.line.me/v2/bot/message/reply') {
+                return false;
+            }
+
+            return ($request->data()['messages'][0]['text'] ?? null) === '找不到「查無此歌」這首歌，請確認頁碼或歌名';
+        });
+    }
+
+    public function test_group_found_reply_does_not_fetch_display_name(): void
+    {
+        // 有查到歌就直接回連結，不需要多打一次 profile API
+        Http::fake();
+        Song::factory()->published()->create(['book_number' => '44']);
+
+        $this->signedPost($this->groupTextEvent('@Anood助理 44', 'bot'))->assertStatus(200);
+
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/member/'));
     }
 
     // ── join／memberJoined：群組歡迎訊息 ──────────────────────────

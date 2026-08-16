@@ -69,6 +69,15 @@ class LineWebhookController extends Controller
             return;
         }
 
+        $source = $event['source'] ?? [];
+
+        // 群組／多人聊天室：只有明確 @ 到機器人本身才回應。不然群組裡每一句
+        // 閒聊都會被當成點歌查詢、每句都被回一則訊息，人多時會嚴重干擾。
+        // 私訊（1 對 1）不需要 @，照常回應。
+        if ($this->isMultiPersonSource($source) && !$this->isBotMentioned($event)) {
+            return;
+        }
+
         $replyToken = $event['replyToken'] ?? null;
         if (!$replyToken) {
             return;
@@ -85,9 +94,70 @@ class LineWebhookController extends Controller
 
         $reply = $song
             ? $song->title_native."\n".rtrim(config('app.url'), '/')."/songs/{$song->id}"
-            : "找不到「{$query}」，請確認頁碼或歌名";
+            : $this->notFoundMessage($query, $source);
 
         $this->sendReply($replyToken, $reply);
+    }
+
+    private function isMultiPersonSource(array $source): bool
+    {
+        return in_array($source['type'] ?? null, ['group', 'room'], true);
+    }
+
+    // 只認「明確 @ 到機器人本身」（LINE 在 mentionees 標記 isSelf）。
+    // 「@全體成員」的 mentionee 是 type=all、沒有 isSelf，不會被當成叫機器人。
+    private function isBotMentioned(array $event): bool
+    {
+        foreach (($event['message']['mention']['mentionees'] ?? []) as $mentionee) {
+            if (($mentionee['isSelf'] ?? false) === true) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // 群組裡查不到歌時，回覆前面冠上發話者名字，讓多人聊天中看得出這則
+    // 回覆是回給誰的。取不到名字（API 失敗、非群組來源）就只回原本的訊息。
+    private function notFoundMessage(string $query, array $source): string
+    {
+        $message = "找不到「{$query}」這首歌，請確認頁碼或歌名";
+        $name = $this->fetchDisplayName($source);
+
+        return $name ? "{$name}，{$message}" : $message;
+    }
+
+    private function fetchDisplayName(array $source): ?string
+    {
+        $token = config('services.line.channel_access_token');
+        $userId = $source['userId'] ?? null;
+
+        if (!$token || !$userId) {
+            return null;
+        }
+
+        $url = match ($source['type'] ?? null) {
+            'group' => isset($source['groupId'])
+                ? "https://api.line.me/v2/bot/group/{$source['groupId']}/member/{$userId}"
+                : null,
+            'room' => isset($source['roomId'])
+                ? "https://api.line.me/v2/bot/room/{$source['roomId']}/member/{$userId}"
+                : null,
+            default => null,
+        };
+
+        if (!$url) {
+            return null;
+        }
+
+        try {
+            $response = Http::withToken($token)->get($url);
+
+            return $response->successful() ? ($response->json('displayName') ?: null) : null;
+        } catch (\Throwable $e) {
+            // 取名字失敗不該讓整則回覆消失，降級成沒有名字的訊息
+            return null;
+        }
     }
 
     // join（Bot 被邀請進群組）／memberJoined（新成員加入群組）共用：用 push API 對 groupId 發訊息。
