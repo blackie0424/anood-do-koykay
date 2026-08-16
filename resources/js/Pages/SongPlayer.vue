@@ -1,49 +1,18 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { router } from '@inertiajs/vue3'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 import BackLink from '@/Components/BackLink.vue'
 import PlayBar from '@/Components/PlayBar.vue'
 import ReportModal from '@/Components/ReportModal.vue'
 import RecordingMode from '@/Components/RecordingMode.vue'
 
-const props = defineProps({ song: Object, isColdLoad: { type: Boolean, default: false } })
-
-// 根因確認：問題出在「瀏覽器完整重新載入頁面」（冷啟動）這件事本身，跟
-// LINE／Safari／PWA 等瀏覽器種類無關——用 chung 反覆驗證過的「直接貼網址
-// 進入」跟「從歌曲清單點連結進入」兩種方式對照，前者（冷啟動）會壞、後者
-// （Inertia 前端內部導覽）完全正常，兩者拿到的 song props 資料一模一樣
-// （SongController::showPage 對兩種情況回傳同一包資料），差異純粹是瀏覽器
-// 有沒有真的重新整頁。
-//
-// 修法：冷啟動時，畫面先顯示「載入中…」，掛載後立刻悄悄用 Inertia 的
-// router.visit 把同一頁重新導覽一次（不是瀏覽器整頁重新載入），讓
-// <audio> 元素改走「前端內部導覽」這條已驗證沒問題的路徑掛載，重新導覽
-// 完成後才顯示真正的播放介面。
-//
-// 「是不是冷啟動」原本用前端 JS 記憶體裡的旗標判斷，但實測發現瀏覽器對
-// 反覆造訪過的網址可能會做預先載入，導致這個旗標在畫面顯示出來之前就已
-// 經被設成「已載入過」，判斷失準。改成完全交給後端判斷：Inertia 前端
-// 內部導覽送出的請求一定會帶 X-Inertia 這個 header，瀏覽器真的整頁載入
-// 則一定不會帶——這是請求當下的真實狀態，不會被瀏覽器的預先載入／快取
-// 影響（見 SongController::showPage）。
-const isColdBoot = props.isColdLoad
-const isRehydrating = ref(isColdBoot)
-// TODO(暫時)：診斷用，確認這招「冷啟動悄悄重新導覽」有沒有被觸發、
-// 有沒有正常完成，定位穩定後移除
-const revisitState = ref(isColdBoot ? 'pending' : 'skipped')
-
-onMounted(() => {
-    if (!isColdBoot) return
-    router.visit(window.location.pathname + window.location.search, {
-        replace: true,
-        preserveScroll: true,
-        preserveState: false,
-        onFinish: () => { isRehydrating.value = false; revisitState.value = 'finished' },
-        onError: () => { isRehydrating.value = false; revisitState.value = 'error' },
-        onCancel: () => { isRehydrating.value = false; revisitState.value = 'cancelled' },
-        onException: () => { isRehydrating.value = false; revisitState.value = 'exception' },
-    })
+const props = defineProps({
+    song: Object,
+    // 後端判斷這次是不是瀏覽器整頁載入（見 SongController::showPage）。
+    // 只用於診斷顯示，不影響任何行為。
+    isColdLoad: { type: Boolean, default: false },
+    // 診斷模式開關，由後端 .env 的 PLAYER_DIAGNOSTICS 控制
+    showDiagnostics: { type: Boolean, default: false },
 })
 
 // 接唱錄音：需有原音（audio_full）且至少一段有時間軸才可用
@@ -419,10 +388,6 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
 
 <template>
     <PublicLayout>
-    <div v-if="isRehydrating" class="h-dvh flex items-center justify-center bg-stone-50">
-        <p class="text-stone-500 text-lg">載入中…</p>
-    </div>
-    <template v-else>
     <div class="h-dvh flex flex-col overflow-hidden bg-stone-50 relative">
         <!-- 返回 bar（sticky 固定頂部，捲動不消失） -->
         <div class="sticky top-0 z-10 flex-shrink-0 bg-white border-b border-stone-200 px-3 py-2">
@@ -524,13 +489,20 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
     </Transition>
 
     <RecordingMode v-if="showRecording" :song="song" @close="showRecording = false" />
-    </template>
 
-    <!-- TODO(暫時)：chung 仍在驗證冷啟動修法，繼續保留畫面診斷；追查「歌詞
-         跳回開頭但聲音沒受影響」那輪的 real／t 對比，跟這次的 cold／revisit
-         都留著，定位穩定後一起移除 -->
-    <div class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
-        （診斷）real={{ audio?.currentTime?.toFixed(2) ?? '-' }} | t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | virt={{ usingVirtualTime }} | seg={{ segmentMode }} | playing={{ isPlaying }} | cold={{ isColdBoot }} | revisit={{ revisitState }} | src=…{{ audioSrc?.slice(-14) ?? '-' }}
+    <!-- 診斷模式：由後端 .env 的 PLAYER_DIAGNOSTICS 控制，平常關閉。
+         欄位說明（給下次出問題時對照用）：
+         real  = audio 元素回報的實際播放位置（秒）
+         t     = 畫面拿去算歌詞高亮用的時間（正常時等於 real；虛擬計時中為估算值）
+         idx   = 目前高亮的歌詞行索引（-1 = 沒有任何一行被高亮）
+         virt  = 是否已切換到虛擬計時（真實回報卡住時的備援）
+         seg   = 是否在逐段播放模式
+         play  = 是否正在播放
+         cold  = 這次頁面是不是瀏覽器整頁載入（false = 站內導覽進來的）
+         src   = 音檔網址結尾，用來確認有沒有正確帶上 #t= 起始秒數 -->
+    <div v-if="showDiagnostics"
+        class="fixed bottom-1 left-1 z-[999] text-xs text-white bg-black/70 px-2 py-1 rounded font-mono pointer-events-none">
+        （診斷）real={{ audio?.currentTime?.toFixed(2) ?? '-' }} | t={{ currentTime.toFixed(2) }} | idx={{ activeLineIndex }} | virt={{ usingVirtualTime }} | seg={{ segmentMode }} | play={{ isPlaying }} | cold={{ isColdLoad }} | src=…{{ audioSrc?.slice(-14) ?? '-' }}
     </div>
     </PublicLayout>
 </template>

@@ -25,13 +25,13 @@ class SongController extends Controller
         abort_if($song->status !== 'published', 404);
         $song->load('lines');
 
-        // 用 X-Inertia 這個 header 判斷這次請求是不是 Inertia 前端內部導覽
-        // 送出來的（一定會帶這個 header），還是瀏覽器真的整頁載入（一定不會
-        // 帶）。這是請求當下的真實狀態，不會被瀏覽器的預先載入／快取等行為
-        // 影響，比在前端用 JS 記憶體自己判斷「是不是第一次載入」可靠。
         return Inertia::render('SongPlayer', [
             'song' => $song,
+            // 用 X-Inertia 這個 header 判斷這次請求是不是 Inertia 前端內部
+            // 導覽送出來的（一定會帶這個 header），還是瀏覽器真的整頁載入
+            // （一定不會帶）。純診斷用，不影響任何行為。
             'isColdLoad' => !$request->hasHeader('X-Inertia'),
+            'showDiagnostics' => config('app.player_diagnostics'),
         ]);
     }
 

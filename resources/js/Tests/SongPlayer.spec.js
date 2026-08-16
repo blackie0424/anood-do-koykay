@@ -1,6 +1,5 @@
 import { mount, enableAutoUnmount } from '@vue/test-utils'
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { router } from '@inertiajs/vue3'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import BackLink from '../Components/BackLink.vue'
 import PlayBar from '../Components/PlayBar.vue'
 import SongPlayer from '../Pages/SongPlayer.vue'
@@ -8,13 +7,6 @@ import SongPlayer from '../Pages/SongPlayer.vue'
 // SongPlayer 播放中會用 setInterval 輪詢 currentTime，卸載時（onBeforeUnmount）才會停止；
 // 沒有這行，任何觸發 'playing' 的測試都會留下一個永遠不會停的計時器。
 enableAutoUnmount(afterEach)
-
-// 「是不是冷啟動」現在完全由後端透過 isColdLoad 這個 prop 告訴前端
-// （見 SongController::showPage），測試不用碰任何模組層級狀態；預設不傳
-// （對應 defineProps 的 default: false），冷啟動那組測試會自己傳 true。
-beforeEach(() => {
-  vi.spyOn(router, 'visit').mockImplementation(() => {})
-})
 
 // jsdom 沒有實作 scrollIntoView（既有限制），歌詞自動捲動會呼叫到它；補 no-op polyfill
 if (typeof Element !== 'undefined') {
@@ -65,50 +57,48 @@ const songNoTimes = {
   ],
 }
 
-describe('SongPlayer — 冷啟動時悄悄用 Inertia 導覽重新整理，繞開整頁重新載入的播放問題', () => {
-  it('isColdLoad=false（後端判斷不是冷啟動）時直接渲染內容，不會呼叫 router.visit', () => {
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes, isColdLoad: false } })
+describe('SongPlayer — 診斷模式（由後端 PLAYER_DIAGNOSTICS 環境變數控制）', () => {
+  it('預設（showDiagnostics 未傳）不顯示診斷資訊列', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
 
-    expect(wrapper.find('audio').exists()).toBe(true)
-    expect(wrapper.text()).not.toContain('載入中…')
-    expect(router.visit).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('cold=false')
-    expect(wrapper.text()).toContain('revisit=skipped')
+    expect(wrapper.text()).not.toContain('（診斷）')
   })
 
-  it('isColdLoad=true（後端判斷是冷啟動）時先顯示載入中，不渲染播放介面，並悄悄用 router.visit 重新導覽同一頁', () => {
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes, isColdLoad: true } })
+  it('showDiagnostics=false 時不顯示診斷資訊列', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes, showDiagnostics: false } })
 
-    expect(wrapper.text()).toContain('載入中…')
-    expect(wrapper.find('audio').exists()).toBe(false)
-    expect(router.visit).toHaveBeenCalledTimes(1)
-    const [url, options] = router.visit.mock.calls[0]
-    expect(url).toBe(window.location.pathname + window.location.search)
-    expect(options.replace).toBe(true)
-    expect(options.preserveState).toBe(false)
+    expect(wrapper.text()).not.toContain('（診斷）')
   })
 
-  it('重新導覽完成（onFinish）後，改顯示正常的播放介面，診斷顯示 revisit=finished', async () => {
-    router.visit.mockImplementation((url, options) => options.onFinish())
+  it('showDiagnostics=true 時顯示診斷資訊列，且包含全部欄位', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes, showDiagnostics: true } })
+    const text = wrapper.text()
 
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes, isColdLoad: true } })
-    await wrapper.vm.$nextTick()
-
-    expect(wrapper.text()).not.toContain('載入中…')
-    expect(wrapper.find('audio').exists()).toBe(true)
-    expect(wrapper.text()).toContain('cold=true')
-    expect(wrapper.text()).toContain('revisit=finished')
+    expect(text).toContain('（診斷）')
+    for (const field of ['real=', 't=', 'idx=', 'virt=', 'seg=', 'play=', 'cold=', 'src=']) {
+      expect(text).toContain(field)
+    }
   })
 
-  it('重新導覽失敗（onError）時也會降級顯示正常內容，不會卡在載入中，診斷顯示 revisit=error', async () => {
-    router.visit.mockImplementation((url, options) => options.onError())
+  it('診斷列的 cold 欄位反映後端傳來的 isColdLoad', () => {
+    const cold = mount(SongPlayer, { props: { song: songWithLyricTimes, showDiagnostics: true, isColdLoad: true } })
+    const warm = mount(SongPlayer, { props: { song: songWithLyricTimes, showDiagnostics: true, isColdLoad: false } })
 
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes, isColdLoad: true } })
-    await wrapper.vm.$nextTick()
+    expect(cold.text()).toContain('cold=true')
+    expect(warm.text()).toContain('cold=false')
+  })
 
-    expect(wrapper.text()).not.toContain('載入中…')
-    expect(wrapper.find('audio').exists()).toBe(true)
-    expect(wrapper.text()).toContain('revisit=error')
+  it('診斷列的 src 欄位顯示音檔網址結尾，可確認有帶 #t= 起始秒數', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes, showDiagnostics: true } })
+
+    expect(wrapper.text()).toContain('#t=2')
+  })
+
+  it('診斷模式不影響播放行為（開啟時 audio src 與關閉時一致）', () => {
+    const on = mount(SongPlayer, { props: { song: songWithLyricTimes, showDiagnostics: true } })
+    const off = mount(SongPlayer, { props: { song: songWithLyricTimes, showDiagnostics: false } })
+
+    expect(on.find('audio').attributes('src')).toBe(off.find('audio').attributes('src'))
   })
 })
 
