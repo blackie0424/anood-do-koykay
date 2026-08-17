@@ -56,4 +56,19 @@ describe('SongList', () => {
         })
         expect(wrapper.findAll('a[aria-label="聆聽音樂"]')).toHaveLength(1)
     })
+
+    // 大字體手機：裡面的「▶」和「聆聽」會超出固定 80px 的圓，
+    // 固定尺寸會裁掉或撐破外框，改用最小尺寸讓圓形跟著長大
+    it('聆聽鈕用最小尺寸而非固定尺寸，大字體時不會裁切內容', () => {
+        const wrapper = mount(SongList, {
+            props: { songs: paginated(mockSongs) },
+            global: { stubs: { Link: { inheritAttrs: false, template: '<a v-bind="$attrs"><slot /></a>' } } },
+        })
+        const listen = wrapper.find('a[aria-label="聆聽音樂"]')
+
+        expect(listen.classes()).toContain('min-w-20')
+        expect(listen.classes()).toContain('min-h-20')
+        expect(listen.classes()).not.toContain('w-20')
+        expect(listen.classes()).not.toContain('h-20')
+    })
 })

@@ -119,8 +119,12 @@ async function share(song) {
                                 <line x1="12" y1="2" x2="12" y2="15" />
                             </svg>
                         </button>
+                        <!-- 尺寸用 min-w/min-h 而非固定 w-20 h-20：使用者把字體
+                             調大時，裡面的「▶」和「聆聽」會超出 80px 的圓，
+                             固定尺寸會裁掉或撐破外框。改成最小 80px、內容更高
+                             時圓形跟著長大，一般字級下外觀不變。 -->
                         <Link v-if="song.audio_full" :href="`/songs/${song.id}`"
-                            class="w-20 h-20 rounded-full flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-transform flex-col gap-0.5"
+                            class="min-w-20 min-h-20 px-2 py-2 rounded-full flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-transform flex-col gap-0.5"
                             aria-label="聆聽音樂">
                             <span class="text-3xl leading-none">▶</span>
                             <span class="text-sm leading-none font-medium">聆聽</span>

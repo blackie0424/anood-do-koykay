@@ -77,4 +77,18 @@ describe('ReportModal', () => {
         await wrapper.vm.$nextTick()
         expect(overlay().querySelector('[data-testid="report-time-from"]')).not.toBeNull()
     })
+
+    // 大字體手機：欄位變高時送出鈕仍要在視線內，不用一路捲到底才看得到
+    it('表單欄位是獨立捲動區，送出鈕在捲動區之外', async () => {
+        wrapper = mount(ReportModal, { props: { songId: 1 }, attachTo: document.body })
+        await wrapper.find('[data-testid="report-btn"]').trigger('click')
+
+        const fields = overlay().querySelector('[data-testid="report-fields"]')
+        const submit = overlay().querySelector('[data-testid="report-submit"]')
+
+        expect(fields).not.toBeNull()
+        expect(fields.className).toContain('overflow-y-auto')
+        expect(fields.className).toContain('min-h-0')
+        expect(fields.contains(submit)).toBe(false)
+    })
 })

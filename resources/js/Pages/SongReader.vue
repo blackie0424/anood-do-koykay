@@ -75,8 +75,9 @@ const currentLine = computed(() => lines.value[currentIdx.value]?.text_native ??
                         :style="{ width: progress + '%' }"></div>
                 </div>
 
-                <!-- 按鈕列 -->
-                <div class="flex items-center gap-3">
+                <!-- 按鈕列：加 flex-wrap，字體調大時「上一段」變寬不會擠壓
+                     右側主要按鈕，放不下就自動換行 -->
+                <div class="flex flex-wrap items-center gap-3">
                     <!-- 上一段 -->
                     <button @click="prev" :disabled="currentIdx === 0"
                         class="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-30 text-sm transition-colors shrink-0">
@@ -86,12 +87,12 @@ const currentLine = computed(() => lines.value[currentIdx.value]?.text_native ??
                     <!-- 下一段 / 結束 -->
                     <template v-if="isLast">
                         <Link :href="`/songs/${song.id}`"
-                            class="flex-1 h-16 rounded-xl bg-stone-600 hover:bg-stone-500 flex items-center justify-center text-lg font-semibold transition-colors">
+                            class="flex-1 min-h-16 py-3 rounded-xl bg-stone-600 hover:bg-stone-500 flex items-center justify-center text-lg font-semibold transition-colors">
                             結束
                         </Link>
                     </template>
                     <button v-else @click="next"
-                        class="flex-1 h-16 rounded-xl bg-white text-stone-900 hover:bg-stone-100 flex items-center justify-center text-lg font-semibold transition-colors">
+                        class="flex-1 min-h-16 py-3 rounded-xl bg-white text-stone-900 hover:bg-stone-100 flex items-center justify-center text-lg font-semibold transition-colors">
                         下一段 →
                     </button>
                 </div>
