@@ -57,6 +57,44 @@ const songNoTimes = {
   ],
 }
 
+// 大字體手機上，標頭若能無限長高，會把歌詞區壓到 0 並把底部播放鈕擠出
+// 畫面（外層 h-dvh + overflow-hidden 會直接裁掉）→ 播放鈕點不到。
+// jsdom 算不出實際版面，這裡驗證造成該結果的版面結構。
+describe('SongPlayer — 大字體時標頭不能把播放鈕擠出畫面', () => {
+  it('標頭有高度上限且可內部捲動', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const header = wrapper.find('[data-testid="player-header"]')
+
+    expect(header.exists()).toBe(true)
+    expect(header.classes()).toContain('max-h-[40vh]')
+    expect(header.classes()).toContain('overflow-y-auto')
+    // flex 項目預設不會縮到比內容小，沒有 min-h-0 就不保證真的會縮
+    expect(header.classes()).toContain('min-h-0')
+  })
+
+  it('標頭不再是 flex-shrink-0（空間不夠時要能讓步）', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+
+    expect(wrapper.find('[data-testid="player-header"]').classes()).not.toContain('flex-shrink-0')
+  })
+
+  it('播放鈕不在標頭的捲動區內，不會被標頭撐大而推走', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const header = wrapper.find('[data-testid="player-header"]').element
+    const playButton = wrapper.findComponent(PlayBar).element
+
+    expect(header.contains(playButton)).toBe(false)
+  })
+
+  it('歌詞區維持獨立捲動（min-h-0 + overflow-y-auto），標頭變高時不會被撐破', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const lyrics = wrapper.findAll('div').find((d) => d.classes().includes('overflow-y-auto') && d.classes().includes('flex-1'))
+
+    expect(lyrics).toBeDefined()
+    expect(lyrics.classes()).toContain('min-h-0')
+  })
+})
+
 describe('SongPlayer — 診斷模式（由後端 PLAYER_DIAGNOSTICS 環境變數控制）', () => {
   it('預設（showDiagnostics 未傳）不顯示診斷資訊列', () => {
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })

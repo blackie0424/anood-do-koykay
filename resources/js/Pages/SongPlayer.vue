@@ -395,8 +395,12 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
                 <BackLink size="lg" />
             </div>
         </div>
-        <!-- 標頭 -->
-        <div class="px-3 pt-3 flex-shrink-0">
+        <!-- 標頭：限高 + 內部捲動。外層是 h-dvh overflow-hidden，標頭若不
+             設上限，使用者把手機字體調大時它會一路長高，把唯一能縮的歌詞區
+             壓到 0，再把底部 PlayBar 擠出畫面（外層 overflow-hidden 會直接
+             裁掉）→ 播放鈕點不到、整頁不能用。限高後標頭自己捲，歌詞區與
+             播放鈕的空間都保得住。一般字級下內容遠低於 40vh，外觀不變。 -->
+        <div class="px-3 pt-3 min-h-0 max-h-[40vh] overflow-y-auto" data-testid="player-header">
             <div class="max-w-2xl mx-auto">
                 <div class="text-center mb-4">
                     <p v-if="song.book_number" class="font-mono text-stone-500 mb-1" style="font-size: clamp(1rem, 3vw, 1.25rem)">[{{ song.book_number }}]</p>
