@@ -48,16 +48,18 @@ function onClick() {
 
 <template>
     <div class="flex-shrink-0 bg-white border-t border-stone-200 px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-        <div class="max-w-2xl mx-auto flex flex-col items-center gap-2">
-            <p v-if="label" class="text-stone-600 font-medium text-lg">{{ label }}</p>
+        <!-- 狀態文字改放按鈕右側（原本在上方，多佔一整行）。放不下時
+             flex-wrap 會讓文字換到下一行，不會擠壓或溢出按鈕。 -->
+        <div class="max-w-2xl mx-auto flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
             <button @click="onClick" :disabled="disabled || loading" :aria-label="ariaLabel"
-                :class="['w-16 h-16 rounded-full text-2xl flex items-center justify-center transition-transform active:scale-95',
+                :class="['w-16 h-16 max-w-[96px] max-h-[96px] shrink-0 rounded-full text-2xl flex items-center justify-center transition-transform active:scale-95',
                     disabled ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
                         : loading ? 'bg-stone-400 text-white cursor-wait'
                         : stopMode ? 'bg-stone-700 text-white hover:bg-stone-600'
                         : 'bg-blue-600 text-white hover:bg-blue-700']">
                 {{ icon }}
             </button>
+            <p v-if="label" class="text-stone-600 font-medium text-lg">{{ label }}</p>
         </div>
     </div>
 </template>
