@@ -39,6 +39,17 @@ describe('ConsentModal', () => {
         expect(overlay()).toBeNull()
     })
 
+    it('按鈕文字維持簡短版本（大字體手機上才不會撐版）', async () => {
+        wrapper = mount(ConsentModal, { attachTo: document.body })
+        await wrapper.vm.$nextTick()
+
+        const accept = overlay().querySelector('[data-testid="consent-accept"]')
+        const decline = overlay().querySelector('[data-testid="consent-decline"]')
+
+        expect(accept.textContent.trim()).toBe('✅ 我同意')
+        expect(decline.textContent.trim()).toBe('❌ 不同意')
+    })
+
     // ── 版面：大字體手機上同意鈕不能被推出畫面 ──────────────────
     // chung 回報：手機字體調大時，條款內容把 modal 撐高超出視窗，同意鈕跑到
     // 畫面外點不到。jsdom 算不出實際版面，這裡驗證造成該結果的版面結構。

@@ -79,14 +79,14 @@ function decline() {
                         data-testid="consent-accept"
                         @click="accept"
                     >
-                        ✅ 我已閱讀並同意，進入網站
+                        ✅ 我同意
                     </button>
                     <button
                         class="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300"
                         data-testid="consent-decline"
                         @click="decline"
                     >
-                        ❌ 我不同意，離開網站
+                        ❌ 不同意
                     </button>
                 </div>
             </div>
