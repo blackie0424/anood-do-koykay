@@ -57,6 +57,59 @@ const songNoTimes = {
   ],
 }
 
+describe('SongPlayer — 畫面放大時次要功能收進「⋯」', () => {
+  function setViewportHeight(px) {
+    Object.defineProperty(window, 'innerHeight', { value: px, configurable: true, writable: true })
+  }
+
+  afterEach(() => setViewportHeight(768))
+
+  const SECONDARY = ['[aria-label="歌詞閱讀模式"]', '[aria-label="接唱錄音"]']
+
+  it('一般畫面高度時不顯示「⋯」，次要功能直接可見', () => {
+    setViewportHeight(768)
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+
+    expect(wrapper.find('[data-testid="more-actions"]').exists()).toBe(false)
+    for (const sel of SECONDARY) {
+      expect(wrapper.find(sel).exists()).toBe(true)
+    }
+  })
+
+  it('畫面放大（可容納行數不足）時只顯示「⋯」，次要功能先收起來', async () => {
+    setViewportHeight(384)
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="more-actions"]').exists()).toBe(true)
+    for (const sel of SECONDARY) {
+      expect(wrapper.find(sel).exists()).toBe(false)
+    }
+  })
+
+  it('點「⋯」後次要功能全部出現，且「⋯」本身收起', async () => {
+    setViewportHeight(384)
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="more-actions"]').trigger('click')
+
+    for (const sel of SECONDARY) {
+      expect(wrapper.find(sel).exists()).toBe(true)
+    }
+    expect(wrapper.find('[data-testid="more-actions"]').exists()).toBe(false)
+  })
+
+  it('放大時核心功能（歌詞與播放鈕）仍然保留', async () => {
+    setViewportHeight(384)
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).toContain('Maomaw')
+    expect(wrapper.findComponent(PlayBar).exists()).toBe(true)
+  })
+})
+
 // 大字體手機上，標頭若能無限長高，會把歌詞區壓到 0 並把底部播放鈕擠出
 // 畫面（外層 h-dvh + overflow-hidden 會直接裁掉）→ 播放鈕點不到。
 // jsdom 算不出實際版面，這裡驗證造成該結果的版面結構。

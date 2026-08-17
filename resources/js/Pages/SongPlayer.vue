@@ -5,6 +5,11 @@ import BackLink from '@/Components/BackLink.vue'
 import PlayBar from '@/Components/PlayBar.vue'
 import ReportModal from '@/Components/ReportModal.vue'
 import RecordingMode from '@/Components/RecordingMode.vue'
+import { useCompactLayout } from '@/composables/useCompactLayout'
+
+// 畫面被放大（瀏覽器縮放或系統字體調大）時，次要功能收進「⋯」
+const { isCompact } = useCompactLayout()
+const showActions = ref(false)
 
 const props = defineProps({
     song: Object,
@@ -408,7 +413,17 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
                         {{ song.title_native }}
                     </h1>
                     <p v-if="song.title_zh" class="text-stone-500 mt-1 text-xl">{{ song.title_zh }}</p>
-                    <div class="flex items-center justify-center gap-2 mt-2">
+                    <!-- 畫面被放大時（瀏覽器縮放或系統字體調大），次要功能先收
+                         進「⋯」，主畫面只留核心的「聽聲音＋看歌詞對應」。
+                         收起來而不是直接拿掉：放大字體的使用者往往正是最需要
+                         歌詞閱讀模式（可放大到 6rem）和回報錯字的人。 -->
+                    <div class="flex flex-wrap items-center justify-center gap-2 mt-2">
+                        <button v-if="isCompact && !showActions" @click="showActions = true"
+                            class="inline-flex items-center px-4 py-1 rounded-full bg-stone-200 text-stone-700 text-lg leading-none hover:bg-stone-300 active:scale-95 transition-transform"
+                            aria-label="更多功能" data-testid="more-actions">
+                            ⋯
+                        </button>
+                        <template v-if="!isCompact || showActions">
                         <button @click="share"
                             class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-200 text-stone-700 text-sm hover:bg-stone-300 active:scale-95 transition-transform"
                             :aria-label="copied ? '已複製' : '分享'">
@@ -432,6 +447,7 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
                             🎤 錄唱
                         </button>
                         <ReportModal :song-id="song.id" />
+                        </template>
                     </div>
                 </div>
                 <div v-if="hasError" class="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-4 text-center text-lg">
