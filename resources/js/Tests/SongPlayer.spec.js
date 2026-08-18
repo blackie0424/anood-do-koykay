@@ -57,128 +57,73 @@ const songNoTimes = {
   ],
 }
 
-describe('SongPlayer — 畫面放大時次要功能收進「⋯」', () => {
+describe('SongPlayer — 畫面放大時隱藏次要功能，只留核心', () => {
   function setViewportHeight(px) {
     Object.defineProperty(window, 'innerHeight', { value: px, configurable: true, writable: true })
   }
 
   afterEach(() => setViewportHeight(768))
 
-  const SECONDARY = ['[aria-label="歌詞閱讀模式"]', '[aria-label="接唱錄音"]']
+  const SECONDARY = ['[aria-label="歌詞閱讀模式"]', '[aria-label="接唱錄音"]', '[aria-label="分享"]']
 
-  it('一般畫面高度時不顯示「⋯」，次要功能直接可見', () => {
+  it('一般畫面高度時次要功能全部可見', () => {
     setViewportHeight(768)
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
 
-    expect(wrapper.find('[data-testid="more-actions"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="secondary-actions"]').exists()).toBe(true)
     for (const sel of SECONDARY) {
       expect(wrapper.find(sel).exists()).toBe(true)
     }
   })
 
-  it('畫面放大（可容納行數不足）時只顯示「⋯」，次要功能先收起來', async () => {
+  it('畫面放大（可容納行數不足）時次要功能整區隱藏', async () => {
     setViewportHeight(384)
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('[data-testid="more-actions"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="secondary-actions"]').exists()).toBe(false)
     for (const sel of SECONDARY) {
       expect(wrapper.find(sel).exists()).toBe(false)
     }
   })
 
-  it('點「⋯」後次要功能全部出現，按鈕本身留著當收合入口', async () => {
+  it('放大時不再提供「⋯」展開入口（採隱藏策略，非收合）', async () => {
     setViewportHeight(384)
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
     await wrapper.vm.$nextTick()
 
-    await wrapper.find('[data-testid="more-actions"]').trigger('click')
-
-    for (const sel of SECONDARY) {
-      expect(wrapper.find(sel).exists()).toBe(true)
-    }
-    // 按鈕不能消失，否則展開後就再也收不回來
-    expect(wrapper.find('[data-testid="more-actions"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="more-actions"]').exists()).toBe(false)
   })
 
-  it('再點一次可以收合回去（可反覆切換）', async () => {
-    setViewportHeight(384)
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-    await wrapper.vm.$nextTick()
-    const toggle = () => wrapper.find('[data-testid="more-actions"]')
-
-    await toggle().trigger('click')
-    expect(wrapper.find(SECONDARY[0]).exists()).toBe(true)
-
-    await toggle().trigger('click')
-    expect(wrapper.find(SECONDARY[0]).exists()).toBe(false)
-
-    await toggle().trigger('click')
-    expect(wrapper.find(SECONDARY[0]).exists()).toBe(true)
-  })
-
-  it('按鈕的圖示與無障礙標籤會反映展開狀態', async () => {
-    setViewportHeight(384)
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-    await wrapper.vm.$nextTick()
-    const toggle = () => wrapper.find('[data-testid="more-actions"]')
-
-    expect(toggle().text()).toBe('⋯')
-    expect(toggle().attributes('aria-label')).toBe('更多功能')
-    expect(toggle().attributes('aria-expanded')).toBe('false')
-
-    await toggle().trigger('click')
-
-    expect(toggle().text()).toBe('✕')
-    expect(toggle().attributes('aria-label')).toBe('收起更多功能')
-    expect(toggle().attributes('aria-expanded')).toBe('true')
-  })
-
-  it('放大時核心功能（歌詞與播放鈕）仍然保留', async () => {
+  it('放大時核心功能（歌詞與播放鈕）完整保留', async () => {
     setViewportHeight(384)
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).toContain('Maomaw')
+    expect(wrapper.text()).toContain('Anood')
     expect(wrapper.findComponent(PlayBar).exists()).toBe(true)
   })
-})
 
-// 大字體手機上，標頭若能無限長高，會把歌詞區壓到 0 並把底部播放鈕擠出
-// 畫面（外層 h-dvh + overflow-hidden 會直接裁掉）→ 播放鈕點不到。
-// jsdom 算不出實際版面，這裡驗證造成該結果的版面結構。
-describe('SongPlayer — 大字體時標頭不能把播放鈕擠出畫面', () => {
-  it('標頭有高度上限且可內部捲動', () => {
+  it('放大時返回上一頁仍然保留（不能讓使用者困在頁面裡）', async () => {
+    setViewportHeight(384)
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-    const header = wrapper.find('[data-testid="player-header"]')
+    await wrapper.vm.$nextTick()
 
-    expect(header.exists()).toBe(true)
-    expect(header.classes()).toContain('max-h-[40vh]')
-    expect(header.classes()).toContain('overflow-y-auto')
-    // flex 項目預設不會縮到比內容小，沒有 min-h-0 就不保證真的會縮
-    expect(header.classes()).toContain('min-h-0')
+    expect(wrapper.findComponent(BackLink).exists()).toBe(true)
   })
 
-  it('標頭不再是 flex-shrink-0（空間不夠時要能讓步）', () => {
+  it('視窗變回一般高度時次要功能會重新出現', async () => {
+    setViewportHeight(384)
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="secondary-actions"]').exists()).toBe(false)
 
-    expect(wrapper.find('[data-testid="player-header"]').classes()).not.toContain('flex-shrink-0')
-  })
+    setViewportHeight(768)
+    window.dispatchEvent(new Event('resize'))
+    await wrapper.vm.$nextTick()
 
-  it('播放鈕不在標頭的捲動區內，不會被標頭撐大而推走', () => {
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-    const header = wrapper.find('[data-testid="player-header"]').element
-    const playButton = wrapper.findComponent(PlayBar).element
-
-    expect(header.contains(playButton)).toBe(false)
-  })
-
-  it('歌詞區維持獨立捲動（min-h-0 + overflow-y-auto），標頭變高時不會被撐破', () => {
-    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
-    const lyrics = wrapper.findAll('div').find((d) => d.classes().includes('overflow-y-auto') && d.classes().includes('flex-1'))
-
-    expect(lyrics).toBeDefined()
-    expect(lyrics.classes()).toContain('min-h-0')
+    expect(wrapper.find('[data-testid="secondary-actions"]').exists()).toBe(true)
   })
 })
 

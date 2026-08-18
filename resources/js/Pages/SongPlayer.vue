@@ -7,9 +7,8 @@ import ReportModal from '@/Components/ReportModal.vue'
 import RecordingMode from '@/Components/RecordingMode.vue'
 import { useCompactLayout } from '@/composables/useCompactLayout'
 
-// 畫面被放大（瀏覽器縮放或系統字體調大）時，次要功能收進「⋯」
+// 畫面被放大（瀏覽器縮放或系統字體調大）時進入精簡模式
 const { isCompact } = useCompactLayout()
-const showActions = ref(false)
 
 const props = defineProps({
     song: Object,
@@ -447,18 +446,12 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
                         {{ song.title_native }}
                     </h1>
                     <p v-if="song.title_zh" class="text-stone-500 mt-1 text-xl">{{ song.title_zh }}</p>
-                    <!-- 畫面被放大時（瀏覽器縮放或系統字體調大），次要功能先收
-                         進「⋯」，主畫面只留核心的「聽聲音＋看歌詞對應」。
-                         收起來而不是直接拿掉：放大字體的使用者往往正是最需要
-                         歌詞閱讀模式（可放大到 6rem）和回報錯字的人。 -->
-                    <div class="flex flex-wrap items-center justify-center gap-2 mt-2">
-                        <button v-if="isCompact" @click="showActions = !showActions"
-                            class="inline-flex items-center px-4 py-1 rounded-full bg-stone-200 text-stone-700 text-lg leading-none hover:bg-stone-300 active:scale-95 transition-transform"
-                            :aria-label="showActions ? '收起更多功能' : '更多功能'"
-                            :aria-expanded="showActions" data-testid="more-actions">
-                            {{ showActions ? '✕' : '⋯' }}
-                        </button>
-                        <template v-if="!isCompact || showActions">
+                    <!-- 畫面被放大時（瀏覽器縮放或系統字體調大）隱藏次要功能，
+                         讓高齡使用者專注在核心的「聽聲音＋看歌詞對應」。
+                         chung 實測後決定採隱藏策略。已知取捨：歌詞閱讀模式、
+                         錄唱、回報問題目前只有這一頁有入口，隱藏後放大字體的
+                         使用者沒有其他路徑可到達。 -->
+                    <div v-if="!isCompact" class="flex flex-wrap items-center justify-center gap-2 mt-2" data-testid="secondary-actions">
                         <button @click="share"
                             class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-200 text-stone-700 text-sm hover:bg-stone-300 active:scale-95 transition-transform"
                             :aria-label="copied ? '已複製' : '分享'">
@@ -482,7 +475,6 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
                             🎤 錄唱
                         </button>
                         <ReportModal :song-id="song.id" />
-                        </template>
                     </div>
                 </div>
                 <div v-if="hasError" class="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-4 text-center text-lg">
