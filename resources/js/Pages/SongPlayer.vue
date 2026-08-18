@@ -1,10 +1,15 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { Link } from '@inertiajs/vue3'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 import BackLink from '@/Components/BackLink.vue'
 import PlayBar from '@/Components/PlayBar.vue'
 import ReportModal from '@/Components/ReportModal.vue'
 import RecordingMode from '@/Components/RecordingMode.vue'
+import { useCompactLayout } from '@/composables/useCompactLayout'
+
+// 畫面被放大（瀏覽器縮放或系統字體調大）時進入精簡模式
+const { isCompact } = useCompactLayout()
 
 const props = defineProps({
     song: Object,
@@ -43,11 +48,13 @@ let programmaticScroll = false
 const segmentMode = ref(false)
 const segmentLine = ref(null)
 
-// 底部播放列說明文字：逐段模式提示點歌詞、播放中提示播放中
+// 底部播放列說明文字。只保留「圖示表達不出來」的狀態：
+// - 載入中：緩衝時圖示已是暫停鍵，但沒告訴使用者為什麼沒聲音
+// - 點選歌詞播放：逐段模式的唯一提示，圖示完全表達不了
+// 「播放中…」已移除（chung）：播放/暫停圖示本身就說明了狀態，文字重複。
 const segmentLabel = computed(() => {
     if (isBuffering.value) return '載入中…'
     if (segmentMode.value) return '點選歌詞播放'
-    if (isPlaying.value) return '播放中…'
     return ''
 })
 
@@ -94,6 +101,7 @@ onMounted(() => { window.addEventListener('pagehide', releaseAudio) })
 onBeforeUnmount(() => {
     window.removeEventListener('pagehide', releaseAudio)
     releaseAudio()
+    if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer)
 })
 
 const activeLineIndex = computed(() => {
@@ -109,16 +117,49 @@ watch(activeLineIndex, (idx) => {
     scrollToLine(idx)
 })
 
+// 自動捲動期間要把捲動事件當成「不是使用者操作」，否則會誤判成使用者
+// 接手而關掉自動追蹤。原本用固定 300ms 當保護時間，但平滑捲動的動畫長度
+// 會隨距離拉長——字體放大後每行變高、捲動距離變大，動畫常常超過 300ms，
+// 保護期先到期、後續的捲動事件就被當成使用者操作，自動追蹤直接失效
+// （chung 回報「放大後歌詞不會自動追蹤」的原因）。
+// 改成「捲動停止後才解除」：每收到一次捲動事件就把解除時間往後延，
+// 動畫多久都不影響，只有真的停下來才會解除。
+const PROGRAMMATIC_SCROLL_IDLE_MS = 150
+// 保護期的總上限：使用者若在自動捲動途中用力甩動，慣性捲動會持續發出事件、
+// 一直把解除時間往後延，控制權可能遲遲交不回去。加上總上限讓最壞情況有明確
+// 上界；1.5 秒足以涵蓋放大字體後的長動畫（平滑捲動動畫一般不超過 1 秒）。
+const PROGRAMMATIC_SCROLL_MAX_MS = 1500
+let programmaticScrollTimer = null
+let programmaticScrollStartedAt = 0
+
+function beginProgrammaticScroll() {
+    programmaticScroll = true
+    programmaticScrollStartedAt = Date.now()
+    scheduleProgrammaticScrollRelease()
+}
+
+// 解除時間 = 「最後一次捲動事件後 150ms」，但不得超過起算後的總上限
+function scheduleProgrammaticScrollRelease() {
+    if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer)
+    const remaining = Math.max(0, PROGRAMMATIC_SCROLL_MAX_MS - (Date.now() - programmaticScrollStartedAt))
+    programmaticScrollTimer = setTimeout(() => {
+        programmaticScroll = false
+        programmaticScrollTimer = null
+    }, Math.min(PROGRAMMATIC_SCROLL_IDLE_MS, remaining))
+}
+
 function scrollToLine(idx) {
     const el = lineRefs.value[idx]
     if (!el || !lyricsContainer.value) return
-    programmaticScroll = true
+    beginProgrammaticScroll()
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    setTimeout(() => { programmaticScroll = false }, 300)
 }
 
 function onContainerScroll() {
-    if (programmaticScroll) return
+    if (programmaticScroll) {
+        scheduleProgrammaticScrollRelease() // 動畫還在捲，往後延（但不超過總上限）
+        return
+    }
     userScrolled.value = true
     autoScroll.value = false
 }
@@ -395,16 +436,24 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
                 <BackLink size="lg" />
             </div>
         </div>
-        <!-- 標頭 -->
-        <div class="px-3 pt-3 flex-shrink-0">
+        <!-- 標頭：限高 + 內部捲動。外層是 h-dvh overflow-hidden，標頭若不
+             設上限，使用者把手機字體調大時它會一路長高，把唯一能縮的歌詞區
+             壓到 0，再把底部 PlayBar 擠出畫面（外層 overflow-hidden 會直接
+             裁掉）→ 播放鈕點不到、整頁不能用。限高後標頭自己捲，歌詞區與
+             播放鈕的空間都保得住。一般字級下內容遠低於 40vh，外觀不變。 -->
+        <div class="px-3 pt-3 min-h-0 max-h-[40vh] overflow-y-auto" data-testid="player-header">
             <div class="max-w-2xl mx-auto">
                 <div class="text-center mb-4">
-                    <p v-if="song.book_number" class="font-mono text-stone-500 mb-1" style="font-size: clamp(1rem, 3vw, 1.25rem)">[{{ song.book_number }}]</p>
                     <h1 class="font-bold text-stone-800" style="font-size: clamp(1.5rem, 5vw, 2rem)">
                         {{ song.title_native }}
                     </h1>
                     <p v-if="song.title_zh" class="text-stone-500 mt-1 text-xl">{{ song.title_zh }}</p>
-                    <div class="flex items-center justify-center gap-2 mt-2">
+                    <!-- 畫面被放大時（瀏覽器縮放或系統字體調大）隱藏次要功能，
+                         讓高齡使用者專注在核心的「聽聲音＋看歌詞對應」。
+                         chung 實測後決定採隱藏策略。已知取捨：歌詞閱讀模式、
+                         錄唱、回報問題目前只有這一頁有入口，隱藏後放大字體的
+                         使用者沒有其他路徑可到達。 -->
+                    <div v-if="!isCompact" class="flex flex-wrap items-center justify-center gap-2 mt-2" data-testid="secondary-actions">
                         <button @click="share"
                             class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-200 text-stone-700 text-sm hover:bg-stone-300 active:scale-95 transition-transform"
                             :aria-label="copied ? '已複製' : '分享'">
@@ -417,11 +466,6 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
                                 <line x1="12" y1="2" x2="12" y2="15" />
                             </svg>
                         </button>
-                        <a :href="`/songs/${song.id}/reader`"
-                            class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-stone-700 text-white text-sm hover:bg-stone-600 active:scale-95 transition-transform"
-                            aria-label="歌詞閱讀模式">
-                            📖 歌詞
-                        </a>
                         <button v-if="canRecord" @click="openRecording"
                             class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-600 text-white text-sm hover:bg-rose-500 active:scale-95 transition-transform"
                             aria-label="接唱錄音">
@@ -468,7 +512,24 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
             @ended="onEnded" @error="onError" />
 
         <!-- 底部控制列 -->
-        <PlayBar :playing="isPlaying" :disabled="!song.audio_full || hasError" :label="segmentLabel" @play="togglePlay" />
+        <!-- 書號改放播放列、做成可點圖示連到歌詞閱讀頁（chung 設計）。
+             放這裡的額外好處：精簡模式隱藏標頭的次要功能後，歌詞閱讀模式
+             仍有入口，不會讓放大字體的使用者完全找不到。
+             版面用 PlayBar 既有的 flex-wrap 橫排，放大時自然與播放鈕並排，
+             真的放不下才換行。 -->
+        <PlayBar :playing="isPlaying" :disabled="!song.audio_full || hasError" :label="segmentLabel" @play="togglePlay">
+            <template #leading>
+                <Link :href="`/songs/${song.id}/reader`"
+                    class="min-w-[56px] min-h-[56px] max-w-[80px] max-h-[80px] p-[8px] rounded-full shrink-0
+                           flex flex-col items-center justify-center gap-0.5
+                           bg-stone-100 text-stone-600 hover:bg-stone-200 active:scale-95 transition-transform"
+                    data-testid="reader-shortcut"
+                    :aria-label="song.book_number ? `歌本第 ${song.book_number} 頁，開啟歌詞閱讀模式` : '開啟歌詞閱讀模式'">
+                    <span class="leading-none text-[min(1.5rem,28px)]" aria-hidden="true">📖</span>
+                    <span class="leading-none font-mono font-semibold text-[min(0.75rem,15px)]">{{ song.book_number || '歌詞' }}</span>
+                </Link>
+            </template>
+        </PlayBar>
     </div>
 
     <!-- 進入頁面播放提示覆蓋層 -->

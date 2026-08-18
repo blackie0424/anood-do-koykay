@@ -90,4 +90,41 @@ describe('PlayBar', () => {
         await wrapper.find('button').trigger('click')
         expect(wrapper.emitted('play')).toBeTruthy()
     })
+
+    // 大字體（200%/250%）時底部列太佔位：按鈕的 w-16/h-16 是 rem，會跟著
+    // 字體等比放大到 128px 以上；狀態文字原本在按鈕上方又多佔一整行。
+    describe('大字體時的版面節省', () => {
+        it('播放鈕尺寸有像素上限，不會跟著字體無限放大', () => {
+            const wrapper = mount(PlayBar)
+            const classes = wrapper.find('button').classes()
+
+            expect(classes).toContain('max-w-[96px]')
+            expect(classes).toContain('max-h-[96px]')
+        })
+
+        it('狀態文字排在按鈕右側（同一列），不再多佔一行', () => {
+            const wrapper = mount(PlayBar, { props: { label: '播放中…' } })
+            const row = wrapper.find('button').element.parentElement
+
+            expect(row.className).toContain('flex-wrap')
+            expect(row.className).not.toContain('flex-col')
+            // 按鈕在文字之前 → 文字在右側
+            const children = [...row.children]
+            expect(children.indexOf(wrapper.find('button').element))
+                .toBeLessThan(children.indexOf(wrapper.find('p').element))
+        })
+
+        it('文字放不下時可換行，不會擠壓播放鈕', () => {
+            const wrapper = mount(PlayBar, { props: { label: '點選歌詞播放' } })
+
+            expect(wrapper.find('button').classes()).toContain('shrink-0')
+            expect(wrapper.find('button').element.parentElement.className).toContain('flex-wrap')
+        })
+
+        it('沒有 label 時不渲染文字節點', () => {
+            const wrapper = mount(PlayBar)
+
+            expect(wrapper.find('p').exists()).toBe(false)
+        })
+    })
 })

@@ -7,7 +7,7 @@ import { router } from '@inertiajs/vue3'
 defineOptions({ inheritAttrs: false })
 
 const props = defineProps({
-    label: { type: String, default: '回上一頁' },
+    label: { type: String, default: '返回' },
     size: { type: String, default: 'sm' }, // 'sm' | 'lg'
 })
 
