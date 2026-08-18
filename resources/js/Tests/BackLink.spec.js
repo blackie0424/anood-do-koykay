@@ -52,27 +52,4 @@ describe('BackLink', () => {
         expect(back).not.toHaveBeenCalled()
     })
 
-    // 歌詞閱讀頁是深色主題，預設的深色字在深色背景上看不見
-    it('預設（淺色背景）使用深色字', () => {
-        const wrapper = mount(BackLink)
-
-        expect(wrapper.classes()).toContain('text-stone-600')
-    })
-
-    it('theme="dark"（深色背景）改用淺色字', () => {
-        const wrapper = mount(BackLink, { props: { theme: 'dark' } })
-
-        expect(wrapper.classes()).toContain('text-stone-300')
-        expect(wrapper.classes()).not.toContain('text-stone-600')
-    })
-
-    it('切換 theme 不影響返回行為（仍是同一個共用元件）', async () => {
-        const back = vi.spyOn(window.history, 'back').mockImplementation(() => {})
-        const wrapper = mount(BackLink, { props: { theme: 'dark' } })
-
-        await wrapper.trigger('click')
-
-        expect(back).toHaveBeenCalled()
-        back.mockRestore()
-    })
 })
