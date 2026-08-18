@@ -150,8 +150,9 @@ async function share(song) {
                         <Link v-if="song.audio_full" :href="`/songs/${song.id}`"
                             :class="[ICON_BUTTON_CLASS, 'bg-blue-600 text-white hover:bg-blue-700']"
                             aria-label="聆聽音樂">
+                            <!-- 只留 ▶ 圖示（chung 實測後決定移除「聆聽」二字）。
+                                 aria-label="聆聽音樂" 仍在，螢幕閱讀器讀得到用途。 -->
                             <span :class="ICON_GLYPH_CLASS" aria-hidden="true">▶</span>
-                            <span :class="ICON_LABEL_CLASS">聆聽</span>
                         </Link>
                         </div>
                     </div>

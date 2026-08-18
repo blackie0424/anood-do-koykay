@@ -111,6 +111,16 @@ describe('SongList', () => {
             }
         })
 
+        it('聆聽鈕只顯示 ▶ 圖示，不顯示「聆聽」文字（但仍保有無障礙名稱）', () => {
+            const wrapper = cardWithBookNumber()
+            const listen = wrapper.find('a[aria-label="聆聽音樂"]')
+
+            expect(listen.text()).toContain('▶')
+            expect(listen.text()).not.toContain('聆聽')
+            // 視覺上拿掉文字，但螢幕閱讀器仍讀得到用途
+            expect(listen.attributes('aria-label')).toBe('聆聽音樂')
+        })
+
         it('頁碼圖示顯示 📖 與頁數', () => {
             const wrapper = cardWithBookNumber()
             const bookNumber = wrapper.find('[data-testid="book-number"]')
