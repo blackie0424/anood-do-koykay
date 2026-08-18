@@ -1053,7 +1053,7 @@ describe('SongPlayer — 音訊緩衝中顯示「載入中…」', () => {
     }
   })
 
-  it('緩衝完成（readyState>=3）後改顯示「播放中…」', async () => {
+  it('緩衝完成（readyState>=3）後不再顯示任何文字（播放/暫停由圖示表達）', async () => {
     vi.useFakeTimers()
     try {
       const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
@@ -1067,7 +1067,44 @@ describe('SongPlayer — 音訊緩衝中顯示「載入中…」', () => {
       Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true }) // HAVE_ENOUGH_DATA
       await vi.advanceTimersByTimeAsync(250)
 
-      expect(wrapper.findComponent(PlayBar).props('label')).toBe('播放中…')
+      expect(wrapper.findComponent(PlayBar).props('label')).toBe('')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('正常播放中不顯示任何狀態文字（播放/暫停由圖示表達）', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+
+      await wrapper.find('audio').trigger('playing')
+      await vi.advanceTimersByTimeAsync(250)
+
+      expect(wrapper.findComponent(PlayBar).props('label')).toBe('')
+      expect(wrapper.text()).not.toContain('播放中')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('逐段模式仍顯示「點選歌詞播放」（圖示表達不出來的提示要留著）', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      audioEl.play = async () => {}
+      audioEl.pause = () => {}
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+
+      // 播到 effectiveEnd 之後會進入逐段模式
+      await wrapper.find('audio').trigger('playing')
+      audioEl.currentTime = 9.1
+      await vi.advanceTimersByTimeAsync(250)
+
+      expect(wrapper.findComponent(PlayBar).props('label')).toBe('點選歌詞播放')
     } finally {
       vi.useRealTimers()
     }

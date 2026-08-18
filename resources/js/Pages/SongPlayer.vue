@@ -48,11 +48,13 @@ let programmaticScroll = false
 const segmentMode = ref(false)
 const segmentLine = ref(null)
 
-// 底部播放列說明文字：逐段模式提示點歌詞、播放中提示播放中
+// 底部播放列說明文字。只保留「圖示表達不出來」的狀態：
+// - 載入中：緩衝時圖示已是暫停鍵，但沒告訴使用者為什麼沒聲音
+// - 點選歌詞播放：逐段模式的唯一提示，圖示完全表達不了
+// 「播放中…」已移除（chung）：播放/暫停圖示本身就說明了狀態，文字重複。
 const segmentLabel = computed(() => {
     if (isBuffering.value) return '載入中…'
     if (segmentMode.value) return '點選歌詞播放'
-    if (isPlaying.value) return '播放中…'
     return ''
 })
 
