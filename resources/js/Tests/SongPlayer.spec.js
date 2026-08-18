@@ -234,6 +234,50 @@ describe('SongPlayer — 自動捲動不該被誤判成使用者捲動', () => {
     }
   })
 
+  it('保護期有總上限：捲動事件持續超過 1.5 秒後強制解除，使用者可以接管', async () => {
+    // 使用者在自動捲動途中用力甩動時，慣性捲動會一直發出事件、不斷延後解除。
+    // 總上限確保控制權最晚 1.5 秒一定交還。
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      await startPlayingAtFirstLine(wrapper, audioEl)
+
+      // 每 100ms 一次捲動事件，連續 1.6 秒（超過 1.5 秒上限）
+      for (let i = 0; i < 16; i++) {
+        await lyricsBox(wrapper).trigger('scroll')
+        await vi.advanceTimersByTimeAsync(100)
+      }
+
+      // 上限已到、保護解除，再捲一次就會被認定為使用者操作
+      await lyricsBox(wrapper).trigger('scroll')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.text()).toContain('回到當前行')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('保護期上限之內（1.4 秒）持續捲動仍受保護，不會被誤判', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      await startPlayingAtFirstLine(wrapper, audioEl)
+
+      // 每 100ms 一次，連續 1.4 秒（仍在 1.5 秒上限內）
+      for (let i = 0; i < 14; i++) {
+        await lyricsBox(wrapper).trigger('scroll')
+        await vi.advanceTimersByTimeAsync(100)
+      }
+
+      expect(wrapper.text()).not.toContain('回到當前行')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('自動捲動停止後，使用者接手捲動仍會被辨識', async () => {
     vi.useFakeTimers()
     try {

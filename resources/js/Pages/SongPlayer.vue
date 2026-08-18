@@ -123,27 +123,39 @@ watch(activeLineIndex, (idx) => {
 // 改成「捲動停止後才解除」：每收到一次捲動事件就把解除時間往後延，
 // 動畫多久都不影響，只有真的停下來才會解除。
 const PROGRAMMATIC_SCROLL_IDLE_MS = 150
+// 保護期的總上限：使用者若在自動捲動途中用力甩動，慣性捲動會持續發出事件、
+// 一直把解除時間往後延，控制權可能遲遲交不回去。加上總上限讓最壞情況有明確
+// 上界；1.5 秒足以涵蓋放大字體後的長動畫（平滑捲動動畫一般不超過 1 秒）。
+const PROGRAMMATIC_SCROLL_MAX_MS = 1500
 let programmaticScrollTimer = null
+let programmaticScrollStartedAt = 0
 
-function markProgrammaticScroll() {
+function beginProgrammaticScroll() {
     programmaticScroll = true
+    programmaticScrollStartedAt = Date.now()
+    scheduleProgrammaticScrollRelease()
+}
+
+// 解除時間 = 「最後一次捲動事件後 150ms」，但不得超過起算後的總上限
+function scheduleProgrammaticScrollRelease() {
     if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer)
+    const remaining = Math.max(0, PROGRAMMATIC_SCROLL_MAX_MS - (Date.now() - programmaticScrollStartedAt))
     programmaticScrollTimer = setTimeout(() => {
         programmaticScroll = false
         programmaticScrollTimer = null
-    }, PROGRAMMATIC_SCROLL_IDLE_MS)
+    }, Math.min(PROGRAMMATIC_SCROLL_IDLE_MS, remaining))
 }
 
 function scrollToLine(idx) {
     const el = lineRefs.value[idx]
     if (!el || !lyricsContainer.value) return
-    markProgrammaticScroll()
+    beginProgrammaticScroll()
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 
 function onContainerScroll() {
     if (programmaticScroll) {
-        markProgrammaticScroll() // 動畫還在捲，把解除時間往後延
+        scheduleProgrammaticScrollRelease() // 動畫還在捲，往後延（但不超過總上限）
         return
     }
     userScrolled.value = true
