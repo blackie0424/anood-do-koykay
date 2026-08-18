@@ -87,7 +87,7 @@ describe('SongPlayer — 畫面放大時次要功能收進「⋯」', () => {
     }
   })
 
-  it('點「⋯」後次要功能全部出現，且「⋯」本身收起', async () => {
+  it('點「⋯」後次要功能全部出現，按鈕本身留著當收合入口', async () => {
     setViewportHeight(384)
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
     await wrapper.vm.$nextTick()
@@ -97,7 +97,41 @@ describe('SongPlayer — 畫面放大時次要功能收進「⋯」', () => {
     for (const sel of SECONDARY) {
       expect(wrapper.find(sel).exists()).toBe(true)
     }
-    expect(wrapper.find('[data-testid="more-actions"]').exists()).toBe(false)
+    // 按鈕不能消失，否則展開後就再也收不回來
+    expect(wrapper.find('[data-testid="more-actions"]').exists()).toBe(true)
+  })
+
+  it('再點一次可以收合回去（可反覆切換）', async () => {
+    setViewportHeight(384)
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+    const toggle = () => wrapper.find('[data-testid="more-actions"]')
+
+    await toggle().trigger('click')
+    expect(wrapper.find(SECONDARY[0]).exists()).toBe(true)
+
+    await toggle().trigger('click')
+    expect(wrapper.find(SECONDARY[0]).exists()).toBe(false)
+
+    await toggle().trigger('click')
+    expect(wrapper.find(SECONDARY[0]).exists()).toBe(true)
+  })
+
+  it('按鈕的圖示與無障礙標籤會反映展開狀態', async () => {
+    setViewportHeight(384)
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+    const toggle = () => wrapper.find('[data-testid="more-actions"]')
+
+    expect(toggle().text()).toBe('⋯')
+    expect(toggle().attributes('aria-label')).toBe('更多功能')
+    expect(toggle().attributes('aria-expanded')).toBe('false')
+
+    await toggle().trigger('click')
+
+    expect(toggle().text()).toBe('✕')
+    expect(toggle().attributes('aria-label')).toBe('收起更多功能')
+    expect(toggle().attributes('aria-expanded')).toBe('true')
   })
 
   it('放大時核心功能（歌詞與播放鈕）仍然保留', async () => {

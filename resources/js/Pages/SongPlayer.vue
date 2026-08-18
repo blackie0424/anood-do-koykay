@@ -418,10 +418,11 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
                          收起來而不是直接拿掉：放大字體的使用者往往正是最需要
                          歌詞閱讀模式（可放大到 6rem）和回報錯字的人。 -->
                     <div class="flex flex-wrap items-center justify-center gap-2 mt-2">
-                        <button v-if="isCompact && !showActions" @click="showActions = true"
+                        <button v-if="isCompact" @click="showActions = !showActions"
                             class="inline-flex items-center px-4 py-1 rounded-full bg-stone-200 text-stone-700 text-lg leading-none hover:bg-stone-300 active:scale-95 transition-transform"
-                            aria-label="更多功能" data-testid="more-actions">
-                            ⋯
+                            :aria-label="showActions ? '收起更多功能' : '更多功能'"
+                            :aria-expanded="showActions" data-testid="more-actions">
+                            {{ showActions ? '✕' : '⋯' }}
                         </button>
                         <template v-if="!isCompact || showActions">
                         <button @click="share"
