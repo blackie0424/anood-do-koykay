@@ -54,7 +54,7 @@ describe('SongReader — 基本行為（確認加入返回鍵未影響既有功�
     it('點下一段會前進', async () => {
         const wrapper = mountReader()
 
-        await wrapper.find('button[class*="flex-1"]').trigger('click')
+        await wrapper.find('button[aria-label="下一段"]').trigger('click')
 
         expect(wrapper.text()).toContain('Anood')
         expect(wrapper.text()).toContain('第 2 段 / 共 2 段')
@@ -96,7 +96,7 @@ describe('SongReader — 高齡友善配色（避開深色模式）', () => {
 
     it('主要動作用 blue-700 而非 blue-600（白字對比 5.2:1 → 6.7:1）', () => {
         const wrapper = mountReader()
-        const next = wrapper.findAll('button').find((el) => el.text().includes('下一段'))
+        const next = wrapper.find('button[aria-label="下一段"]')
 
         expect(next.classes()).toContain('bg-blue-700')
         expect(next.classes()).toContain('text-white')
@@ -110,5 +110,48 @@ describe('SongReader — 高齡友善配色（避開深色模式）', () => {
         expect(html).not.toContain('bg-white/10')
         expect(html).not.toContain('bg-white/20')
         expect(html).not.toContain('bg-white/50')
+    })
+})
+
+describe('SongReader — 上一段／下一段只留箭頭圖示', () => {
+    beforeEach(() => localStorage.clear())
+
+    it('兩顆按鈕只顯示箭頭，不顯示「上一段」「下一段」文字', () => {
+        const wrapper = mountReader()
+        const prevBtn = wrapper.find('button[aria-label="上一段"]')
+        const nextBtn = wrapper.find('button[aria-label="下一段"]')
+
+        expect(prevBtn.text()).toBe('←')
+        expect(nextBtn.text()).toBe('→')
+        expect(wrapper.text()).not.toContain('上一段')
+        expect(wrapper.text()).not.toContain('下一段')
+    })
+
+    it('文字拿掉後仍有無障礙名稱，螢幕閱讀器讀得到用途', () => {
+        const wrapper = mountReader()
+
+        expect(wrapper.find('button[aria-label="上一段"]').exists()).toBe(true)
+        expect(wrapper.find('button[aria-label="下一段"]').exists()).toBe(true)
+    })
+
+    it('箭頭字級有上限，不會跟著系統字體無限放大', () => {
+        const wrapper = mountReader()
+
+        expect(wrapper.find('button[aria-label="上一段"]').classes()).toContain('text-[min(1.5rem,30px)]')
+        expect(wrapper.find('button[aria-label="下一段"]').classes()).toContain('text-[min(1.75rem,34px)]')
+    })
+
+    it('最後一段的「結束」保留文字（不同性質的動作，沒有通用圖示）', async () => {
+        const wrapper = mountReader()
+        await wrapper.find('button[aria-label="下一段"]').trigger('click')
+
+        expect(wrapper.text()).toContain('結束')
+        expect(wrapper.find('button[aria-label="下一段"]').exists()).toBe(false)
+    })
+
+    it('第一段時上一段為停用狀態', () => {
+        const wrapper = mountReader()
+
+        expect(wrapper.find('button[aria-label="上一段"]').attributes('disabled')).toBeDefined()
     })
 })

@@ -64,8 +64,7 @@ const currentLine = computed(() => lines.value[currentIdx.value]?.text_native ??
 
             <!-- 頂部：返回 + 歌曲名稱 + 進度。
                  返回用與播放頁相同的共用元件 BackLink（智慧返回：有瀏覽歷史就
-                 回上一頁，否則導回首頁），只用 theme="dark" 切換成深色背景
-                 適用的字色，行為與播放頁完全一致。 -->
+                 回上一頁，否則導回首頁），行為與播放頁完全一致。 -->
             <div class="px-5 pt-4 pb-2 flex-shrink-0">
                 <div class="mb-2 pr-24">
                     <BackLink size="lg" />
@@ -93,13 +92,17 @@ const currentLine = computed(() => lines.value[currentIdx.value]?.text_native ??
                 <!-- 按鈕列：加 flex-wrap，字體調大時「上一段」變寬不會擠壓
                      右側主要按鈕，放不下就自動換行 -->
                 <div class="flex flex-wrap items-center gap-3">
-                    <!-- 上一段 -->
+                    <!-- 上一段：只留箭頭（chung）。文字拿掉後改用 aria-label
+                         提供名稱，螢幕閱讀器仍讀得到用途。箭頭字級放大並設
+                         上限，避免跟著系統字體無限變大。 -->
                     <button @click="prev" :disabled="currentIdx === 0"
-                        class="px-4 py-3 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 disabled:opacity-40 text-sm transition-colors shrink-0">
-                        ← 上一段
+                        class="px-6 py-3 min-h-16 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 disabled:opacity-40 transition-colors shrink-0 flex items-center justify-center text-[min(1.5rem,30px)] leading-none"
+                        aria-label="上一段">
+                        ←
                     </button>
 
-                    <!-- 下一段 / 結束 -->
+                    <!-- 下一段 / 結束。結束保留文字：它是不同性質的動作，沒有
+                         通用圖示，只留符號反而看不懂。 -->
                     <template v-if="isLast">
                         <Link :href="`/songs/${song.id}`"
                             class="flex-1 min-h-16 py-3 rounded-xl bg-stone-700 hover:bg-stone-600 text-white flex items-center justify-center text-lg font-semibold transition-colors">
@@ -107,8 +110,9 @@ const currentLine = computed(() => lines.value[currentIdx.value]?.text_native ??
                         </Link>
                     </template>
                     <button v-else @click="next"
-                        class="flex-1 min-h-16 py-3 rounded-xl bg-blue-700 text-white hover:bg-blue-800 flex items-center justify-center text-lg font-semibold transition-colors">
-                        下一段 →
+                        class="flex-1 min-h-16 py-3 rounded-xl bg-blue-700 text-white hover:bg-blue-800 flex items-center justify-center transition-colors text-[min(1.75rem,34px)] leading-none"
+                        aria-label="下一段">
+                        →
                     </button>
                 </div>
             </div>
