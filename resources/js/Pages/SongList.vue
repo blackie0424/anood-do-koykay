@@ -98,13 +98,24 @@ async function share(song) {
                 class="w-full max-w-2xl mx-auto block border-2 border-stone-300 rounded-2xl px-5 py-3 text-lg focus:outline-none focus:border-blue-400 bg-white mb-6" />
 
             <div class="max-w-2xl mx-auto space-y-4">
+                <!-- 卡片內距用固定像素：p-6 這類單位會隨字體放大，200% 時
+                     左右各吃掉 48px（共 96px），讓歌名可用寬度大幅縮水。
+                     固定 24px 讓出約 50px 給文字，一般字級下與 p-6 相同。 -->
                 <div v-for="song in displayedSongs" :key="song.id"
-                    class="bg-white rounded-xl shadow p-6">
+                    class="bg-white rounded-xl shadow p-[24px]">
                     <div class="mb-3">
-                        <p class="font-semibold text-stone-900 leading-snug break-words" style="font-size: clamp(1.4rem, 4vw, 1.9rem)">
-                            <span v-if="song.book_number" class="font-mono text-stone-600 mr-2">[{{ song.book_number }}]</span>{{ song.title_native }}
-                        </p>
-                        <p v-if="song.title_zh" class="text-stone-500 mt-1">{{ song.title_zh }}</p>
+                        <!-- 書號獨立一行：原本和歌名擠在同一行，書號本身在大字級
+                             下就吃掉約 110px（近一半可用寬度）。移到上方後歌名可
+                             獨佔整個卡片寬度，長歌名的行數大幅減少。 -->
+                        <p v-if="song.book_number" class="font-mono text-stone-600 leading-none mb-1"
+                            style="font-size: clamp(1.1rem, 3vw, 1.4rem)">[{{ song.book_number }}]</p>
+                        <!-- text-wrap: balance 讓多行長度平均分佈，視覺上像刻意
+                             排版而不是被硬切。達悟語長歌名在大字級下必然換行
+                             （單行在數學上不可能：字級 45px 時整行需約 790px，
+                             但手機可用寬度僅約 390px），只能讓換行更好看。 -->
+                        <p class="font-semibold text-stone-900 leading-snug break-words [text-wrap:balance]"
+                            style="font-size: clamp(1.4rem, 4vw, 1.9rem)">{{ song.title_native }}</p>
+                        <p v-if="song.title_zh" class="text-stone-500 mt-1 break-words">{{ song.title_zh }}</p>
                     </div>
                     <div class="flex flex-wrap justify-end gap-3 items-center">
                         <button @click="share(song)"

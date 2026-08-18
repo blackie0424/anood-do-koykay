@@ -85,9 +85,40 @@ describe('SongList', () => {
             expect(row.className).toContain('flex-wrap')
         })
 
+        it('書號獨立一行，不與歌名擠在同一行（大字級下書號會吃掉近半寬度）', () => {
+            const withBookNumber = [{ ...mockSongs[0], book_number: '064' }]
+            const wrapper = mount(SongList, {
+                props: { songs: paginated(withBookNumber) },
+                global: { stubs: { Link: { inheritAttrs: false, template: '<a v-bind="$attrs"><slot /></a>' } } },
+            })
+            const bookNumber = wrapper.findAll('p').find((el) => el.text() === '[064]')
+            const title = wrapper.findAll('p').find((el) => el.text() === 'Do Koykay')
+
+            expect(bookNumber).toBeDefined()
+            expect(title).toBeDefined()
+            // 兩者是各自獨立的段落，不是同一個節點裡的兩段文字
+            expect(bookNumber.element).not.toBe(title.element)
+            expect(title.text()).not.toContain('[064]')
+        })
+
+        it('卡片內距用固定像素，不會隨字體放大而吃掉歌名寬度', () => {
+            const wrapper = card()
+            const cardEl = wrapper.find('a[aria-label="聆聽音樂"]').element.closest('.bg-white')
+
+            expect(cardEl.className).toContain('p-[24px]')
+            expect(cardEl.className).not.toContain('p-6')
+        })
+
+        it('歌名多行時讓斷行平均分佈（text-wrap: balance）', () => {
+            const wrapper = card()
+            const title = wrapper.findAll('p').find((el) => el.text() === 'Do Koykay')
+
+            expect(title.classes()).toContain('[text-wrap:balance]')
+        })
+
         it('歌名長單字會斷行，不會衝出白色區塊', () => {
             const wrapper = card()
-            const title = wrapper.findAll('p').find((el) => el.text().includes('Do Koykay'))
+            const title = wrapper.findAll('p').find((el) => el.text() === 'Do Koykay')
 
             expect(title.classes()).toContain('break-words')
         })
