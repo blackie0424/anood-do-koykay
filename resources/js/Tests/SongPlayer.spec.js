@@ -182,6 +182,78 @@ describe('SongPlayer — 大字體時標頭不能把播放鈕擠出畫面', () =
   })
 })
 
+// 自動捲動用平滑動畫，動畫長度隨捲動距離拉長；字體放大後每行變高、距離
+// 變大，動畫會超過原本固定 300ms 的保護期，後續捲動事件被誤判成使用者
+// 接手而關掉自動追蹤（chung 回報「放大後歌詞不會自動追蹤」）。
+// 觀察點：誤判成使用者捲動時，畫面會出現「回到當前行」按鈕。
+describe('SongPlayer — 自動捲動不該被誤判成使用者捲動', () => {
+  const lyricsBox = (wrapper) =>
+    wrapper.findAll('div').find((d) =>
+      d.classes().includes('flex-1') && d.classes().includes('overflow-y-auto'))
+
+  async function startPlayingAtFirstLine(wrapper, audioEl) {
+    Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+    await wrapper.find('audio').trigger('playing')
+    audioEl.currentTime = 2.0
+    await vi.advanceTimersByTimeAsync(250) // 輪詢更新 → activeLineIndex 變 0 → 觸發自動捲動
+  }
+
+  it('自動捲動的動畫拖很久（遠超過原本的 300ms）也不會被當成使用者捲動', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      await startPlayingAtFirstLine(wrapper, audioEl)
+
+      // 模擬平滑捲動持續發出事件，總長 600ms（舊的固定保護期 300ms 早就到期）
+      for (let i = 0; i < 6; i++) {
+        await lyricsBox(wrapper).trigger('scroll')
+        await vi.advanceTimersByTimeAsync(100)
+      }
+
+      expect(wrapper.text()).not.toContain('回到當前行')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('使用者自己捲動仍然會被正確辨識（出現「回到當前行」）', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+      await wrapper.find('audio').trigger('playing')
+
+      await lyricsBox(wrapper).trigger('scroll')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.text()).toContain('回到當前行')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('自動捲動停止後，使用者接手捲動仍會被辨識', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      await startPlayingAtFirstLine(wrapper, audioEl)
+
+      // 自動捲動結束（捲動事件停了夠久，保護解除）
+      await vi.advanceTimersByTimeAsync(300)
+
+      await lyricsBox(wrapper).trigger('scroll')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.text()).toContain('回到當前行')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe('SongPlayer — 診斷模式（由後端 PLAYER_DIAGNOSTICS 環境變數控制）', () => {
   it('預設（showDiagnostics 未傳）不顯示診斷資訊列', () => {
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })

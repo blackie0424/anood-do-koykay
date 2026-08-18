@@ -99,6 +99,7 @@ onMounted(() => { window.addEventListener('pagehide', releaseAudio) })
 onBeforeUnmount(() => {
     window.removeEventListener('pagehide', releaseAudio)
     releaseAudio()
+    if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer)
 })
 
 const activeLineIndex = computed(() => {
@@ -114,16 +115,37 @@ watch(activeLineIndex, (idx) => {
     scrollToLine(idx)
 })
 
+// 自動捲動期間要把捲動事件當成「不是使用者操作」，否則會誤判成使用者
+// 接手而關掉自動追蹤。原本用固定 300ms 當保護時間，但平滑捲動的動畫長度
+// 會隨距離拉長——字體放大後每行變高、捲動距離變大，動畫常常超過 300ms，
+// 保護期先到期、後續的捲動事件就被當成使用者操作，自動追蹤直接失效
+// （chung 回報「放大後歌詞不會自動追蹤」的原因）。
+// 改成「捲動停止後才解除」：每收到一次捲動事件就把解除時間往後延，
+// 動畫多久都不影響，只有真的停下來才會解除。
+const PROGRAMMATIC_SCROLL_IDLE_MS = 150
+let programmaticScrollTimer = null
+
+function markProgrammaticScroll() {
+    programmaticScroll = true
+    if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer)
+    programmaticScrollTimer = setTimeout(() => {
+        programmaticScroll = false
+        programmaticScrollTimer = null
+    }, PROGRAMMATIC_SCROLL_IDLE_MS)
+}
+
 function scrollToLine(idx) {
     const el = lineRefs.value[idx]
     if (!el || !lyricsContainer.value) return
-    programmaticScroll = true
+    markProgrammaticScroll()
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    setTimeout(() => { programmaticScroll = false }, 300)
 }
 
 function onContainerScroll() {
-    if (programmaticScroll) return
+    if (programmaticScroll) {
+        markProgrammaticScroll() // 動畫還在捲，把解除時間往後延
+        return
+    }
     userScrolled.value = true
     autoScroll.value = false
 }
