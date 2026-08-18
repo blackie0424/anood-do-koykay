@@ -57,6 +57,56 @@ const songNoTimes = {
   ],
 }
 
+describe('SongPlayer — 播放列上的歌本頁碼捷徑', () => {
+  const withBookNumber = { ...songWithLyricTimes, book_number: '044' }
+
+  it('頁碼以 📖 圖示顯示在播放列，不再出現在標頭', () => {
+    const wrapper = mount(SongPlayer, { props: { song: withBookNumber } })
+    const shortcut = wrapper.find('[data-testid="reader-shortcut"]')
+
+    expect(shortcut.exists()).toBe(true)
+    expect(shortcut.text()).toContain('📖')
+    expect(shortcut.text()).toContain('044')
+    // 標頭不該再有書號
+    expect(wrapper.find('[data-testid="player-header"]').text()).not.toContain('044')
+  })
+
+  it('點頁碼會進入該首歌的歌詞閱讀模式', () => {
+    const wrapper = mount(SongPlayer, { props: { song: withBookNumber } })
+
+    expect(wrapper.find('[data-testid="reader-shortcut"]').attributes('href')).toBe('/songs/1/reader')
+  })
+
+  it('頁碼與播放鈕同在播放列，可並排呈現', () => {
+    const wrapper = mount(SongPlayer, { props: { song: withBookNumber } })
+    const playBar = wrapper.findComponent(PlayBar)
+    const shortcut = wrapper.find('[data-testid="reader-shortcut"]')
+
+    expect(playBar.element.contains(shortcut.element)).toBe(true)
+    // 播放列用 flex-wrap 橫排：放得下就並排，放不下才換行
+    expect(shortcut.element.parentElement.className).toContain('flex-wrap')
+  })
+
+  it('放大進入精簡模式時，頁碼捷徑仍然保留（歌詞閱讀模式不會失去入口）', async () => {
+    Object.defineProperty(window, 'innerHeight', { value: 384, configurable: true, writable: true })
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: withBookNumber } })
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('[data-testid="secondary-actions"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="reader-shortcut"]').exists()).toBe(true)
+    } finally {
+      Object.defineProperty(window, 'innerHeight', { value: 768, configurable: true, writable: true })
+    }
+  })
+
+  it('沒有書號的歌曲不顯示捷徑', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+
+    expect(wrapper.find('[data-testid="reader-shortcut"]').exists()).toBe(false)
+  })
+})
+
 describe('SongPlayer — 畫面放大時隱藏次要功能，只留核心', () => {
   function setViewportHeight(px) {
     Object.defineProperty(window, 'innerHeight', { value: px, configurable: true, writable: true })

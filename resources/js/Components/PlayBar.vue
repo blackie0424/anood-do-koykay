@@ -51,6 +51,9 @@ function onClick() {
         <!-- 狀態文字改放按鈕右側（原本在上方，多佔一整行）。放不下時
              flex-wrap 會讓文字換到下一行，不會擠壓或溢出按鈕。 -->
         <div class="max-w-2xl mx-auto flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+            <!-- leading：父層可在播放鈕左側放額外的操作（例如播放頁的頁碼／
+                 歌詞捷徑）。PlayBar 不需要知道放的是什麼，維持單一職責。 -->
+            <slot name="leading" />
             <button @click="onClick" :disabled="disabled || loading" :aria-label="ariaLabel"
                 :class="['w-16 h-16 max-w-[96px] max-h-[96px] shrink-0 rounded-full text-2xl flex items-center justify-center transition-transform active:scale-95',
                     disabled ? 'bg-stone-200 text-stone-400 cursor-not-allowed'

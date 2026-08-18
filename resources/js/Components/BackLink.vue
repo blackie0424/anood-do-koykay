@@ -7,7 +7,7 @@ import { router } from '@inertiajs/vue3'
 defineOptions({ inheritAttrs: false })
 
 const props = defineProps({
-    label: { type: String, default: '回上一頁' },
+    label: { type: String, default: '返回' },
     size: { type: String, default: 'sm' }, // 'sm' | 'lg'
     // 背景色系：'light' = 淺色背景用深色字（預設）；'dark' = 深色背景用淺色字。
     // 歌詞閱讀頁是深色主題，直接用預設色系會看不見。

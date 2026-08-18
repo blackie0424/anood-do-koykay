@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { Link } from '@inertiajs/vue3'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 import BackLink from '@/Components/BackLink.vue'
 import PlayBar from '@/Components/PlayBar.vue'
@@ -441,7 +442,6 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
         <div class="px-3 pt-3 min-h-0 max-h-[40vh] overflow-y-auto" data-testid="player-header">
             <div class="max-w-2xl mx-auto">
                 <div class="text-center mb-4">
-                    <p v-if="song.book_number" class="font-mono text-stone-500 mb-1" style="font-size: clamp(1rem, 3vw, 1.25rem)">[{{ song.book_number }}]</p>
                     <h1 class="font-bold text-stone-800" style="font-size: clamp(1.5rem, 5vw, 2rem)">
                         {{ song.title_native }}
                     </h1>
@@ -515,7 +515,23 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
             @ended="onEnded" @error="onError" />
 
         <!-- 底部控制列 -->
-        <PlayBar :playing="isPlaying" :disabled="!song.audio_full || hasError" :label="segmentLabel" @play="togglePlay" />
+        <!-- 書號改放播放列、做成可點圖示連到歌詞閱讀頁（chung 設計）。
+             放這裡的額外好處：精簡模式隱藏標頭的次要功能後，歌詞閱讀模式
+             仍有入口，不會讓放大字體的使用者完全找不到。
+             版面用 PlayBar 既有的 flex-wrap 橫排，放大時自然與播放鈕並排，
+             真的放不下才換行。 -->
+        <PlayBar :playing="isPlaying" :disabled="!song.audio_full || hasError" :label="segmentLabel" @play="togglePlay">
+            <template #leading>
+                <Link v-if="song.book_number" :href="`/songs/${song.id}/reader`"
+                    class="min-w-[56px] min-h-[56px] max-w-[80px] max-h-[80px] p-[8px] rounded-full shrink-0
+                           flex flex-col items-center justify-center gap-0.5
+                           bg-stone-100 text-stone-600 hover:bg-stone-200 active:scale-95 transition-transform"
+                    data-testid="reader-shortcut" :aria-label="`歌本第 ${song.book_number} 頁，開啟歌詞閱讀模式`">
+                    <span class="leading-none text-[min(1.5rem,28px)]" aria-hidden="true">📖</span>
+                    <span class="leading-none font-mono font-semibold text-[min(0.75rem,15px)]">{{ song.book_number }}</span>
+                </Link>
+            </template>
+        </PlayBar>
     </div>
 
     <!-- 進入頁面播放提示覆蓋層 -->
