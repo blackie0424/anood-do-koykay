@@ -115,8 +115,12 @@ async function share(song) {
                     <!-- 書號放在按鈕列最左側（chung 設計）：歌名可獨佔整個
                          卡片寬度，書號又不必多佔一行，卡片高度維持不變。 -->
                     <div class="flex flex-wrap gap-3 items-center">
-                        <span v-if="song.book_number" class="font-mono font-semibold text-stone-600"
-                            style="font-size: clamp(1.1rem, 3vw, 1.4rem)" data-testid="book-number">[{{ song.book_number }}]</span>
+                        <span v-if="song.book_number"
+                            class="min-w-[80px] min-h-[80px] px-3 py-2 rounded-full flex flex-col items-center justify-center gap-0.5 bg-stone-100 text-stone-600"
+                            data-testid="book-number" :aria-label="`歌本第 ${song.book_number} 頁`">
+                            <span class="text-3xl leading-none" aria-hidden="true">📖</span>
+                            <span class="text-sm leading-none font-mono font-semibold">{{ song.book_number }}</span>
+                        </span>
                         <div class="ml-auto flex flex-wrap gap-3 items-center">
                         <button @click="share(song)"
                             class="w-10 h-10 rounded-full flex items-center justify-center bg-stone-200 hover:bg-stone-300 active:scale-95 transition-transform text-stone-700 text-sm"

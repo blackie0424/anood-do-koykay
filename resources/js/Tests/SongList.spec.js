@@ -100,6 +100,29 @@ describe('SongList', () => {
             expect(title.text()).not.toContain('[064]')
         })
 
+        it('書號以圓形圖示呈現（📖 + 頁數），尺寸與聆聽鈕一致', () => {
+            const wrapper = cardWithBookNumber()
+            const bookNumber = wrapper.find('[data-testid="book-number"]')
+            const listen = wrapper.find('a[aria-label="聆聽音樂"]')
+
+            expect(bookNumber.text()).toContain('📖')
+            expect(bookNumber.text()).toContain('064')
+            expect(bookNumber.classes()).toContain('rounded-full')
+            // 與聆聽鈕同一套尺寸，視覺才會一致
+            for (const cls of ['min-w-[80px]', 'min-h-[80px]']) {
+                expect(bookNumber.classes()).toContain(cls)
+                expect(listen.classes()).toContain(cls)
+            }
+        })
+
+        it('書號提供可讀的無障礙標籤（📖 本身對輔助科技隱藏）', () => {
+            const wrapper = cardWithBookNumber()
+            const bookNumber = wrapper.find('[data-testid="book-number"]')
+
+            expect(bookNumber.attributes('aria-label')).toBe('歌本第 064 頁')
+            expect(bookNumber.find('[aria-hidden="true"]').text()).toBe('📖')
+        })
+
         it('書號與分享、聆聽在同一列（不另外多佔一行）', () => {
             const wrapper = cardWithBookNumber()
             const bookNumber = wrapper.find('[data-testid="book-number"]')
