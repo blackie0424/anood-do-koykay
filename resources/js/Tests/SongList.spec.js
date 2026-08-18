@@ -57,18 +57,39 @@ describe('SongList', () => {
         expect(wrapper.findAll('a[aria-label="聆聽音樂"]')).toHaveLength(1)
     })
 
-    // 大字體手機：裡面的「▶」和「聆聽」會超出固定 80px 的圓，
-    // 固定尺寸會裁掉或撐破外框，改用最小尺寸讓圓形跟著長大
-    it('聆聽鈕用最小尺寸而非固定尺寸，大字體時不會裁切內容', () => {
-        const wrapper = mount(SongList, {
-            props: { songs: paginated(mockSongs) },
-            global: { stubs: { Link: { inheritAttrs: false, template: '<a v-bind="$attrs"><slot /></a>' } } },
-        })
-        const listen = wrapper.find('a[aria-label="聆聽音樂"]')
+    // 大字體手機：卡片跑版（文字與聆聽鈕溢出白色區塊）
+    describe('大字體時不能撐破卡片', () => {
+        function card(wrapper) {
+            return mount(SongList, {
+                props: { songs: paginated(mockSongs) },
+                global: { stubs: { Link: { inheritAttrs: false, template: '<a v-bind="$attrs"><slot /></a>' } } },
+            })
+        }
 
-        expect(listen.classes()).toContain('min-w-20')
-        expect(listen.classes()).toContain('min-h-20')
-        expect(listen.classes()).not.toContain('w-20')
-        expect(listen.classes()).not.toContain('h-20')
+        it('聆聽鈕的最小尺寸用固定像素，不會隨字體放大成無法壓縮的硬下限', () => {
+            const wrapper = card()
+            const listen = wrapper.find('a[aria-label="聆聽音樂"]')
+
+            expect(listen.classes()).toContain('min-w-[80px]')
+            expect(listen.classes()).toContain('min-h-[80px]')
+            // min-w-20 / w-20 這類會隨字體縮放的單位都不該再出現
+            for (const cls of ['min-w-20', 'min-h-20', 'w-20', 'h-20']) {
+                expect(listen.classes()).not.toContain(cls)
+            }
+        })
+
+        it('按鈕列可換行，放不下時不會溢出卡片', () => {
+            const wrapper = card()
+            const row = wrapper.find('a[aria-label="聆聽音樂"]').element.parentElement
+
+            expect(row.className).toContain('flex-wrap')
+        })
+
+        it('歌名長單字會斷行，不會衝出白色區塊', () => {
+            const wrapper = card()
+            const title = wrapper.findAll('p').find((el) => el.text().includes('Do Koykay'))
+
+            expect(title.classes()).toContain('break-words')
+        })
     })
 })
