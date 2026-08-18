@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
+import BackLink from '@/Components/BackLink.vue'
 
 const props = defineProps({ song: Object })
 
@@ -53,8 +54,14 @@ const currentLine = computed(() => lines.value[currentIdx.value]?.text_native ??
                 </button>
             </div>
 
-            <!-- 頂部：歌曲名稱 + 進度 -->
+            <!-- 頂部：返回 + 歌曲名稱 + 進度。
+                 返回用與播放頁相同的共用元件 BackLink（智慧返回：有瀏覽歷史就
+                 回上一頁，否則導回首頁），只用 theme="dark" 切換成深色背景
+                 適用的字色，行為與播放頁完全一致。 -->
             <div class="px-5 pt-4 pb-2 flex-shrink-0">
+                <div class="mb-2 pr-24">
+                    <BackLink size="lg" theme="dark" />
+                </div>
                 <p class="text-stone-400 text-sm truncate">{{ song.title_native }}</p>
                 <p class="text-stone-500 text-xs mt-0.5">第 {{ currentIdx + 1 }} 段 / 共 {{ total }} 段</p>
             </div>
