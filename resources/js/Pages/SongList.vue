@@ -104,11 +104,6 @@ async function share(song) {
                 <div v-for="song in displayedSongs" :key="song.id"
                     class="bg-white rounded-xl shadow p-[24px]">
                     <div class="mb-3">
-                        <!-- 書號獨立一行：原本和歌名擠在同一行，書號本身在大字級
-                             下就吃掉約 110px（近一半可用寬度）。移到上方後歌名可
-                             獨佔整個卡片寬度，長歌名的行數大幅減少。 -->
-                        <p v-if="song.book_number" class="font-mono text-stone-600 leading-none mb-1"
-                            style="font-size: clamp(1.1rem, 3vw, 1.4rem)">[{{ song.book_number }}]</p>
                         <!-- text-wrap: balance 讓多行長度平均分佈，視覺上像刻意
                              排版而不是被硬切。達悟語長歌名在大字級下必然換行
                              （單行在數學上不可能：字級 45px 時整行需約 790px，
@@ -117,7 +112,12 @@ async function share(song) {
                             style="font-size: clamp(1.4rem, 4vw, 1.9rem)">{{ song.title_native }}</p>
                         <p v-if="song.title_zh" class="text-stone-500 mt-1 break-words">{{ song.title_zh }}</p>
                     </div>
-                    <div class="flex flex-wrap justify-end gap-3 items-center">
+                    <!-- 書號放在按鈕列最左側（chung 設計）：歌名可獨佔整個
+                         卡片寬度，書號又不必多佔一行，卡片高度維持不變。 -->
+                    <div class="flex flex-wrap gap-3 items-center">
+                        <span v-if="song.book_number" class="font-mono font-semibold text-stone-600"
+                            style="font-size: clamp(1.1rem, 3vw, 1.4rem)" data-testid="book-number">[{{ song.book_number }}]</span>
+                        <div class="ml-auto flex flex-wrap gap-3 items-center">
                         <button @click="share(song)"
                             class="w-10 h-10 rounded-full flex items-center justify-center bg-stone-200 hover:bg-stone-300 active:scale-95 transition-transform text-stone-700 text-sm"
                             :aria-label="copiedId === song.id ? '已複製' : '分享'">
@@ -142,6 +142,7 @@ async function share(song) {
                             <span class="text-3xl leading-none">▶</span>
                             <span class="text-sm leading-none font-medium">聆聽</span>
                         </Link>
+                        </div>
                     </div>
                 </div>
 

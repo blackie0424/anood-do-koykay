@@ -85,20 +85,50 @@ describe('SongList', () => {
             expect(row.className).toContain('flex-wrap')
         })
 
-        it('書號獨立一行，不與歌名擠在同一行（大字級下書號會吃掉近半寬度）', () => {
-            const withBookNumber = [{ ...mockSongs[0], book_number: '064' }]
-            const wrapper = mount(SongList, {
-                props: { songs: paginated(withBookNumber) },
+        function cardWithBookNumber() {
+            return mount(SongList, {
+                props: { songs: paginated([{ ...mockSongs[0], book_number: '064' }]) },
                 global: { stubs: { Link: { inheritAttrs: false, template: '<a v-bind="$attrs"><slot /></a>' } } },
             })
-            const bookNumber = wrapper.findAll('p').find((el) => el.text() === '[064]')
+        }
+
+        it('書號不佔用歌名的寬度（不在標題節點內）', () => {
+            const wrapper = cardWithBookNumber()
             const title = wrapper.findAll('p').find((el) => el.text() === 'Do Koykay')
 
-            expect(bookNumber).toBeDefined()
             expect(title).toBeDefined()
-            // 兩者是各自獨立的段落，不是同一個節點裡的兩段文字
-            expect(bookNumber.element).not.toBe(title.element)
             expect(title.text()).not.toContain('[064]')
+        })
+
+        it('書號與分享、聆聽在同一列（不另外多佔一行）', () => {
+            const wrapper = cardWithBookNumber()
+            const bookNumber = wrapper.find('[data-testid="book-number"]')
+            const listen = wrapper.find('a[aria-label="聆聽音樂"]')
+
+            expect(bookNumber.exists()).toBe(true)
+            // 兩者同屬按鈕列這個容器（書號直屬、按鈕在其右側群組內）
+            const row = bookNumber.element.parentElement
+            expect(row.contains(listen.element)).toBe(true)
+        })
+
+        it('書號靠最左、按鈕群組靠右（用 ml-auto 推開）', () => {
+            const wrapper = cardWithBookNumber()
+            const bookNumber = wrapper.find('[data-testid="book-number"]')
+            const row = bookNumber.element.parentElement
+
+            // 書號是列中第一個元素
+            expect(row.firstElementChild).toBe(bookNumber.element)
+            // 按鈕群組用 ml-auto 靠右
+            const buttonGroup = wrapper.find('a[aria-label="聆聽音樂"]').element.parentElement
+            expect(buttonGroup.className).toContain('ml-auto')
+        })
+
+        it('沒有書號時按鈕群組仍靠右', () => {
+            const wrapper = card() // mockSongs 沒有 book_number
+            const buttonGroup = wrapper.find('a[aria-label="聆聽音樂"]').element.parentElement
+
+            expect(wrapper.find('[data-testid="book-number"]').exists()).toBe(false)
+            expect(buttonGroup.className).toContain('ml-auto')
         })
 
         it('卡片內距用固定像素，不會隨字體放大而吃掉歌名寬度', () => {
