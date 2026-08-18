@@ -100,10 +100,20 @@ describe('SongPlayer — 播放列上的歌本頁碼捷徑', () => {
     }
   })
 
-  it('沒有書號的歌曲不顯示捷徑', () => {
+  it('沒有書號的歌曲仍有捷徑，標籤改顯示「歌詞」（否則就沒有入口進閱讀頁）', () => {
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const shortcut = wrapper.find('[data-testid="reader-shortcut"]')
 
-    expect(wrapper.find('[data-testid="reader-shortcut"]').exists()).toBe(false)
+    expect(shortcut.exists()).toBe(true)
+    expect(shortcut.text()).toContain('歌詞')
+    expect(shortcut.attributes('aria-label')).toBe('開啟歌詞閱讀模式')
+  })
+
+  it('標頭不再有重複的「📖 歌詞」按鈕（入口統一在播放列）', () => {
+    const wrapper = mount(SongPlayer, { props: { song: withBookNumber } })
+
+    expect(wrapper.find('[aria-label="歌詞閱讀模式"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="reader-shortcut"]').exists()).toBe(true)
   })
 })
 
@@ -114,7 +124,7 @@ describe('SongPlayer — 畫面放大時隱藏次要功能，只留核心', () =
 
   afterEach(() => setViewportHeight(768))
 
-  const SECONDARY = ['[aria-label="歌詞閱讀模式"]', '[aria-label="接唱錄音"]', '[aria-label="分享"]']
+  const SECONDARY = ['[aria-label="接唱錄音"]', '[aria-label="分享"]']
 
   it('一般畫面高度時次要功能全部可見', () => {
     setViewportHeight(768)

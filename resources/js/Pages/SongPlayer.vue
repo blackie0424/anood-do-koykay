@@ -464,11 +464,6 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
                                 <line x1="12" y1="2" x2="12" y2="15" />
                             </svg>
                         </button>
-                        <a :href="`/songs/${song.id}/reader`"
-                            class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-stone-700 text-white text-sm hover:bg-stone-600 active:scale-95 transition-transform"
-                            aria-label="歌詞閱讀模式">
-                            📖 歌詞
-                        </a>
                         <button v-if="canRecord" @click="openRecording"
                             class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-600 text-white text-sm hover:bg-rose-500 active:scale-95 transition-transform"
                             aria-label="接唱錄音">
@@ -522,13 +517,14 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
              真的放不下才換行。 -->
         <PlayBar :playing="isPlaying" :disabled="!song.audio_full || hasError" :label="segmentLabel" @play="togglePlay">
             <template #leading>
-                <Link v-if="song.book_number" :href="`/songs/${song.id}/reader`"
+                <Link :href="`/songs/${song.id}/reader`"
                     class="min-w-[56px] min-h-[56px] max-w-[80px] max-h-[80px] p-[8px] rounded-full shrink-0
                            flex flex-col items-center justify-center gap-0.5
                            bg-stone-100 text-stone-600 hover:bg-stone-200 active:scale-95 transition-transform"
-                    data-testid="reader-shortcut" :aria-label="`歌本第 ${song.book_number} 頁，開啟歌詞閱讀模式`">
+                    data-testid="reader-shortcut"
+                    :aria-label="song.book_number ? `歌本第 ${song.book_number} 頁，開啟歌詞閱讀模式` : '開啟歌詞閱讀模式'">
                     <span class="leading-none text-[min(1.5rem,28px)]" aria-hidden="true">📖</span>
-                    <span class="leading-none font-mono font-semibold text-[min(0.75rem,15px)]">{{ song.book_number }}</span>
+                    <span class="leading-none font-mono font-semibold text-[min(0.75rem,15px)]">{{ song.book_number || '歌詞' }}</span>
                 </Link>
             </template>
         </PlayBar>
