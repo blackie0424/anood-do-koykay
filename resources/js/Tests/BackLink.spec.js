@@ -10,8 +10,8 @@ function setHistoryLength(n) {
 afterEach(() => { vi.restoreAllMocks() })
 
 describe('BackLink', () => {
-    it('預設 label 為「回上一頁」，可自訂', () => {
-        expect(mount(BackLink).text()).toContain('回上一頁')
+    it('預設 label 為「返回」，可自訂', () => {
+        expect(mount(BackLink).text()).toContain('返回')
         expect(mount(BackLink, { props: { label: '返回清單' } }).text()).toContain('返回清單')
     })
 
@@ -51,4 +51,5 @@ describe('BackLink', () => {
         expect(onClick).toHaveBeenCalled()
         expect(back).not.toHaveBeenCalled()
     })
+
 })

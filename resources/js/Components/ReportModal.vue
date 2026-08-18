@@ -86,7 +86,11 @@ async function submit() {
             data-testid="report-overlay"
         >
             <div class="absolute inset-0 bg-black/50" @click="close" />
-            <div class="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <!-- 限高 + 直向 flex：表單欄位自己捲動，送出鈕釘在底部。
+                 原本是整個 modal 一起捲，送出鈕在捲動區內——大字體時雖然
+                 捲得到，但要一路捲到底才看得見。改成與 ConsentModal 一致的
+                 「頭尾固定、中間捲動」，送出鈕永遠在視線內。 -->
+            <div class="relative flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white p-6 shadow-2xl sm:max-w-md sm:rounded-2xl">
 
                 <!-- 感謝提示 -->
                 <div v-if="submitted" class="text-center py-6" data-testid="report-thanks">
@@ -97,11 +101,12 @@ async function submit() {
                 </div>
 
                 <template v-else>
-                    <div class="flex items-center justify-between mb-4">
+                    <div class="flex flex-shrink-0 items-center justify-between mb-4">
                         <h3 class="font-bold text-stone-800 text-lg">回報問題</h3>
                         <button @click="close" class="text-stone-400 hover:text-stone-600 text-xl leading-none">✕</button>
                     </div>
 
+                    <div class="min-h-0 flex-1 overflow-y-auto" data-testid="report-fields">
                     <p class="text-xs text-stone-500 mb-3">請選擇問題類型（必填）</p>
 
                     <div class="space-y-2 mb-4">
@@ -148,17 +153,20 @@ async function submit() {
                             data-testid="report-note"
                         />
                     </div>
+                    </div>
 
-                    <p v-if="error" class="text-red-500 text-xs mb-3" data-testid="report-error">{{ error }}</p>
+                    <div class="flex-shrink-0 pt-4">
+                        <p v-if="error" class="text-red-500 text-xs mb-3" data-testid="report-error">{{ error }}</p>
 
-                    <button
-                        @click="submit"
-                        :disabled="submitting"
-                        class="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
-                        data-testid="report-submit"
-                    >
-                        {{ submitting ? '送出中…' : '送出回報' }}
-                    </button>
+                        <button
+                            @click="submit"
+                            :disabled="submitting"
+                            class="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+                            data-testid="report-submit"
+                        >
+                            {{ submitting ? '送出中…' : '送出回報' }}
+                        </button>
+                    </div>
                 </template>
             </div>
         </div>

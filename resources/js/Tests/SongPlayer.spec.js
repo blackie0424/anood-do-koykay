@@ -57,6 +57,252 @@ const songNoTimes = {
   ],
 }
 
+describe('SongPlayer — 播放列上的歌本頁碼捷徑', () => {
+  const withBookNumber = { ...songWithLyricTimes, book_number: '044' }
+
+  it('頁碼以 📖 圖示顯示在播放列，不再出現在標頭', () => {
+    const wrapper = mount(SongPlayer, { props: { song: withBookNumber } })
+    const shortcut = wrapper.find('[data-testid="reader-shortcut"]')
+
+    expect(shortcut.exists()).toBe(true)
+    expect(shortcut.text()).toContain('📖')
+    expect(shortcut.text()).toContain('044')
+    // 標頭不該再有書號
+    expect(wrapper.find('[data-testid="player-header"]').text()).not.toContain('044')
+  })
+
+  it('點頁碼會進入該首歌的歌詞閱讀模式', () => {
+    const wrapper = mount(SongPlayer, { props: { song: withBookNumber } })
+
+    expect(wrapper.find('[data-testid="reader-shortcut"]').attributes('href')).toBe('/songs/1/reader')
+  })
+
+  it('頁碼與播放鈕同在播放列，可並排呈現', () => {
+    const wrapper = mount(SongPlayer, { props: { song: withBookNumber } })
+    const playBar = wrapper.findComponent(PlayBar)
+    const shortcut = wrapper.find('[data-testid="reader-shortcut"]')
+
+    expect(playBar.element.contains(shortcut.element)).toBe(true)
+    // 播放列用 flex-wrap 橫排：放得下就並排，放不下才換行
+    expect(shortcut.element.parentElement.className).toContain('flex-wrap')
+  })
+
+  it('放大進入精簡模式時，頁碼捷徑仍然保留（歌詞閱讀模式不會失去入口）', async () => {
+    Object.defineProperty(window, 'innerHeight', { value: 384, configurable: true, writable: true })
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: withBookNumber } })
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('[data-testid="secondary-actions"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="reader-shortcut"]').exists()).toBe(true)
+    } finally {
+      Object.defineProperty(window, 'innerHeight', { value: 768, configurable: true, writable: true })
+    }
+  })
+
+  it('沒有書號的歌曲仍有捷徑，標籤改顯示「歌詞」（否則就沒有入口進閱讀頁）', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const shortcut = wrapper.find('[data-testid="reader-shortcut"]')
+
+    expect(shortcut.exists()).toBe(true)
+    expect(shortcut.text()).toContain('歌詞')
+    expect(shortcut.attributes('aria-label')).toBe('開啟歌詞閱讀模式')
+  })
+
+  it('標頭不再有重複的「📖 歌詞」按鈕（入口統一在播放列）', () => {
+    const wrapper = mount(SongPlayer, { props: { song: withBookNumber } })
+
+    expect(wrapper.find('[aria-label="歌詞閱讀模式"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="reader-shortcut"]').exists()).toBe(true)
+  })
+})
+
+describe('SongPlayer — 畫面放大時隱藏次要功能，只留核心', () => {
+  function setViewportHeight(px) {
+    Object.defineProperty(window, 'innerHeight', { value: px, configurable: true, writable: true })
+  }
+
+  afterEach(() => setViewportHeight(768))
+
+  const SECONDARY = ['[aria-label="接唱錄音"]', '[aria-label="分享"]']
+
+  it('一般畫面高度時次要功能全部可見', () => {
+    setViewportHeight(768)
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+
+    expect(wrapper.find('[data-testid="secondary-actions"]').exists()).toBe(true)
+    for (const sel of SECONDARY) {
+      expect(wrapper.find(sel).exists()).toBe(true)
+    }
+  })
+
+  it('畫面放大（可容納行數不足）時次要功能整區隱藏', async () => {
+    setViewportHeight(384)
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="secondary-actions"]').exists()).toBe(false)
+    for (const sel of SECONDARY) {
+      expect(wrapper.find(sel).exists()).toBe(false)
+    }
+  })
+
+  it('放大時不再提供「⋯」展開入口（採隱藏策略，非收合）', async () => {
+    setViewportHeight(384)
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="more-actions"]').exists()).toBe(false)
+  })
+
+  it('放大時核心功能（歌詞與播放鈕）完整保留', async () => {
+    setViewportHeight(384)
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).toContain('Maomaw')
+    expect(wrapper.text()).toContain('Anood')
+    expect(wrapper.findComponent(PlayBar).exists()).toBe(true)
+  })
+
+  it('放大時返回上一頁仍然保留（不能讓使用者困在頁面裡）', async () => {
+    setViewportHeight(384)
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findComponent(BackLink).exists()).toBe(true)
+  })
+
+  it('視窗變回一般高度時次要功能會重新出現', async () => {
+    setViewportHeight(384)
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="secondary-actions"]').exists()).toBe(false)
+
+    setViewportHeight(768)
+    window.dispatchEvent(new Event('resize'))
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="secondary-actions"]').exists()).toBe(true)
+  })
+})
+
+// 自動捲動用平滑動畫，動畫長度隨捲動距離拉長；字體放大後每行變高、距離
+// 變大，動畫會超過原本固定 300ms 的保護期，後續捲動事件被誤判成使用者
+// 接手而關掉自動追蹤（chung 回報「放大後歌詞不會自動追蹤」）。
+// 觀察點：誤判成使用者捲動時，畫面會出現「回到當前行」按鈕。
+describe('SongPlayer — 自動捲動不該被誤判成使用者捲動', () => {
+  const lyricsBox = (wrapper) =>
+    wrapper.findAll('div').find((d) =>
+      d.classes().includes('flex-1') && d.classes().includes('overflow-y-auto'))
+
+  async function startPlayingAtFirstLine(wrapper, audioEl) {
+    Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+    await wrapper.find('audio').trigger('playing')
+    audioEl.currentTime = 2.0
+    await vi.advanceTimersByTimeAsync(250) // 輪詢更新 → activeLineIndex 變 0 → 觸發自動捲動
+  }
+
+  it('自動捲動的動畫拖很久（遠超過原本的 300ms）也不會被當成使用者捲動', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      await startPlayingAtFirstLine(wrapper, audioEl)
+
+      // 模擬平滑捲動持續發出事件，總長 600ms（舊的固定保護期 300ms 早就到期）
+      for (let i = 0; i < 6; i++) {
+        await lyricsBox(wrapper).trigger('scroll')
+        await vi.advanceTimersByTimeAsync(100)
+      }
+
+      expect(wrapper.text()).not.toContain('回到當前行')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('使用者自己捲動仍然會被正確辨識（出現「回到當前行」）', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+      await wrapper.find('audio').trigger('playing')
+
+      await lyricsBox(wrapper).trigger('scroll')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.text()).toContain('回到當前行')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('保護期有總上限：捲動事件持續超過 1.5 秒後強制解除，使用者可以接管', async () => {
+    // 使用者在自動捲動途中用力甩動時，慣性捲動會一直發出事件、不斷延後解除。
+    // 總上限確保控制權最晚 1.5 秒一定交還。
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      await startPlayingAtFirstLine(wrapper, audioEl)
+
+      // 每 100ms 一次捲動事件，連續 1.6 秒（超過 1.5 秒上限）
+      for (let i = 0; i < 16; i++) {
+        await lyricsBox(wrapper).trigger('scroll')
+        await vi.advanceTimersByTimeAsync(100)
+      }
+
+      // 上限已到、保護解除，再捲一次就會被認定為使用者操作
+      await lyricsBox(wrapper).trigger('scroll')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.text()).toContain('回到當前行')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('保護期上限之內（1.4 秒）持續捲動仍受保護，不會被誤判', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      await startPlayingAtFirstLine(wrapper, audioEl)
+
+      // 每 100ms 一次，連續 1.4 秒（仍在 1.5 秒上限內）
+      for (let i = 0; i < 14; i++) {
+        await lyricsBox(wrapper).trigger('scroll')
+        await vi.advanceTimersByTimeAsync(100)
+      }
+
+      expect(wrapper.text()).not.toContain('回到當前行')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('自動捲動停止後，使用者接手捲動仍會被辨識', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      await startPlayingAtFirstLine(wrapper, audioEl)
+
+      // 自動捲動結束（捲動事件停了夠久，保護解除）
+      await vi.advanceTimersByTimeAsync(300)
+
+      await lyricsBox(wrapper).trigger('scroll')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.text()).toContain('回到當前行')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe('SongPlayer — 診斷模式（由後端 PLAYER_DIAGNOSTICS 環境變數控制）', () => {
   it('預設（showDiagnostics 未傳）不顯示診斷資訊列', () => {
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
@@ -807,7 +1053,7 @@ describe('SongPlayer — 音訊緩衝中顯示「載入中…」', () => {
     }
   })
 
-  it('緩衝完成（readyState>=3）後改顯示「播放中…」', async () => {
+  it('緩衝完成（readyState>=3）後不再顯示任何文字（播放/暫停由圖示表達）', async () => {
     vi.useFakeTimers()
     try {
       const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
@@ -821,7 +1067,44 @@ describe('SongPlayer — 音訊緩衝中顯示「載入中…」', () => {
       Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true }) // HAVE_ENOUGH_DATA
       await vi.advanceTimersByTimeAsync(250)
 
-      expect(wrapper.findComponent(PlayBar).props('label')).toBe('播放中…')
+      expect(wrapper.findComponent(PlayBar).props('label')).toBe('')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('正常播放中不顯示任何狀態文字（播放/暫停由圖示表達）', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+
+      await wrapper.find('audio').trigger('playing')
+      await vi.advanceTimersByTimeAsync(250)
+
+      expect(wrapper.findComponent(PlayBar).props('label')).toBe('')
+      expect(wrapper.text()).not.toContain('播放中')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('逐段模式仍顯示「點選歌詞播放」（圖示表達不出來的提示要留著）', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+      const audioEl = wrapper.find('audio').element
+      audioEl.play = async () => {}
+      audioEl.pause = () => {}
+      Object.defineProperty(audioEl, 'readyState', { value: 4, configurable: true })
+
+      // 播到 effectiveEnd 之後會進入逐段模式
+      await wrapper.find('audio').trigger('playing')
+      audioEl.currentTime = 9.1
+      await vi.advanceTimersByTimeAsync(250)
+
+      expect(wrapper.findComponent(PlayBar).props('label')).toBe('點選歌詞播放')
     } finally {
       vi.useRealTimers()
     }

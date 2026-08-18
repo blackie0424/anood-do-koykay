@@ -6,6 +6,17 @@ import PublicLayout from '@/Layouts/PublicLayout.vue'
 
 const DEBOUNCE_MS = 300
 
+// 卡片上三顆圓形圖示（歌本頁碼／分享／聆聽）共用的尺寸。
+// 用固定像素而非會隨字體縮放的單位，並設上限：這些是圖示不是內文，跟著
+// 系統字體等比放大會變得過大（chung 回報「現在的圖示都太大了」），也會把
+// 卡片撐開。64px 已高於觸控目標建議下限（44px），上限 88px 讓大字體使用者
+// 仍略有放大空間但不失控。
+const ICON_BUTTON_CLASS =
+    'min-w-[64px] min-h-[64px] max-w-[88px] max-h-[88px] p-[10px] rounded-full ' +
+    'flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-transform'
+const ICON_GLYPH_CLASS = 'leading-none text-[min(1.75rem,34px)]'
+const ICON_LABEL_CLASS = 'leading-none font-medium text-[min(0.875rem,18px)]'
+
 const props = defineProps({ songs: Object })
 
 const loadedSongs = ref([...props.songs.data])
@@ -98,33 +109,52 @@ async function share(song) {
                 class="w-full max-w-2xl mx-auto block border-2 border-stone-300 rounded-2xl px-5 py-3 text-lg focus:outline-none focus:border-blue-400 bg-white mb-6" />
 
             <div class="max-w-2xl mx-auto space-y-4">
+                <!-- 卡片內距用固定像素：p-6 這類單位會隨字體放大，200% 時
+                     左右各吃掉 48px（共 96px），讓歌名可用寬度大幅縮水。
+                     固定 24px 讓出約 50px 給文字，一般字級下與 p-6 相同。 -->
                 <div v-for="song in displayedSongs" :key="song.id"
-                    class="bg-white rounded-xl shadow p-6">
+                    class="bg-white rounded-xl shadow p-[24px]">
                     <div class="mb-3">
-                        <p class="font-semibold text-stone-900 leading-snug" style="font-size: clamp(1.4rem, 4vw, 1.9rem)">
-                            <span v-if="song.book_number" class="font-mono text-stone-600 mr-2">[{{ song.book_number }}]</span>{{ song.title_native }}
-                        </p>
-                        <p v-if="song.title_zh" class="text-stone-500 mt-1">{{ song.title_zh }}</p>
+                        <!-- text-wrap: balance 讓多行長度平均分佈，視覺上像刻意
+                             排版而不是被硬切。達悟語長歌名在大字級下必然換行
+                             （單行在數學上不可能：字級 45px 時整行需約 790px，
+                             但手機可用寬度僅約 390px），只能讓換行更好看。 -->
+                        <p class="font-semibold text-stone-900 leading-snug break-words [text-wrap:balance]"
+                            style="font-size: clamp(1.4rem, 4vw, 1.9rem)">{{ song.title_native }}</p>
+                        <p v-if="song.title_zh" class="text-stone-500 mt-1 break-words">{{ song.title_zh }}</p>
                     </div>
-                    <div class="flex justify-end gap-3 items-center">
+                    <!-- 書號放在按鈕列最左側（chung 設計）：歌名可獨佔整個
+                         卡片寬度，書號又不必多佔一行，卡片高度維持不變。 -->
+                    <div class="flex flex-wrap gap-3 items-center">
+                        <!-- 頁碼可點擊，直接進入歌詞閱讀模式（與 📖 圖示語意
+                             一致，也是播放頁「📖 歌詞」的同一個功能） -->
+                        <Link v-if="song.book_number" :href="`/songs/${song.id}/reader`"
+                            :class="[ICON_BUTTON_CLASS, 'bg-stone-100 text-stone-600 hover:bg-stone-200']"
+                            data-testid="book-number" :aria-label="`歌本第 ${song.book_number} 頁，開啟歌詞閱讀模式`">
+                            <span :class="ICON_GLYPH_CLASS" aria-hidden="true">📖</span>
+                            <span :class="[ICON_LABEL_CLASS, 'font-mono font-semibold']">{{ song.book_number }}</span>
+                        </Link>
+                        <div class="ml-auto flex flex-wrap gap-3 items-center">
                         <button @click="share(song)"
-                            class="w-10 h-10 rounded-full flex items-center justify-center bg-stone-200 hover:bg-stone-300 active:scale-95 transition-transform text-stone-700 text-sm"
+                            :class="[ICON_BUTTON_CLASS, 'bg-stone-200 hover:bg-stone-300 text-stone-700']"
                             :aria-label="copiedId === song.id ? '已複製' : '分享'">
-                            <template v-if="copiedId === song.id">✓</template>
+                            <template v-if="copiedId === song.id"><span :class="ICON_GLYPH_CLASS">✓</span></template>
                             <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                class="w-5 h-5">
+                                class="w-[28px] h-[28px]">
                                 <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
                                 <polyline points="16 6 12 2 8 6" />
                                 <line x1="12" y1="2" x2="12" y2="15" />
                             </svg>
                         </button>
                         <Link v-if="song.audio_full" :href="`/songs/${song.id}`"
-                            class="w-20 h-20 rounded-full flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-transform flex-col gap-0.5"
+                            :class="[ICON_BUTTON_CLASS, 'bg-blue-600 text-white hover:bg-blue-700']"
                             aria-label="聆聽音樂">
-                            <span class="text-3xl leading-none">▶</span>
-                            <span class="text-sm leading-none font-medium">聆聽</span>
+                            <!-- 只留 ▶ 圖示（chung 實測後決定移除「聆聽」二字）。
+                                 aria-label="聆聽音樂" 仍在，螢幕閱讀器讀得到用途。 -->
+                            <span :class="ICON_GLYPH_CLASS" aria-hidden="true">▶</span>
                         </Link>
+                        </div>
                     </div>
                 </div>
 
