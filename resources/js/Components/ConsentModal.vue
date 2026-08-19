@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import AppButton from '@/Components/AppButton.vue'
 
 const SESSION_KEY = 'consent_accepted'
 
@@ -74,20 +75,20 @@ function decline() {
                 </div>
 
                 <div class="flex flex-shrink-0 flex-col gap-3 pt-4 sm:flex-row-reverse">
-                    <button
+                    <AppButton
                         class="rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
                         data-testid="consent-accept"
                         @click="accept"
                     >
                         ✅ 我同意
-                    </button>
-                    <button
+                    </AppButton>
+                    <AppButton
                         class="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300"
                         data-testid="consent-decline"
                         @click="decline"
                     >
                         ❌ 不同意
-                    </button>
+                    </AppButton>
                 </div>
             </div>
         </div>

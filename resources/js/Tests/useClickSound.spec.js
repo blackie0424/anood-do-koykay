@@ -1,0 +1,102 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { playClickSound, resetClickSoundForTesting, useClickSound } from '../composables/useClickSound'
+
+function makeFakeAudioContext() {
+    const oscillator = { frequency: {}, connect: vi.fn(), start: vi.fn(), stop: vi.fn() }
+    const gain = {
+        gain: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
+        connect: vi.fn(),
+    }
+    const ctx = {
+        state: 'running',
+        currentTime: 0,
+        destination: {},
+        resume: vi.fn(),
+        createOscillator: vi.fn(() => oscillator),
+        createGain: vi.fn(() => gain),
+    }
+    const Ctor = vi.fn(() => ctx)
+    return { Ctor, ctx, oscillator, gain }
+}
+
+describe('useClickSound', () => {
+    let original
+
+    beforeEach(() => {
+        original = window.AudioContext
+        resetClickSoundForTesting()
+    })
+
+    afterEach(() => {
+        window.AudioContext = original
+        resetClickSoundForTesting()
+    })
+
+    it('播放時會產生短促的 beep', () => {
+        const { Ctor, ctx, oscillator } = makeFakeAudioContext()
+        window.AudioContext = Ctor
+
+        playClickSound()
+
+        expect(ctx.createOscillator).toHaveBeenCalled()
+        expect(oscillator.start).toHaveBeenCalled()
+        expect(oscillator.stop).toHaveBeenCalled()
+    })
+
+    // 原本 PlayBar 每次點擊都 new 一個 AudioContext，瀏覽器對同時存在的數量
+    // 有上限，連續快速點擊會堆積並開始失敗
+    it('連續多次播放只建立一個 AudioContext（不會每次都 new）', () => {
+        const { Ctor } = makeFakeAudioContext()
+        window.AudioContext = Ctor
+
+        playClickSound()
+        playClickSound()
+        playClickSound()
+
+        expect(Ctor).toHaveBeenCalledTimes(1)
+    })
+
+    it('context 被暫停時（例如切回前景）會先喚醒', () => {
+        const { Ctor, ctx } = makeFakeAudioContext()
+        ctx.state = 'suspended'
+        window.AudioContext = Ctor
+
+        playClickSound()
+
+        expect(ctx.resume).toHaveBeenCalled()
+    })
+
+    it('context 正常運作時不需要多餘的 resume', () => {
+        const { Ctor, ctx } = makeFakeAudioContext()
+        window.AudioContext = Ctor
+
+        playClickSound()
+
+        expect(ctx.resume).not.toHaveBeenCalled()
+    })
+
+    it('瀏覽器不支援 Web Audio 時靜默失敗，不拋錯', () => {
+        window.AudioContext = undefined
+        window.webkitAudioContext = undefined
+
+        expect(() => playClickSound()).not.toThrow()
+    })
+
+    it('建立 AudioContext 拋錯時靜默失敗，不影響按鈕功能', () => {
+        window.AudioContext = vi.fn(() => { throw new Error('blocked by autoplay policy') })
+
+        expect(() => playClickSound()).not.toThrow()
+    })
+
+    it('播放途中拋錯也不會往外拋', () => {
+        const { Ctor, ctx } = makeFakeAudioContext()
+        ctx.createOscillator = vi.fn(() => { throw new Error('boom') })
+        window.AudioContext = Ctor
+
+        expect(() => playClickSound()).not.toThrow()
+    })
+
+    it('composable 形式回傳同一個播放函式', () => {
+        expect(useClickSound().playClickSound).toBe(playClickSound)
+    })
+})
