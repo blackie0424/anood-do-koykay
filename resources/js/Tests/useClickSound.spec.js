@@ -56,17 +56,37 @@ describe('useClickSound', () => {
         expect(Ctor).toHaveBeenCalledTimes(1)
     })
 
-    it('context 被暫停時（例如切回前景）會先喚醒', () => {
+    // iOS 的 AudioContext 剛建立時是 suspended，resume() 是非同步的。
+    // 不等它完成就排程音效，第一次點擊會沒聲音（context 還沒真正啟動）。
+    it('context 被暫停時會先等 resume 完成，才開始播放', async () => {
         const { Ctor, ctx } = makeFakeAudioContext()
         ctx.state = 'suspended'
+        let resolveResume
+        ctx.resume = vi.fn(() => new Promise((resolve) => { resolveResume = resolve }))
         window.AudioContext = Ctor
 
-        playClickSound()
+        const pending = playClickSound()
 
+        // resume 尚未完成前不該開始排程音效
         expect(ctx.resume).toHaveBeenCalled()
+        expect(ctx.createOscillator).not.toHaveBeenCalled()
+
+        resolveResume()
+        await pending
+
+        expect(ctx.createOscillator).toHaveBeenCalled()
     })
 
-    it('context 正常運作時不需要多餘的 resume', () => {
+    it('resume 失敗時靜默，不往外拋錯', async () => {
+        const { Ctor, ctx } = makeFakeAudioContext()
+        ctx.state = 'suspended'
+        ctx.resume = vi.fn(() => Promise.reject(new Error('not allowed')))
+        window.AudioContext = Ctor
+
+        await expect(playClickSound()).resolves.toBeUndefined()
+    })
+
+    it('context 正常運作時不需要多餘的 resume，且維持同步播放', () => {
         const { Ctor, ctx } = makeFakeAudioContext()
         window.AudioContext = Ctor
 

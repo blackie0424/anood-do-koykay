@@ -24,13 +24,16 @@ function getContext() {
     return sharedContext
 }
 
-export function playClickSound() {
+export async function playClickSound() {
     try {
         const ctx = getContext()
         if (!ctx) return
 
-        // 切回前景時 context 可能還是 suspended，先喚醒
-        if (ctx.state === 'suspended') ctx.resume?.()
+        // iOS 規定 AudioContext 必須在使用者手勢中建立，而剛建立時狀態是
+        // suspended，要 resume() 才會真正啟動。resume() 是非同步的——不等它
+        // 完成就排程音效，第一次點擊會沒聲音（context 尚未啟動，currentTime
+        // 還沒開始前進）。切回前景時 context 也可能被暫停，同樣要等。
+        if (ctx.state === 'suspended') await ctx.resume?.()
 
         const oscillator = ctx.createOscillator()
         const gain = ctx.createGain()
