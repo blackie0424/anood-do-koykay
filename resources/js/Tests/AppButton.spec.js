@@ -15,6 +15,8 @@ function stubAudio() {
     const ctx = {
         state: 'running', currentTime: 0, destination: {}, resume: vi.fn(),
         createOscillator: vi.fn(() => oscillator), createGain: vi.fn(() => gain),
+        createBuffer: vi.fn(() => ({})),
+        createBufferSource: vi.fn(() => ({ buffer: null, connect: vi.fn(), start: vi.fn() })),
     }
     window.AudioContext = vi.fn(() => ctx)
     return ctx

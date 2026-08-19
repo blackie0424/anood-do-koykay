@@ -24,27 +24,53 @@ function getContext() {
     return sharedContext
 }
 
-// 在使用者的第一個手勢中先把 AudioContext 解鎖，之後的點擊就不必等
-// resume（省掉那幾毫秒的延遲）。目前由 ConsentModal 的同意/不同意呼叫。
+// iOS 不接受「只呼叫 resume()」當作解鎖——實測（chung 回報）：按了同意、
+// 按了聆聽都沒有聲音，直到某首歌真正播放過之後，所有按鈕才突然開始有聲音。
+// 那是 <audio> 播放把音訊輸出解鎖了，不是我們解的。
+//
+// iOS 的要求是「在使用者手勢中真的播放一個音訊節點」，公認做法是播一個
+// 一個取樣點的無聲緩衝。這裡改用這個方式，並在第一次點擊任何按鈕時就做，
+// 不能只靠同意畫面——同意狀態存在 sessionStorage，重新整理或從 LINE 再次
+// 進入時那個畫面根本不會出現。
+let unlocked = false
+
+function unlockAudio(ctx) {
+    // 自己包 try：解鎖失敗（環境不支援 createBuffer 等）不該連帶讓 beep 也
+    // 播不出來——在不需要解鎖的平台上（桌機）beep 本來就能正常播放
+    try {
+        ctx.resume?.()
+
+        const buffer = ctx.createBuffer(1, 1, 22050)
+        const source = ctx.createBufferSource()
+        source.buffer = buffer
+        source.connect(ctx.destination)
+        source.start(0)
+    } catch {
+        // 靜默，仍標記為已嘗試，避免每次點擊都重試
+    }
+    unlocked = true
+}
+
+// 可在已知的第一個手勢（同意條款）提前解鎖，讓那一次點擊就有聲音
 export function warmUpClickSound() {
     try {
         const ctx = getContext()
-        if (ctx && ctx.state === 'suspended') ctx.resume?.()
+        if (ctx && !unlocked) unlockAudio(ctx)
     } catch {
-        // 解鎖失敗不影響後續播放——playClickSound 仍會自己等 resume
+        // 解鎖失敗不影響按鈕功能；下次點擊會再試一次
     }
 }
 
-export async function playClickSound() {
+// 維持同步：先前改成 async 並 await resume() 是錯的修法——在尚未解鎖的
+// 狀態下那個 Promise 可能遲遲不 resolve，導致 beep 永遠沒被排程，正是
+// 「一路沒聲音、直到歌曲播放過才全部正常」的原因。
+export function playClickSound() {
     try {
         const ctx = getContext()
         if (!ctx) return
 
-        // iOS 規定 AudioContext 必須在使用者手勢中建立，而剛建立時狀態是
-        // suspended，要 resume() 才會真正啟動。resume() 是非同步的——不等它
-        // 完成就排程音效，第一次點擊會沒聲音（context 尚未啟動，currentTime
-        // 還沒開始前進）。切回前景時 context 也可能被暫停，同樣要等。
-        if (ctx.state === 'suspended') await ctx.resume?.()
+        // 這裡一定在使用者手勢中（由按鈕點擊觸發），是合法的解鎖時機
+        if (!unlocked) unlockAudio(ctx)
 
         const oscillator = ctx.createOscillator()
         const gain = ctx.createGain()
@@ -67,6 +93,7 @@ export async function playClickSound() {
 // 測試用：清掉共用實例，讓每個測試從乾淨狀態開始
 export function resetClickSoundForTesting() {
     sharedContext = null
+    unlocked = false
 }
 
 export function useClickSound() {

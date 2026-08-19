@@ -3,6 +3,7 @@ import { playClickSound, warmUpClickSound, resetClickSoundForTesting, useClickSo
 
 function makeFakeAudioContext() {
     const oscillator = { frequency: {}, connect: vi.fn(), start: vi.fn(), stop: vi.fn() }
+    const bufferSource = { buffer: null, connect: vi.fn(), start: vi.fn() }
     const gain = {
         gain: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
         connect: vi.fn(),
@@ -14,9 +15,11 @@ function makeFakeAudioContext() {
         resume: vi.fn(),
         createOscillator: vi.fn(() => oscillator),
         createGain: vi.fn(() => gain),
+        createBuffer: vi.fn(() => ({})),
+        createBufferSource: vi.fn(() => bufferSource),
     }
     const Ctor = vi.fn(() => ctx)
-    return { Ctor, ctx, oscillator, gain }
+    return { Ctor, ctx, oscillator, gain, bufferSource }
 }
 
 describe('useClickSound', () => {
@@ -56,41 +59,60 @@ describe('useClickSound', () => {
         expect(Ctor).toHaveBeenCalledTimes(1)
     })
 
-    // iOS 的 AudioContext 剛建立時是 suspended，resume() 是非同步的。
-    // 不等它完成就排程音效，第一次點擊會沒聲音（context 還沒真正啟動）。
-    it('context 被暫停時會先等 resume 完成，才開始播放', async () => {
-        const { Ctor, ctx } = makeFakeAudioContext()
-        ctx.state = 'suspended'
-        let resolveResume
-        ctx.resume = vi.fn(() => new Promise((resolve) => { resolveResume = resolve }))
+    // chung 實測：按同意、按聆聽都沒聲音，直到某首歌真正播放過之後所有
+    // 按鈕才突然有聲音——代表 resume() 並沒有真的解鎖 iOS 的音訊輸出。
+    // iOS 要求在手勢中「真的播放一個音訊節點」，這裡驗證有做這件事。
+    it('第一次播放時會用無聲緩衝解鎖音訊（只 resume 不足以解鎖 iOS）', () => {
+        const { Ctor, ctx, bufferSource } = makeFakeAudioContext()
         window.AudioContext = Ctor
 
-        const pending = playClickSound()
+        playClickSound()
 
-        // resume 尚未完成前不該開始排程音效
-        expect(ctx.resume).toHaveBeenCalled()
-        expect(ctx.createOscillator).not.toHaveBeenCalled()
-
-        resolveResume()
-        await pending
-
-        expect(ctx.createOscillator).toHaveBeenCalled()
+        expect(ctx.createBuffer).toHaveBeenCalled()
+        expect(bufferSource.connect).toHaveBeenCalledWith(ctx.destination)
+        expect(bufferSource.start).toHaveBeenCalled()
     })
 
-    it('resume 失敗時靜默，不往外拋錯', async () => {
-        const { Ctor, ctx } = makeFakeAudioContext()
-        ctx.state = 'suspended'
-        ctx.resume = vi.fn(() => Promise.reject(new Error('not allowed')))
+    // 桌機不需要解鎖，beep 本來就能播；解鎖失敗不該把 beep 一起拖下水
+    it('解鎖失敗時仍然照常播放提示音', () => {
+        const { Ctor, ctx, oscillator } = makeFakeAudioContext()
+        ctx.createBuffer = vi.fn(() => { throw new Error('unsupported') })
         window.AudioContext = Ctor
 
-        await expect(playClickSound()).resolves.toBeUndefined()
+        playClickSound()
+
+        expect(oscillator.start).toHaveBeenCalled()
     })
 
-    it('context 正常運作時不需要多餘的 resume，且維持同步播放', () => {
+    it('解鎖只做一次，之後的點擊不重複', () => {
         const { Ctor, ctx } = makeFakeAudioContext()
         window.AudioContext = Ctor
 
         playClickSound()
+        playClickSound()
+        playClickSound()
+
+        expect(ctx.createBuffer).toHaveBeenCalledTimes(1)
+    })
+
+    // 先前改成 async 並 await resume() 是錯的：未解鎖時該 Promise 可能遲遲
+    // 不 resolve，beep 永遠不會被排程
+    it('維持同步：呼叫後音效已排程，不需要等待任何 Promise', () => {
+        const { Ctor, oscillator } = makeFakeAudioContext()
+        window.AudioContext = Ctor
+
+        playClickSound()
+
+        expect(oscillator.start).toHaveBeenCalled()
+    })
+
+    it('解鎖完成後，後續播放不再呼叫 resume', () => {
+        const { Ctor, ctx } = makeFakeAudioContext()
+        window.AudioContext = Ctor
+
+        playClickSound()  // 這次解鎖
+        ctx.resume.mockClear()
+        playClickSound()  // 之後不該再解鎖
 
         expect(ctx.resume).not.toHaveBeenCalled()
     })
@@ -136,16 +158,28 @@ describe('warmUpClickSound — 在第一個手勢中先解鎖音效', () => {
         expect(ctx.resume).toHaveBeenCalled()
     })
 
-    it('context 已在執行時不重複 resume', () => {
+    it('已經解鎖過就不重複解鎖', () => {
         const { Ctor, ctx } = makeFakeAudioContext()
         window.AudioContext = Ctor
 
         warmUpClickSound()
+        warmUpClickSound()
 
-        expect(ctx.resume).not.toHaveBeenCalled()
+        expect(ctx.createBuffer).toHaveBeenCalledTimes(1)
     })
 
-    it('解鎖時不播放任何聲音（只是啟動音訊系統）', () => {
+    // 解鎖必須在使用者手勢中完成；同意畫面不一定出現（sessionStorage 已有
+    // 紀錄時不顯示），所以第一次點擊任何按鈕也要能解鎖
+    it('沒有經過 warm-up 時，第一次點擊自己會解鎖', () => {
+        const { Ctor, ctx } = makeFakeAudioContext()
+        window.AudioContext = Ctor
+
+        playClickSound()
+
+        expect(ctx.createBuffer).toHaveBeenCalled()
+    })
+
+    it('解鎖不會發出提示音（只播無聲緩衝啟動音訊系統）', () => {
         const { Ctor, ctx } = makeFakeAudioContext()
         ctx.state = 'suspended'
         window.AudioContext = Ctor
