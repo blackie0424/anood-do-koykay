@@ -24,6 +24,17 @@ function getContext() {
     return sharedContext
 }
 
+// 在使用者的第一個手勢中先把 AudioContext 解鎖，之後的點擊就不必等
+// resume（省掉那幾毫秒的延遲）。目前由 ConsentModal 的同意/不同意呼叫。
+export function warmUpClickSound() {
+    try {
+        const ctx = getContext()
+        if (ctx && ctx.state === 'suspended') ctx.resume?.()
+    } catch {
+        // 解鎖失敗不影響後續播放——playClickSound 仍會自己等 resume
+    }
+}
+
 export async function playClickSound() {
     try {
         const ctx = getContext()
@@ -59,5 +70,5 @@ export function resetClickSoundForTesting() {
 }
 
 export function useClickSound() {
-    return { playClickSound }
+    return { playClickSound, warmUpClickSound }
 }

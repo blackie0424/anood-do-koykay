@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import AppButton from '@/Components/AppButton.vue'
+import { warmUpClickSound } from '@/composables/useClickSound'
 
 const SESSION_KEY = 'consent_accepted'
 
@@ -13,11 +14,14 @@ onMounted(() => {
 })
 
 function accept() {
+    // 這是使用者在本站的第一個手勢，趁機解鎖音效（iOS 要求在手勢中啟動）
+    warmUpClickSound()
     sessionStorage.setItem(SESSION_KEY, '1')
     visible.value = false
 }
 
 function decline() {
+    warmUpClickSound()
     window.close()
     // 若無法關閉（非 JS 開啟的視窗），顯示提示
     setTimeout(() => {

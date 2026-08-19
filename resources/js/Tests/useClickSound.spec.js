@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { playClickSound, resetClickSoundForTesting, useClickSound } from '../composables/useClickSound'
+import { playClickSound, warmUpClickSound, resetClickSoundForTesting, useClickSound } from '../composables/useClickSound'
 
 function makeFakeAudioContext() {
     const oscillator = { frequency: {}, connect: vi.fn(), start: vi.fn(), stop: vi.fn() }
@@ -118,5 +118,72 @@ describe('useClickSound', () => {
 
     it('composable 形式回傳同一個播放函式', () => {
         expect(useClickSound().playClickSound).toBe(playClickSound)
+    })
+})
+
+describe('warmUpClickSound — 在第一個手勢中先解鎖音效', () => {
+    let original
+    beforeEach(() => { original = window.AudioContext; resetClickSoundForTesting() })
+    afterEach(() => { window.AudioContext = original; resetClickSoundForTesting() })
+
+    it('context 為 suspended 時呼叫 resume 解鎖', () => {
+        const { Ctor, ctx } = makeFakeAudioContext()
+        ctx.state = 'suspended'
+        window.AudioContext = Ctor
+
+        warmUpClickSound()
+
+        expect(ctx.resume).toHaveBeenCalled()
+    })
+
+    it('context 已在執行時不重複 resume', () => {
+        const { Ctor, ctx } = makeFakeAudioContext()
+        window.AudioContext = Ctor
+
+        warmUpClickSound()
+
+        expect(ctx.resume).not.toHaveBeenCalled()
+    })
+
+    it('解鎖時不播放任何聲音（只是啟動音訊系統）', () => {
+        const { Ctor, ctx } = makeFakeAudioContext()
+        ctx.state = 'suspended'
+        window.AudioContext = Ctor
+
+        warmUpClickSound()
+
+        expect(ctx.createOscillator).not.toHaveBeenCalled()
+    })
+
+    it('與後續播放共用同一個 context（不會多建一個）', () => {
+        const { Ctor, ctx } = makeFakeAudioContext()
+        ctx.state = 'suspended'
+        window.AudioContext = Ctor
+
+        warmUpClickSound()
+        ctx.state = 'running'
+        playClickSound()
+
+        expect(Ctor).toHaveBeenCalledTimes(1)
+    })
+
+    it('不支援 Web Audio 時靜默失敗', () => {
+        window.AudioContext = undefined
+        window.webkitAudioContext = undefined
+
+        expect(() => warmUpClickSound()).not.toThrow()
+    })
+
+    it('resume 拋錯時靜默失敗，不影響後續播放', () => {
+        const { Ctor, ctx } = makeFakeAudioContext()
+        ctx.state = 'suspended'
+        ctx.resume = vi.fn(() => { throw new Error('nope') })
+        window.AudioContext = Ctor
+
+        expect(() => warmUpClickSound()).not.toThrow()
+    })
+
+    it('composable 形式也提供 warmUpClickSound', () => {
+        expect(useClickSound().warmUpClickSound).toBe(warmUpClickSound)
     })
 })
