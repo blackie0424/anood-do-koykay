@@ -1,5 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import AppButton from '@/Components/AppButton.vue'
+import { warmUpClickSound } from '@/composables/useClickSound'
 
 const SESSION_KEY = 'consent_accepted'
 
@@ -12,11 +14,14 @@ onMounted(() => {
 })
 
 function accept() {
+    // 這是使用者在本站的第一個手勢，趁機解鎖音效（iOS 要求在手勢中啟動）
+    warmUpClickSound()
     sessionStorage.setItem(SESSION_KEY, '1')
     visible.value = false
 }
 
 function decline() {
+    warmUpClickSound()
     window.close()
     // 若無法關閉（非 JS 開啟的視窗），顯示提示
     setTimeout(() => {
@@ -74,20 +79,20 @@ function decline() {
                 </div>
 
                 <div class="flex flex-shrink-0 flex-col gap-3 pt-4 sm:flex-row-reverse">
-                    <button
+                    <AppButton
                         class="rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
                         data-testid="consent-accept"
                         @click="accept"
                     >
                         ✅ 我同意
-                    </button>
-                    <button
+                    </AppButton>
+                    <AppButton
                         class="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300"
                         data-testid="consent-decline"
                         @click="decline"
                     >
                         ❌ 不同意
-                    </button>
+                    </AppButton>
                 </div>
             </div>
         </div>

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import AppButton from '@/Components/AppButton.vue'
 import { useSongRecorder } from '@/recording/useSongRecorder.js'
 import BackLink from '@/Components/BackLink.vue'
 import PlayBar from '@/Components/PlayBar.vue'
@@ -77,14 +78,14 @@ function canListenReference(line) {
         <div v-if="!hintMismatchDismissed"
             class="flex-shrink-0 px-4 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm flex items-center gap-2">
             <span class="flex-1 text-center">未錄的段落播放時會用原唱補上，音色會和你的清唱不同，這是正常的。</span>
-            <button @click="dismissMismatch" aria-label="關閉提示：音色說明"
-                class="flex-shrink-0 text-amber-500 hover:text-amber-700 text-lg leading-none">✕</button>
+            <AppButton @click="dismissMismatch" aria-label="關閉提示：音色說明"
+                class="flex-shrink-0 text-amber-500 hover:text-amber-700 text-lg leading-none">✕</AppButton>
         </div>
         <div v-if="!hintLocalOnlyDismissed"
             class="flex-shrink-0 px-4 py-2 bg-sky-50 border-b border-sky-100 text-sky-800 text-sm flex items-center gap-2">
             <span class="flex-1 text-center">錄音存在你的手機裡，不會上傳或與他人分享。</span>
-            <button @click="dismissLocalOnly" aria-label="關閉提示：本地儲存"
-                class="flex-shrink-0 text-sky-500 hover:text-sky-700 text-lg leading-none">✕</button>
+            <AppButton @click="dismissLocalOnly" aria-label="關閉提示：本地儲存"
+                class="flex-shrink-0 text-sky-500 hover:text-sky-700 text-lg leading-none">✕</AppButton>
         </div>
 
         <div v-if="rec.error.value" role="alert"
@@ -111,35 +112,35 @@ function canListenReference(line) {
                         {{ line.text_native }}
                     </p>
                     <div class="flex items-center gap-2">
-                        <button
+                        <AppButton
                             :aria-label="`錄音段落 ${line.order}`"
                             @click="toggleRecord(line)"
                             :disabled="(isSomeRecording && !rec.isRecording(line.id)) || rec.isPlayingAll.value"
-                            :class="['flex-1 rounded-full py-2.5 text-white font-medium active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed',
+                            :class="['flex-1 rounded-full py-2.5 text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed',
                                 rec.isRecording(line.id) ? 'bg-red-600'
                                     : rec.hasRecording(line.id) ? 'bg-amber-600 hover:bg-amber-500'
                                     : 'bg-blue-600 hover:bg-blue-700']">
                             <template v-if="rec.isRecording(line.id)">● 錄音中⋯點擊停止</template>
                             <template v-else-if="rec.hasRecording(line.id)">🔴 重新錄音</template>
                             <template v-else>● 開始錄音</template>
-                        </button>
-                        <button v-if="rec.hasRecording(line.id) && !rec.isRecording(line.id)"
+                        </AppButton>
+                        <AppButton v-if="rec.hasRecording(line.id) && !rec.isRecording(line.id)"
                             :aria-label="rec.previewLineId.value === line.id ? `暫停段落 ${line.order}` : `播放段落 ${line.order}`"
                             @click="rec.playSegment(line.id)"
                             :disabled="isSomeRecording || rec.isPlayingAll.value"
-                            class="flex-shrink-0 rounded-full px-4 py-2.5 bg-stone-200 text-stone-700 font-medium hover:bg-stone-300 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed">
+                            class="flex-shrink-0 rounded-full px-4 py-2.5 bg-stone-200 text-stone-700 font-medium hover:bg-stone-300 disabled:opacity-40 disabled:cursor-not-allowed">
                             <template v-if="rec.previewLineId.value === line.id">⏸ 暫停</template>
                             <template v-else>▶ 播放</template>
-                        </button>
+                        </AppButton>
                     </div>
-                    <button v-if="canListenReference(line)"
+                    <AppButton v-if="canListenReference(line)"
                         :aria-label="rec.referencePreviewLineId.value === line.id ? `暫停原音段落 ${line.order}` : `聆聽原音段落 ${line.order}`"
                         @click="rec.playReference(line)"
                         :disabled="isSomeRecording || rec.isPlayingAll.value"
-                        class="mt-2 w-full rounded-full py-2 bg-indigo-100 text-indigo-700 font-medium hover:bg-indigo-200 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed">
+                        class="mt-2 w-full rounded-full py-2 bg-indigo-100 text-indigo-700 font-medium hover:bg-indigo-200 disabled:opacity-40 disabled:cursor-not-allowed">
                         <template v-if="rec.referencePreviewLineId.value === line.id">⏸ 暫停</template>
                         <template v-else>🎵 聆聽原音</template>
-                    </button>
+                    </AppButton>
                 </div>
             </div>
         </div>

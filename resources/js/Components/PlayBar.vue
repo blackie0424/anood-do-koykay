@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
+import AppButton from '@/Components/AppButton.vue'
 
 // 底部播放列：圓形 icon 按鈕，SongPlayer 與 RecordingMode 共用。
 const props = defineProps({
@@ -17,29 +18,10 @@ watch(() => props.playing, () => { loading.value = false })
 const icon = computed(() => (props.stopMode ? '⏹' : props.playing ? '⏸' : '▶'))
 const ariaLabel = computed(() => (props.stopMode ? '停止播放' : props.playing ? '暫停' : '播放'))
 
-// 點擊音效：短促 beep（800Hz、80ms、快速淡出）；不支援 Web Audio 時靜默失敗
-function playBeep() {
-    try {
-        const AC = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)
-        if (!AC) return
-        const ctx = new AC()
-        const osc = ctx.createOscillator()
-        const gain = ctx.createGain()
-        osc.frequency.value = 800
-        osc.connect(gain)
-        gain.connect(ctx.destination)
-        const now = ctx.currentTime
-        gain.gain.setValueAtTime(0.2, now)
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08)
-        osc.start(now)
-        osc.stop(now + 0.08)
-        osc.onended = () => { try { ctx.close() } catch { /* noop */ } }
-    } catch { /* 不支援時靜默 */ }
-}
-
+// 音效與按壓回饋由 AppButton 統一處理；這裡只管「這次點擊要不要生效」。
+// 處理中（loading）時不該再送出事件，也不該發聲——聽到聲音卻沒反應會誤導。
 function onClick() {
     if (props.disabled || loading.value) return
-    playBeep()
     loading.value = true
     if (props.stopMode) emit('stop')
     else emit('play')
@@ -54,14 +36,14 @@ function onClick() {
             <!-- leading：父層可在播放鈕左側放額外的操作（例如播放頁的頁碼／
                  歌詞捷徑）。PlayBar 不需要知道放的是什麼，維持單一職責。 -->
             <slot name="leading" />
-            <button @click="onClick" :disabled="disabled || loading" :aria-label="ariaLabel"
-                :class="['w-16 h-16 max-w-[96px] max-h-[96px] shrink-0 rounded-full text-2xl flex items-center justify-center transition-transform active:scale-95',
+            <AppButton @click="onClick" :disabled="disabled || loading" :aria-label="ariaLabel"
+                :class="['w-16 h-16 max-w-[96px] max-h-[96px] shrink-0 rounded-full text-2xl flex items-center justify-center',
                     disabled ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
                         : loading ? 'bg-stone-400 text-white cursor-wait'
                         : stopMode ? 'bg-stone-700 text-white hover:bg-stone-600'
                         : 'bg-blue-600 text-white hover:bg-blue-700']">
                 {{ icon }}
-            </button>
+            </AppButton>
             <p v-if="label" class="text-stone-600 font-medium text-lg">{{ label }}</p>
         </div>
     </div>

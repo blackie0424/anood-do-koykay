@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { Link } from '@inertiajs/vue3'
+import AppButton from '@/Components/AppButton.vue'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 import BackLink from '@/Components/BackLink.vue'
 import PlayBar from '@/Components/PlayBar.vue'
@@ -454,8 +454,8 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
                          錄唱、回報問題目前只有這一頁有入口，隱藏後放大字體的
                          使用者沒有其他路徑可到達。 -->
                     <div v-if="!isCompact" class="flex flex-wrap items-center justify-center gap-2 mt-2" data-testid="secondary-actions">
-                        <button @click="share"
-                            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-200 text-stone-700 text-sm hover:bg-stone-300 active:scale-95 transition-transform"
+                        <AppButton @click="share"
+                            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-200 text-stone-700 text-sm hover:bg-stone-300"
                             :aria-label="copied ? '已複製' : '分享'">
                             <template v-if="copied">✓ 已複製</template>
                             <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -465,12 +465,12 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
                                 <polyline points="16 6 12 2 8 6" />
                                 <line x1="12" y1="2" x2="12" y2="15" />
                             </svg>
-                        </button>
-                        <button v-if="canRecord" @click="openRecording"
-                            class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-600 text-white text-sm hover:bg-rose-500 active:scale-95 transition-transform"
+                        </AppButton>
+                        <AppButton v-if="canRecord" @click="openRecording"
+                            class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-600 text-white text-sm hover:bg-rose-500"
                             aria-label="接唱錄音">
                             🎤 錄唱
-                        </button>
+                        </AppButton>
                         <ReportModal :song-id="song.id" />
                     </div>
                 </div>
@@ -499,11 +499,11 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
 
         <!-- 回到當前行浮動按鈕（正常播放且用戶已手動滑動時顯示） -->
         <Transition name="fade">
-            <button v-if="userScrolled && isPlaying && !segmentMode"
+            <AppButton v-if="userScrolled && isPlaying && !segmentMode"
                 @click="returnToCurrentLine"
-                class="fixed bottom-28 right-4 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-medium shadow-lg hover:bg-blue-700 active:scale-95 transition-all">
+                class="fixed bottom-28 right-4 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-medium shadow-lg hover:bg-blue-700 transition-all">
                 ↩ 回到當前行
-            </button>
+            </AppButton>
         </Transition>
 
         <audio v-if="song.audio_full" ref="audio" :src="audioSrc"
@@ -519,15 +519,15 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
              真的放不下才換行。 -->
         <PlayBar :playing="isPlaying" :disabled="!song.audio_full || hasError" :label="segmentLabel" @play="togglePlay">
             <template #leading>
-                <Link :href="`/songs/${song.id}/reader`"
+                <AppButton as="link" :href="`/songs/${song.id}/reader`"
                     class="min-w-[56px] min-h-[56px] max-w-[80px] max-h-[80px] p-[8px] rounded-full shrink-0
                            flex flex-col items-center justify-center gap-0.5
-                           bg-stone-100 text-stone-600 hover:bg-stone-200 active:scale-95 transition-transform"
+                           bg-stone-100 text-stone-600 hover:bg-stone-200"
                     data-testid="reader-shortcut"
                     :aria-label="song.book_number ? `歌本第 ${song.book_number} 頁，開啟歌詞閱讀模式` : '開啟歌詞閱讀模式'">
                     <span class="leading-none text-[min(1.5rem,28px)]" aria-hidden="true">📖</span>
                     <span class="leading-none font-mono font-semibold text-[min(0.75rem,15px)]">{{ song.book_number || '歌詞' }}</span>
-                </Link>
+                </AppButton>
             </template>
         </PlayBar>
     </div>

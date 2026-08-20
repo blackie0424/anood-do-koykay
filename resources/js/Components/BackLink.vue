@@ -1,6 +1,7 @@
 <script setup>
 import { computed, useAttrs } from 'vue'
 import { router } from '@inertiajs/vue3'
+import AppButton from '@/Components/AppButton.vue'
 
 // 返回連結：智慧返回——有瀏覽歷史就 history.back()，否則 Inertia 導回首頁。
 // 若父層綁了 @click（例如關閉 overlay），則交給父層處理、不做 history 導覽。
@@ -27,7 +28,7 @@ function onClick(e) {
 </script>
 
 <template>
-    <button type="button" @click="onClick" :aria-label="label" :class="baseClass">
+    <AppButton @click="onClick" :aria-label="label" :class="baseClass">
         ← {{ label }}
-    </button>
+    </AppButton>
 </template>
