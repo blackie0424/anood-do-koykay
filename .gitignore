@@ -17,3 +17,7 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+
+# Agent 設定：角色分工、Bot ID、內部工作流程，不上傳到公開 repo
+CLAUDE.md
+.claude/
