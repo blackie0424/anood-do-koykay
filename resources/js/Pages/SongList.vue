@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import AppButton from '@/Components/AppButton.vue'
 import axios from 'axios'
+import { useShareSong } from '@/composables/useShareSong'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 
 const DEBOUNCE_MS = 300
@@ -19,6 +20,8 @@ const ICON_LABEL_CLASS = 'leading-none font-medium text-[min(0.875rem,18px)]'
 
 const props = defineProps({ songs: Object })
 
+const { copiedId, share } = useShareSong()
+
 const loadedSongs = ref([...props.songs.data])
 const currentPage = ref(props.songs.meta.current_page)
 const lastPage = ref(props.songs.meta.last_page)
@@ -27,7 +30,6 @@ const loadingMore = ref(false)
 const search = ref('')
 const searchResults = ref(null)
 const searching = ref(false)
-const copiedId = ref(null)
 
 const isSearchActive = computed(() => search.value.trim() !== '')
 const displayedSongs = computed(() => (isSearchActive.value ? searchResults.value ?? [] : loadedSongs.value))
@@ -83,20 +85,6 @@ onBeforeUnmount(() => {
     observer?.disconnect()
 })
 
-async function share(song) {
-    const url = `https://anood.pongsonotao.org/songs/${song.id}`
-    if (navigator.share) {
-        try {
-            await navigator.share({ title: song.title_native, url })
-        } catch (e) {
-            // 使用者取消分享不處理
-        }
-    } else {
-        await navigator.clipboard.writeText(url)
-        copiedId.value = song.id
-        setTimeout(() => { copiedId.value = null }, 2000)
-    }
-}
 </script>
 
 <template>
