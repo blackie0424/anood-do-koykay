@@ -1,5 +1,5 @@
-import { mount } from '@vue/test-utils'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { mount, flushPromises } from '@vue/test-utils'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import SongList from '../Pages/SongList.vue'
 
 const mockSongs = [
@@ -22,6 +22,11 @@ describe('SongList', () => {
             unobserve() {}
             disconnect() {}
         }
+    })
+
+    afterEach(() => {
+        Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
+        Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
     })
 
     it('renders song titles', () => {
@@ -195,6 +200,56 @@ describe('SongList', () => {
             const title = wrapper.findAll('p').find((el) => el.text() === 'Do Koykay')
 
             expect(title.classes()).toContain('break-words')
+        })
+    })
+    // 這一頁的分享原本少了 navigator.clipboard 的防護（播放頁有、清單頁沒有），
+    // 在沒有 clipboard API 的環境（LINE 舊版 WebView、非 HTTPS）點分享會丟例外。
+    // 該 bug 的回歸測試在 useShareSong.spec.js —— mount + trigger 會吞掉事件
+    // handler 的非同步例外，頁面層測不出那個差異。這裡測的是接線是否正確：
+    // 這一頁確實改用共用邏輯，且把對的歌曲傳進去。
+    describe('分享按鈕', () => {
+        function shareButton() {
+            const wrapper = mount(SongList, {
+                props: { songs: paginated(mockSongs) },
+                global: { stubs: { Link: { template: '<a><slot /></a>' } } },
+            })
+            return wrapper.findAll('[aria-label="分享"]')[0]
+        }
+
+        it('複製失敗時不顯示「已複製」的勾勾（不謊稱成功）', async () => {
+            Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
+            Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
+            const btn = shareButton()
+
+            await btn.trigger('click')
+            await flushPromises()
+
+            expect(btn.text()).not.toContain('✓')
+        })
+
+        it('複製成功時顯示「已複製」的勾勾', async () => {
+            Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
+            Object.defineProperty(navigator, 'clipboard', {
+                value: { writeText: vi.fn().mockResolvedValue(undefined) }, configurable: true,
+            })
+            const btn = shareButton()
+
+            await btn.trigger('click')
+            await flushPromises()
+
+            expect(btn.text()).toContain('✓')
+        })
+
+        it('有原生分享時帶入正式站網址，不受目前網域影響', async () => {
+            const share = vi.fn().mockResolvedValue(undefined)
+            Object.defineProperty(navigator, 'share', { value: share, configurable: true })
+
+            await shareButton().trigger('click')
+
+            expect(share).toHaveBeenCalledWith({
+                title: 'Do Koykay',
+                url: 'https://anood.pongsonotao.org/songs/1',
+            })
         })
     })
 })
