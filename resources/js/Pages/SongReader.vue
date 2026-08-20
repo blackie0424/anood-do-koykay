@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { Link } from '@inertiajs/vue3'
+import AppButton from '@/Components/AppButton.vue'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 import BackLink from '@/Components/BackLink.vue'
 
@@ -52,14 +52,14 @@ const currentLine = computed(() => lines.value[currentIdx.value]?.text_native ??
 
             <!-- 右上角字體調整 -->
             <div class="fixed top-3 right-3 z-10 flex items-center gap-1">
-                <button @click="setFontSize(Math.max(1.5, +(fontSize - 0.5).toFixed(1)))"
+                <AppButton @click="setFontSize(Math.max(1.5, +(fontSize - 0.5).toFixed(1)))"
                     class="w-9 h-9 rounded-full bg-stone-200 hover:bg-stone-300 text-stone-800 flex items-center justify-center text-sm font-bold transition-colors">
                     A-
-                </button>
-                <button @click="setFontSize(Math.min(6, +(fontSize + 0.5).toFixed(1)))"
+                </AppButton>
+                <AppButton @click="setFontSize(Math.min(6, +(fontSize + 0.5).toFixed(1)))"
                     class="w-9 h-9 rounded-full bg-stone-200 hover:bg-stone-300 text-stone-800 flex items-center justify-center text-sm font-bold transition-colors">
                     A+
-                </button>
+                </AppButton>
             </div>
 
             <!-- 頂部：返回 + 歌曲名稱 + 進度。
@@ -95,25 +95,25 @@ const currentLine = computed(() => lines.value[currentIdx.value]?.text_native ??
                     <!-- 上一段：只留箭頭（chung）。文字拿掉後改用 aria-label
                          提供名稱，螢幕閱讀器仍讀得到用途。箭頭字級放大並設
                          上限，避免跟著系統字體無限變大。 -->
-                    <button @click="prev" :disabled="currentIdx === 0"
+                    <AppButton @click="prev" :disabled="currentIdx === 0"
                         class="px-6 py-3 min-h-16 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 disabled:opacity-40 transition-colors shrink-0 flex items-center justify-center text-[min(1.5rem,30px)] leading-none"
                         aria-label="上一段">
                         ←
-                    </button>
+                    </AppButton>
 
                     <!-- 下一段 / 結束。結束保留文字：它是不同性質的動作，沒有
                          通用圖示，只留符號反而看不懂。 -->
                     <template v-if="isLast">
-                        <Link :href="`/songs/${song.id}`"
+                        <AppButton as="link" :href="`/songs/${song.id}`"
                             class="flex-1 min-h-16 py-3 rounded-xl bg-stone-700 hover:bg-stone-600 text-white flex items-center justify-center text-lg font-semibold transition-colors">
                             結束
-                        </Link>
+                        </AppButton>
                     </template>
-                    <button v-else @click="next"
+                    <AppButton v-else @click="next"
                         class="flex-1 min-h-16 py-3 rounded-xl bg-blue-700 text-white hover:bg-blue-800 flex items-center justify-center transition-colors text-[min(1.75rem,34px)] leading-none"
                         aria-label="下一段">
                         →
-                    </button>
+                    </AppButton>
                 </div>
             </div>
         </div>

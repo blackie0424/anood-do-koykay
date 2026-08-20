@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { Link } from '@inertiajs/vue3'
+import AppButton from '@/Components/AppButton.vue'
 import axios from 'axios'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 
@@ -13,7 +13,7 @@ const DEBOUNCE_MS = 300
 // 仍略有放大空間但不失控。
 const ICON_BUTTON_CLASS =
     'min-w-[64px] min-h-[64px] max-w-[88px] max-h-[88px] p-[10px] rounded-full ' +
-    'flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-transform'
+    'flex flex-col items-center justify-center gap-0.5'
 const ICON_GLYPH_CLASS = 'leading-none text-[min(1.75rem,34px)]'
 const ICON_LABEL_CLASS = 'leading-none font-medium text-[min(0.875rem,18px)]'
 
@@ -128,14 +128,14 @@ async function share(song) {
                     <div class="flex flex-wrap gap-3 items-center">
                         <!-- 頁碼可點擊，直接進入歌詞閱讀模式（與 📖 圖示語意
                              一致，也是播放頁「📖 歌詞」的同一個功能） -->
-                        <Link v-if="song.book_number" :href="`/songs/${song.id}/reader`"
+                        <AppButton as="link" v-if="song.book_number" :href="`/songs/${song.id}/reader`"
                             :class="[ICON_BUTTON_CLASS, 'bg-stone-100 text-stone-600 hover:bg-stone-200']"
                             data-testid="book-number" :aria-label="`歌本第 ${song.book_number} 頁，開啟歌詞閱讀模式`">
                             <span :class="ICON_GLYPH_CLASS" aria-hidden="true">📖</span>
                             <span :class="[ICON_LABEL_CLASS, 'font-mono font-semibold']">{{ song.book_number }}</span>
-                        </Link>
+                        </AppButton>
                         <div class="ml-auto flex flex-wrap gap-3 items-center">
-                        <button @click="share(song)"
+                        <AppButton @click="share(song)"
                             :class="[ICON_BUTTON_CLASS, 'bg-stone-200 hover:bg-stone-300 text-stone-700']"
                             :aria-label="copiedId === song.id ? '已複製' : '分享'">
                             <template v-if="copiedId === song.id"><span :class="ICON_GLYPH_CLASS">✓</span></template>
@@ -146,14 +146,14 @@ async function share(song) {
                                 <polyline points="16 6 12 2 8 6" />
                                 <line x1="12" y1="2" x2="12" y2="15" />
                             </svg>
-                        </button>
-                        <Link v-if="song.audio_full" :href="`/songs/${song.id}`"
+                        </AppButton>
+                        <AppButton as="link" v-if="song.audio_full" :href="`/songs/${song.id}`"
                             :class="[ICON_BUTTON_CLASS, 'bg-blue-600 text-white hover:bg-blue-700']"
                             aria-label="聆聽音樂">
                             <!-- 只留 ▶ 圖示（chung 實測後決定移除「聆聽」二字）。
                                  aria-label="聆聽音樂" 仍在，螢幕閱讀器讀得到用途。 -->
                             <span :class="ICON_GLYPH_CLASS" aria-hidden="true">▶</span>
-                        </Link>
+                        </AppButton>
                         </div>
                     </div>
                 </div>

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
+import AppButton from '@/Components/AppButton.vue'
 import axios from 'axios'
 
 const props = defineProps({ songId: Number })
@@ -71,13 +72,13 @@ async function submit() {
 </script>
 
 <template>
-    <button
+    <AppButton
         @click="open"
-        class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-stone-100 text-stone-500 text-sm hover:bg-stone-200 active:scale-95 transition-transform"
+        class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-stone-100 text-stone-500 text-sm hover:bg-stone-200"
         data-testid="report-btn"
     >
         ⚑ 回報問題
-    </button>
+    </AppButton>
 
     <Teleport to="body">
         <div
@@ -97,13 +98,13 @@ async function submit() {
                     <p class="text-3xl mb-3">🙏</p>
                     <p class="font-semibold text-stone-800 text-lg">感謝回報！</p>
                     <p class="text-stone-500 text-sm mt-1">我們會儘快處理</p>
-                    <button @click="close" class="mt-6 px-6 py-2 bg-stone-800 text-white rounded-lg text-sm">關閉</button>
+                    <AppButton @click="close" class="mt-6 px-6 py-2 bg-stone-800 text-white rounded-lg text-sm">關閉</AppButton>
                 </div>
 
                 <template v-else>
                     <div class="flex flex-shrink-0 items-center justify-between mb-4">
                         <h3 class="font-bold text-stone-800 text-lg">回報問題</h3>
-                        <button @click="close" class="text-stone-400 hover:text-stone-600 text-xl leading-none">✕</button>
+                        <AppButton @click="close" class="text-stone-400 hover:text-stone-600 text-xl leading-none">✕</AppButton>
                     </div>
 
                     <div class="min-h-0 flex-1 overflow-y-auto" data-testid="report-fields">
@@ -158,14 +159,14 @@ async function submit() {
                     <div class="flex-shrink-0 pt-4">
                         <p v-if="error" class="text-red-500 text-xs mb-3" data-testid="report-error">{{ error }}</p>
 
-                        <button
+                        <AppButton
                             @click="submit"
                             :disabled="submitting"
                             class="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
                             data-testid="report-submit"
                         >
                             {{ submitting ? '送出中…' : '送出回報' }}
-                        </button>
+                        </AppButton>
                     </div>
                 </template>
             </div>
