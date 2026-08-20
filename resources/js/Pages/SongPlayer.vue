@@ -7,6 +7,7 @@ import PlayBar from '@/Components/PlayBar.vue'
 import ReportModal from '@/Components/ReportModal.vue'
 import RecordingMode from '@/Components/RecordingMode.vue'
 import { useCompactLayout } from '@/composables/useCompactLayout'
+import { useShareSong } from '@/composables/useShareSong'
 
 // 畫面被放大（瀏覽器縮放或系統字體調大）時進入精簡模式
 const { isCompact } = useCompactLayout()
@@ -406,22 +407,7 @@ function startPlayFromOverlay() {
     }
 }
 
-const copied = ref(false)
-
-async function share() {
-    const url = `https://anood.pongsonotao.org/songs/${props.song.id}`
-    if (navigator.share) {
-        try {
-            await navigator.share({ title: props.song.title_native, url })
-        } catch (e) {
-            // 使用者取消分享不處理
-        }
-    } else {
-        if (navigator.clipboard) await navigator.clipboard.writeText(url)
-        copied.value = true
-        setTimeout(() => { copied.value = false }, 2000)
-    }
-}
+const { copiedId, share } = useShareSong()
 
 // 畫面診斷已移除（chung 驗收確認後）；保留這幾個內部狀態給測試用，不會渲染在畫面上
 defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
@@ -454,10 +440,10 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
                          錄唱、回報問題目前只有這一頁有入口，隱藏後放大字體的
                          使用者沒有其他路徑可到達。 -->
                     <div v-if="!isCompact" class="flex flex-wrap items-center justify-center gap-2 mt-2" data-testid="secondary-actions">
-                        <AppButton @click="share"
+                        <AppButton @click="share(song)"
                             class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-200 text-stone-700 text-sm hover:bg-stone-300"
-                            :aria-label="copied ? '已複製' : '分享'">
-                            <template v-if="copied">✓ 已複製</template>
+                            :aria-label="copiedId === song.id ? '已複製' : '分享'">
+                            <template v-if="copiedId === song.id">✓ 已複製</template>
                             <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                                 class="w-5 h-5">
