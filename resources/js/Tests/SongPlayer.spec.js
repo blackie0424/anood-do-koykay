@@ -124,7 +124,8 @@ describe('SongPlayer — 畫面放大時隱藏次要功能，只留核心', () =
 
   afterEach(() => setViewportHeight(768))
 
-  const SECONDARY = ['[aria-label="接唱錄音"]', '[aria-label="分享"]']
+  // 錄唱鈕已移到播放列（見下方「錄唱鈕位置」），不再屬於會被隱藏的次要功能
+  const SECONDARY = ['[aria-label="分享"]']
 
   it('一般畫面高度時次要功能全部可見', () => {
     setViewportHeight(768)
@@ -171,6 +172,18 @@ describe('SongPlayer — 畫面放大時隱藏次要功能，只留核心', () =
     await wrapper.vm.$nextTick()
 
     expect(wrapper.findComponent(BackLink).exists()).toBe(true)
+  })
+
+  // 這是本次搬移順帶修掉的無障礙缺陷：錄唱鈕原本在 secondary-actions 裡，
+  // 而整區在字體放大時會被隱藏——等於把字體調到 200% 的長輩根本看不到
+  // 錄音功能。搬到播放列後它跟播放鈕一樣永遠都在。
+  it('畫面放大時錄唱鈕仍然可見（原本會跟著次要功能一起消失）', async () => {
+    setViewportHeight(384)
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="secondary-actions"]').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="接唱錄音"]').exists()).toBe(true)
   })
 
   it('視窗變回一般高度時次要功能會重新出現', async () => {
@@ -441,6 +454,94 @@ describe('SongPlayer — 基本渲染', () => {
     const wrapper = mount(SongPlayer, { props: { song: { ...BASE_SONG, audio_full: null, lines: [] } } })
     const btn = wrapper.find('button[aria-label="播放"], button[aria-label="暫停"]')
     expect(btn.attributes('disabled')).toBeDefined()
+  })
+})
+
+describe('SongPlayer — 錄唱鈕位置', () => {
+  // chung 指示：錄唱從上方次要動作列移到底部播放列、與頁碼鈕並列，
+  // 上方只留分享與回報問題。
+  // 順序為 錄音 → 歌詞 → 播放（chung 定）：把最少用、誤觸代價最高的錄音
+  // 放最左，最常用的播放放最右，中間用歌詞隔開，長輩比較不容易按錯。
+  it('錄唱鈕在播放列裡，不在上方次要動作列', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const record = wrapper.find('[aria-label="接唱錄音"]')
+    const secondary = wrapper.find('[data-testid="secondary-actions"]')
+
+    expect(record.exists()).toBe(true)
+    expect(secondary.exists()).toBe(true)
+    expect(secondary.element.contains(record.element)).toBe(false)
+    expect(wrapper.findComponent(PlayBar).element.contains(record.element)).toBe(true)
+  })
+
+  it('上方次要動作列只剩分享與回報問題', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const secondary = wrapper.find('[data-testid="secondary-actions"]')
+
+    expect(secondary.find('[aria-label="分享"]').exists()).toBe(true)
+    expect(secondary.find('[data-testid="report-btn"]').exists()).toBe(true)
+    expect(secondary.find('[aria-label="接唱錄音"]').exists()).toBe(false)
+  })
+
+  it('播放列順序：錄音 → 歌詞 → 播放', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const bar = wrapper.findComponent(PlayBar)
+    const all = [...bar.element.querySelectorAll('a,button')]
+
+    const record = all.indexOf(wrapper.find('[aria-label="接唱錄音"]').element)
+    const reader = all.indexOf(wrapper.find('[data-testid="reader-shortcut"]').element)
+    const play = all.indexOf(bar.find('[aria-label="播放"]').element)
+
+    expect(record).toBeLessThan(reader)
+    expect(reader).toBeLessThan(play)
+  })
+
+  // 誤觸防護的重點不只是順序，而是「錄音不能貼著播放」：按錯分享或歌詞
+  // 都只是換個畫面，按錯錄音會跳出麥克風權限詢問，長輩不知道怎麼退出。
+  it('錄音鈕與播放鈕之間隔著歌詞鈕，不會相鄰', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const bar = wrapper.findComponent(PlayBar)
+    const all = [...bar.element.querySelectorAll('a,button')]
+
+    const record = all.indexOf(wrapper.find('[aria-label="接唱錄音"]').element)
+    const play = all.indexOf(bar.find('[aria-label="播放"]').element)
+
+    expect(play - record).toBeGreaterThan(1)
+  })
+
+  // chung 實機後決定拿掉文字，只留麥克風圖示（aria-label 保留給輔助科技）
+  it('錄唱鈕只有圖示、不顯示「錄唱」二字', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const record = wrapper.find('[aria-label="接唱錄音"]')
+
+    expect(record.text()).not.toContain('錄唱')
+    expect(record.text()).toContain('🎤')
+    expect(record.attributes('aria-label')).toBe('接唱錄音')
+  })
+
+  // chung 收到長輩回饋：紅底會讓人聯想到「危險／停止」，錄音入口不該用紅色。
+  // 改成與歌詞鈕相同的中性底色。
+  it('錄唱鈕用與歌詞鈕相同的中性底色，不用紅色', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const record = wrapper.find('[aria-label="接唱錄音"]')
+    const reader = wrapper.find('[data-testid="reader-shortcut"]')
+
+    for (const c of ['bg-stone-100', 'text-stone-600', 'hover:bg-stone-200']) {
+      expect(reader.classes()).toContain(c)
+      expect(record.classes()).toContain(c)
+    }
+    for (const bad of record.classes()) {
+      expect(bad).not.toMatch(/rose|red/)
+    }
+  })
+
+  it('錄唱鈕尺寸比照頁碼鈕，不跟著系統字體無限放大', () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const classes = wrapper.find('[aria-label="接唱錄音"]').classes()
+
+    expect(classes).toContain('min-w-[56px]')
+    expect(classes).toContain('min-h-[56px]')
+    expect(classes).toContain('max-w-[80px]')
+    expect(classes).toContain('max-h-[80px]')
   })
 })
 
