@@ -116,13 +116,16 @@ describe('SongList', () => {
             }
         })
 
-        it('聆聽鈕只顯示 ▶ 圖示，不顯示「聆聽」文字（但仍保有無障礙名稱）', () => {
+        // 圖示曾改成 🎵＋「歌曲」、再改成線條 SVG 耳機，chung 拿給長輩實測後
+        // 兩個都被認為不妥，因此還原為 ▶。理論上 ▶ 暗示「立刻播放」而這顆其實
+        // 是導到歌曲頁，但長輩的實際反應優先於這個疑慮。chung 表示之後會再多問
+        // 幾位長輩確認。
+        it('聆聽鈕只顯示 ▶ 圖示，不顯示文字（但仍保有無障礙名稱）', () => {
             const wrapper = cardWithBookNumber()
             const listen = wrapper.find('a[aria-label="聆聽音樂"]')
 
             expect(listen.text()).toContain('▶')
             expect(listen.text()).not.toContain('聆聽')
-            // 視覺上拿掉文字，但螢幕閱讀器仍讀得到用途
             expect(listen.attributes('aria-label')).toBe('聆聽音樂')
         })
 
@@ -149,35 +152,40 @@ describe('SongList', () => {
             expect(bookNumber.find('[aria-hidden="true"]').text()).toBe('📖')
         })
 
-        it('書號與分享、聆聽在同一列（不另外多佔一行）', () => {
+        // chung 實機回報：字體放大時變成「上面一顆、下面兩顆」。原因是分享與
+        // 聆聽被包在一個 ml-auto 的子 div 裡，對外層 flex 來說那整組是「一個」
+        // 項目，換行時只能整組一起掉到第二列。
+        // 改成三顆都是同一層的兄弟節點，換行才會逐顆發生：先兩顆併排，真的
+        // 放不下才一顆一列（chung 指定的行為）。
+        it('三顆按鈕是同一列的兄弟節點，沒有巢狀群組', () => {
             const wrapper = cardWithBookNumber()
             const bookNumber = wrapper.find('[data-testid="book-number"]')
+            const share = wrapper.find('button[aria-label="分享"]')
             const listen = wrapper.find('a[aria-label="聆聽音樂"]')
-
-            expect(bookNumber.exists()).toBe(true)
-            // 兩者同屬按鈕列這個容器（書號直屬、按鈕在其右側群組內）
             const row = bookNumber.element.parentElement
-            expect(row.contains(listen.element)).toBe(true)
+
+            expect(share.element.parentElement).toBe(row)
+            expect(listen.element.parentElement).toBe(row)
         })
 
-        it('書號靠最左、按鈕群組靠右（用 ml-auto 推開）', () => {
+        it('按鈕列會換行，且不再有 ml-auto 子群組把兩顆綁在一起', () => {
             const wrapper = cardWithBookNumber()
-            const bookNumber = wrapper.find('[data-testid="book-number"]')
-            const row = bookNumber.element.parentElement
+            const row = wrapper.find('[data-testid="book-number"]').element.parentElement
 
-            // 書號是列中第一個元素
-            expect(row.firstElementChild).toBe(bookNumber.element)
-            // 按鈕群組用 ml-auto 靠右
-            const buttonGroup = wrapper.find('a[aria-label="聆聽音樂"]').element.parentElement
-            expect(buttonGroup.className).toContain('ml-auto')
+            expect(row.className).toContain('flex-wrap')
+            for (const child of row.children) {
+                expect(child.className).not.toContain('ml-auto')
+            }
         })
 
-        it('沒有書號時按鈕群組仍靠右', () => {
-            const wrapper = card() // mockSongs 沒有 book_number
-            const buttonGroup = wrapper.find('a[aria-label="聆聽音樂"]').element.parentElement
+        it('順序為 頁碼 → 分享 → 聆聽', () => {
+            const wrapper = cardWithBookNumber()
+            const row = wrapper.find('[data-testid="book-number"]').element.parentElement
+            const children = [...row.children]
 
-            expect(wrapper.find('[data-testid="book-number"]').exists()).toBe(false)
-            expect(buttonGroup.className).toContain('ml-auto')
+            expect(children.indexOf(wrapper.find('[data-testid="book-number"]').element)).toBe(0)
+            expect(children.indexOf(wrapper.find('button[aria-label="分享"]').element)).toBe(1)
+            expect(children.indexOf(wrapper.find('a[aria-label="聆聽音樂"]').element)).toBe(2)
         })
 
         it('卡片內距用固定像素，不會隨字體放大而吃掉歌名寬度', () => {

@@ -436,9 +436,9 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
                     <p v-if="song.title_zh" class="text-stone-500 mt-1 text-xl">{{ song.title_zh }}</p>
                     <!-- 畫面被放大時（瀏覽器縮放或系統字體調大）隱藏次要功能，
                          讓高齡使用者專注在核心的「聽聲音＋看歌詞對應」。
-                         chung 實測後決定採隱藏策略。已知取捨：歌詞閱讀模式、
-                         錄唱、回報問題目前只有這一頁有入口，隱藏後放大字體的
-                         使用者沒有其他路徑可到達。 -->
+                         chung 實測後決定採隱藏策略。
+                         歌詞閱讀模式與錄唱已陸續移到播放列，放大字體時仍看得到；
+                         這裡剩下的分享與回報問題被隱藏後沒有其他入口，是已知取捨。 -->
                     <div v-if="!isCompact" class="flex flex-wrap items-center justify-center gap-2 mt-2" data-testid="secondary-actions">
                         <AppButton @click="share(song)"
                             class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-200 text-stone-700 text-sm hover:bg-stone-300"
@@ -451,11 +451,6 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
                                 <polyline points="16 6 12 2 8 6" />
                                 <line x1="12" y1="2" x2="12" y2="15" />
                             </svg>
-                        </AppButton>
-                        <AppButton v-if="canRecord" @click="openRecording"
-                            class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-600 text-white text-sm hover:bg-rose-500"
-                            aria-label="接唱錄音">
-                            🎤 錄唱
                         </AppButton>
                         <ReportModal :song-id="song.id" />
                     </div>
@@ -504,7 +499,22 @@ defineExpose({ currentTime, usingVirtualTime, audioReadyState, isBuffering })
              版面用 PlayBar 既有的 flex-wrap 橫排，放大時自然與播放鈕並排，
              真的放不下才換行。 -->
         <PlayBar :playing="isPlaying" :disabled="!song.audio_full || hasError" :label="segmentLabel" @play="togglePlay">
+            <!-- 順序為 錄音 → 歌詞 → 播放（chung 定）：把最少用、誤觸代價最高的
+                 錄音放最左，最常用的播放放最右，中間用歌詞隔開。按錯分享或歌詞
+                 只是換個畫面，按錯錄音會跳出麥克風權限詢問，長輩不知道怎麼退出。
+                 底色與歌詞鈕相同：長輩回饋紅底會聯想到「危險／停止」，不適合
+                 用在錄音的入口（真正錄音中時 RecordingMode 內才轉紅）。
+                 錄唱原本在上方 secondary-actions 裡，而整區在字體放大時會被隱藏，
+                 等於把字體調到 200% 的長輩看不到錄音功能；移到這裡後自然修好。 -->
             <template #leading>
+                <AppButton v-if="canRecord" @click="openRecording"
+                    class="min-w-[56px] min-h-[56px] max-w-[80px] max-h-[80px] p-[8px] rounded-full shrink-0
+                           flex flex-col items-center justify-center gap-0.5
+                           bg-stone-100 text-stone-600 hover:bg-stone-200"
+                    aria-label="接唱錄音">
+                    <span class="leading-none text-[min(1.75rem,32px)]" aria-hidden="true">🎤</span>
+                </AppButton>
+
                 <AppButton as="link" :href="`/songs/${song.id}/reader`"
                     class="min-w-[56px] min-h-[56px] max-w-[80px] max-h-[80px] p-[8px] rounded-full shrink-0
                            flex flex-col items-center justify-center gap-0.5
