@@ -113,6 +113,11 @@ onBeforeUnmount(() => {
                     </div>
                     <!-- 書號放在按鈕列最左側（chung 設計）：歌名可獨佔整個
                          卡片寬度，書號又不必多佔一行，卡片高度維持不變。 -->
+                    <!-- 三顆按鈕是同一層的兄弟節點，不再包一層 ml-auto 群組。
+                         包起來的話對外層 flex 而言那整組是「一個」項目，換行時
+                         只能整組掉到第二列，變成 chung 回報的「上面一顆、下面
+                         兩顆」。攤平後換行才會逐顆發生：先兩顆併排，真的放不下
+                         才一顆一列。 -->
                     <div class="flex flex-wrap gap-3 items-center">
                         <!-- 頁碼可點擊，直接進入歌詞閱讀模式（與 📖 圖示語意
                              一致，也是播放頁「📖 歌詞」的同一個功能） -->
@@ -122,7 +127,6 @@ onBeforeUnmount(() => {
                             <span :class="ICON_GLYPH_CLASS" aria-hidden="true">📖</span>
                             <span :class="[ICON_LABEL_CLASS, 'font-mono font-semibold']">{{ song.book_number }}</span>
                         </AppButton>
-                        <div class="ml-auto flex flex-wrap gap-3 items-center">
                         <AppButton @click="share(song)"
                             :class="[ICON_BUTTON_CLASS, 'bg-stone-200 hover:bg-stone-300 text-stone-700']"
                             :aria-label="copiedId === song.id ? '已複製' : '分享'">
@@ -138,11 +142,13 @@ onBeforeUnmount(() => {
                         <AppButton as="link" v-if="song.audio_full" :href="`/songs/${song.id}`"
                             :class="[ICON_BUTTON_CLASS, 'bg-blue-600 text-white hover:bg-blue-700']"
                             aria-label="聆聽音樂">
-                            <!-- 只留 ▶ 圖示（chung 實測後決定移除「聆聽」二字）。
-                                 aria-label="聆聽音樂" 仍在，螢幕閱讀器讀得到用途。 -->
+                            <!-- 維持 ▶：曾改成 🎵＋文字、再改成線條 SVG 耳機，
+                                 chung 拿給長輩實測後兩個都被認為不妥，因此還原。
+                                 已知取捨：▶ 暗示「立刻播放」，但這顆其實是導到
+                                 歌曲頁——長輩實際反應優先於這個理論上的疑慮。
+                                 aria-label 仍在，螢幕閱讀器讀得到用途。 -->
                             <span :class="ICON_GLYPH_CLASS" aria-hidden="true">▶</span>
                         </AppButton>
-                        </div>
                     </div>
                 </div>
 
