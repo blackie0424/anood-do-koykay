@@ -479,16 +479,59 @@ describe('SongPlayer — 接唱錄音鈕顯示條件', () => {
     expect(wrapper.find('[aria-label="錄音段落 1"]').exists()).toBe(true)
   })
 
-  it('未在播放時點錄唱鈕不呼叫 pause', async () => {
+  // 這條原本斷言「isPlaying 為 false 時不要呼叫 pause」——那個守衛正是 bug 的
+  // 來源，所以改成相反的要求。對已經暫停的元素呼叫 pause() 是無副作用的
+  // no-op，沒有任何理由要省下它。
+  it('無論狀態為何都會 pause（對已暫停的元素是無害的 no-op）', async () => {
     const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
     const audioEl = wrapper.find('audio').element
     let pauseCalls = 0
     audioEl.pause = () => { pauseCalls++ }
 
     await wrapper.find('[aria-label="接唱錄音"]').trigger('click')
+    await wrapper.vm.$nextTick()
 
-    expect(pauseCalls).toBe(0)
+    expect(pauseCalls).toBe(1)
     expect(wrapper.find('[aria-label="錄音段落 1"]').exists()).toBe(true)
+  })
+
+  // chung 2026-08-24 回報：進錄音頁後原音繼續播，再按逐段播放就變成兩個音軌
+  // 疊在一起。錄音端用的是自己 new 出來的 Audio 元素，跟播放頁的 <audio> 是
+  // 兩個獨立音源，播放頁沒停就一定會疊加。
+  //
+  // 這是 2026-08-08「進入錄音模式前暫停原唱」那次修正的復發。當時的守衛是
+  // isPlaying（由 playing 事件驅動），但本專案已確認 LINE WebView 裡音訊事件
+  // 不可靠（虛擬計時 fallback 就是為此而生）。只要 playing 事件遲到或沒送達，
+  // isPlaying 就是 false、pause 被整個跳過，可是元素其實正在出聲。
+  // 可靠的判斷是元素自己的 paused 屬性，而不是我們維護的狀態——所以乾脆
+  // 不判斷，無條件 pause。
+  it('元素實際在播放但 playing 事件未送達時，仍然會停掉原音', async () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const audioEl = wrapper.find('audio').element
+    let paused = false
+    Object.defineProperty(audioEl, 'paused', { value: false, configurable: true })
+    audioEl.pause = () => { paused = true }
+    // 刻意不觸發 playing 事件——模擬 LINE WebView 事件遲到或沒送達
+
+    await wrapper.find('[aria-label="接唱錄音"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(paused).toBe(true)
+  })
+
+  // 不論從哪條路徑開啟錄音，原音都必須停——把「錄音開著」與「原音停止」
+  // 綁成不變條件，而不是只在某一顆按鈕的 handler 裡處理。
+  it('直接把 showRecording 設為 true 也會停掉原音', async () => {
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const audioEl = wrapper.find('audio').element
+    let paused = false
+    Object.defineProperty(audioEl, 'paused', { value: false, configurable: true })
+    audioEl.pause = () => { paused = true }
+
+    wrapper.vm.showRecording = true
+    await wrapper.vm.$nextTick()
+
+    expect(paused).toBe(true)
   })
 })
 

@@ -29,9 +29,22 @@ const showRecording = ref(false)
 
 // 進入錄音模式前先暫停原唱，避免原音被錄進使用者的清唱
 function openRecording() {
-    if (audio.value && isPlaying.value) audio.value.pause()
     showRecording.value = true
 }
+
+// 錄音模式一開啟就停掉原音，不論是從哪條路徑開啟的。
+//
+// 錄音端播原唱用的是它自己 new 出來的 Audio 元素，與這裡的 <audio> 是兩個
+// 獨立音源；播放頁沒停就會兩軌疊在一起（chung 2026-08-24 回報）。
+//
+// 這裡刻意「無條件 pause」，不先判斷 isPlaying：那個守衛是 2026-08-08 那次
+// 修正留下的，而 isPlaying 由 playing 事件驅動，本專案已確認 LINE WebView
+// 裡音訊事件不可靠（虛擬計時 fallback 就是為此而生）。事件遲到或沒送達時
+// isPlaying 會是 false，pause 被跳過，但元素其實正在出聲——這就是這個 bug
+// 復發的原因。對已暫停的元素呼叫 pause() 是無副作用的 no-op，沒有理由省。
+watch(showRecording, (open) => {
+    if (open) audio.value?.pause()
+})
 
 const audio = ref(null)
 const currentTime = ref(0)
