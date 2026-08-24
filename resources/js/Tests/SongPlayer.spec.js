@@ -3,6 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import BackLink from '../Components/BackLink.vue'
 import PlayBar from '../Components/PlayBar.vue'
 import SongPlayer from '../Pages/SongPlayer.vue'
+import { claimPlayback, resetPlaybackOwnerForTesting } from '../audio/playbackOwner.js'
 
 // SongPlayer 播放中會用 setInterval 輪詢 currentTime，卸載時（onBeforeUnmount）才會停止；
 // 沒有這行，任何觸發 'playing' 的測試都會留下一個永遠不會停的計時器。
@@ -454,6 +455,44 @@ describe('SongPlayer — 基本渲染', () => {
     const wrapper = mount(SongPlayer, { props: { song: { ...BASE_SONG, audio_full: null, lines: [] } } })
     const btn = wrapper.find('button[aria-label="播放"], button[aria-label="暫停"]')
     expect(btn.attributes('disabled')).toBeDefined()
+  })
+})
+
+// 播放頁按下播放時，必須把站上其他正在出聲的音源停掉——例如錄音頁預覽或
+// 原唱。這兩者是彼此不知情的獨立元素，靠全站單一播放權串起來。
+describe('SongPlayer — 與站上其他音源互斥', () => {
+  it('按下播放時會停掉其他正在出聲的音源', async () => {
+    resetPlaybackOwnerForTesting()
+    const outsider = { pause: vi.fn(), play: vi.fn() }
+    claimPlayback(outsider) // 模擬錄音頁正在放東西
+
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const audioEl = wrapper.find('audio').element
+    audioEl.play = vi.fn(() => Promise.resolve())
+
+    await wrapper.findComponent(PlayBar).find('[aria-label="播放"]').trigger('click')
+
+    expect(outsider.pause).toHaveBeenCalledTimes(1)
+    expect(audioEl.play).toHaveBeenCalled()
+  })
+
+  it('釋放媒體資源時交還播放權，不再持有已卸載元素的參照', async () => {
+    resetPlaybackOwnerForTesting()
+    const wrapper = mount(SongPlayer, { props: { song: songWithLyricTimes } })
+    const audioEl = wrapper.find('audio').element
+    audioEl.play = vi.fn(() => Promise.resolve())
+    await wrapper.findComponent(PlayBar).find('[aria-label="播放"]').trigger('click')
+
+    const pauseSpy = vi.fn()
+    audioEl.pause = pauseSpy
+    wrapper.unmount()
+    // releaseAudio 自己會 pause 一次，那是應該的；重點是「之後」還會不會被動到
+    const callsAfterUnmount = pauseSpy.mock.calls.length
+
+    // 卸載後換別人播，不應該再回頭去動這個已釋放的元素
+    claimPlayback({ pause: vi.fn(), play: vi.fn() })
+
+    expect(pauseSpy).toHaveBeenCalledTimes(callsAfterUnmount)
   })
 })
 
