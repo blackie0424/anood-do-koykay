@@ -8,6 +8,7 @@ import ReportModal from '@/Components/ReportModal.vue'
 import RecordingMode from '@/Components/RecordingMode.vue'
 import { useCompactLayout } from '@/composables/useCompactLayout'
 import { useShareSong } from '@/composables/useShareSong'
+import { playExclusive, releasePlayback } from '@/audio/playbackOwner'
 
 // 畫面被放大（瀏覽器縮放或系統字體調大）時進入精簡模式
 const { isCompact } = useCompactLayout()
@@ -104,6 +105,7 @@ const audioSrc = computed(() => {
 function releaseAudio() {
     if (!audio.value) return
     try {
+        releasePlayback(audio.value)
         audio.value.pause()
         audio.value.removeAttribute('src')
         audio.value.load()
@@ -191,7 +193,7 @@ function returnToCurrentLine() {
 // 這裡維持原本單純的寫法：先設定播放位置，再呼叫播放。
 function playFrom(time) {
     audio.value.currentTime = time
-    audio.value.play().catch(() => { hasError.value = true })
+    playExclusive(audio.value)?.catch(() => { hasError.value = true })
 }
 
 function togglePlay() {
@@ -209,7 +211,7 @@ function togglePlay() {
         } else if (audio.value.currentTime < 0.3) {
             playFrom(effectiveStart.value)
         } else {
-            audio.value.play().catch(() => { hasError.value = true })
+            playExclusive(audio.value)?.catch(() => { hasError.value = true })
         }
     }
 }
