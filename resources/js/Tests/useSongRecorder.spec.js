@@ -1,6 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useSongRecorder } from '../recording/useSongRecorder.js'
 import { createMemoryStore } from '../recording/recordingStore.js'
+import { claimPlayback, resetPlaybackOwnerForTesting } from '../audio/playbackOwner.js'
+
+beforeEach(() => resetPlaybackOwnerForTesting())
 
 const SONG = {
     id: 1,
@@ -584,5 +587,47 @@ describe('useSongRecorder — 整體播放（playAll）', () => {
         stop = () => r.stopPlayAll()
         await r.playAll()
         expect(calls.length).toBe(1)
+    })
+})
+
+// 跨邊界互斥：錄音頁的音源與播放頁的 <audio> 是兩個彼此不知情的元素，過去
+// 只靠「進錄音模式時記得 pause」這種一次性處理。改用全站單一播放權後，
+// 任何一邊開始播都會自動停掉另一邊。這是重構的重點，必須被測到。
+describe('useSongRecorder — 與站上其他音源互斥', () => {
+    function foreignAudio() {
+        return { pause: vi.fn(), play: vi.fn() }
+    }
+
+    it('預覽自己的錄音時，會停掉播放頁的原音', async () => {
+        const outsider = foreignAudio()
+        claimPlayback(outsider) // 模擬播放頁正在放歌
+
+        const store = createMemoryStore()
+        const r = useSongRecorder(SONG, {
+            store,
+            micRecorder: makeMicRecorder(),
+            audioFactory: () => ({ play: vi.fn(), pause: vi.fn(), addEventListener: vi.fn() }),
+        })
+        await r.startRecording(10)
+        await r.stopRecording()
+
+        r.playSegment(10)
+
+        expect(outsider.pause).toHaveBeenCalledTimes(1)
+    })
+
+    it('聆聽原音時，會停掉播放頁的原音', () => {
+        const outsider = foreignAudio()
+        claimPlayback(outsider)
+
+        const r = useSongRecorder(SONG, {
+            store: createMemoryStore(),
+            micRecorder: makeMicRecorder(),
+            audioFactory: () => ({ play: vi.fn(), pause: vi.fn(), addEventListener: vi.fn(), currentTime: 0 }),
+        })
+
+        r.playReference(SONG.lines[0])
+
+        expect(outsider.pause).toHaveBeenCalledTimes(1)
     })
 })

@@ -1,3 +1,4 @@
+import { playExclusive } from '@/audio/playbackOwner'
 import { ref, computed } from 'vue'
 import { buildPlaybackPlan } from './playbackSequencer.js'
 import { createDefaultStore } from './recordingStore.js'
@@ -179,7 +180,7 @@ export function useSongRecorder(song, options = {}) {
         audio.addEventListener?.('ended', () => {
             if (previewAudio === audio) stopPreview()
         }, { once: true })
-        const p = audio.play?.()
+        const p = playExclusive(audio)
         if (p && typeof p.catch === 'function') p.catch(() => { if (previewAudio === audio) stopPreview() })
         return audio
     }
@@ -209,7 +210,7 @@ export function useSongRecorder(song, options = {}) {
         audio.addEventListener?.('timeupdate', onTime)
         audio.addEventListener?.('ended', () => finish(), { once: true })
         audio.currentTime = line.start_time
-        const p = audio.play?.()
+        const p = playExclusive(audio)
         if (p && typeof p.catch === 'function') p.catch(() => finish())
         return audio
     }
@@ -247,7 +248,7 @@ export function useSongRecorder(song, options = {}) {
             const onEnded = () => { if (progressed) finish() } // 忽略尚未真正播放就觸發的 spurious ended
             audio.addEventListener?.('timeupdate', onProgress)
             audio.addEventListener?.('ended', onEnded)
-            const p = audio.play?.()
+            const p = playExclusive(audio)
             // iOS 共用元素：play() 被拒代表沒解鎖成功，需推進避免卡住。
             // 非 iOS 每段各建元素：play() 偶發被拒（Chrome 自動播放節流）時「不立刻跳段」，
             // 交給時長計時器推進，保住段落順序不被跳過。
@@ -278,7 +279,7 @@ export function useSongRecorder(song, options = {}) {
             const onEnded = () => finish()
             const seekAndPlay = () => {
                 try { audio.currentTime = step.start } catch { /* noop */ }
-                const p = audio.play?.()
+                const p = playExclusive(audio)
                 if (p && typeof p.catch === 'function') p.catch(() => finish())
             }
             const onMeta = () => seekAndPlay()
@@ -310,7 +311,7 @@ export function useSongRecorder(song, options = {}) {
         const sharedAudio = (!options.playStep && needsAudioUnlock) ? audioFactory('') : null
         playbackAudio = sharedAudio
         if (sharedAudio) {
-            try { const up = sharedAudio.play?.(); if (up && typeof up.catch === 'function') up.catch(() => {}) } catch { /* noop */ }
+            try { const up = playExclusive(sharedAudio); if (up && typeof up.catch === 'function') up.catch(() => {}) } catch { /* noop */ }
         }
         isPlayingAll.value = true
         stopAllFlag = false
