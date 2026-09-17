@@ -1,6 +1,7 @@
 import { mount, flushPromises, enableAutoUnmount } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import RecordingMode from '../Components/RecordingMode.vue'
+import PlayBar from '../Components/PlayBar.vue'
 import { createMemoryStore } from '../recording/recordingStore.js'
 
 enableAutoUnmount(afterEach) // 卸載時清掉提示自動消失計時器，避免跨測試干擾
@@ -175,6 +176,15 @@ describe('RecordingMode — toggle 錄音互動', () => {
         const other = wrapper.find('[aria-label="錄音段落 2"]')
         expect(other.attributes('disabled')).toBeDefined()
     })
+
+    it('某段錄音中時，底部整體播放鈕被鎖住', async () => {
+        const { wrapper } = makeWrapper()
+        await wrapper.find('[aria-label="錄音段落 1"]').trigger('click')
+        await flushPromises()
+
+        expect(wrapper.findComponent(PlayBar).props('disabled')).toBe(true)
+        expect(wrapper.find('[aria-label="播放"]').attributes('disabled')).toBeDefined()
+    })
 })
 
 describe('RecordingMode — 自聽播放/暫停切換', () => {
@@ -240,9 +250,27 @@ describe('RecordingMode — 聆聽原音', () => {
         expect(wrapper.find('[aria-label="聆聽原音段落 1"]').exists()).toBe(false)
     })
 
-    it('點聆聽原音後切換為暫停，再點恢復', async () => {
-        const { wrapper } = makeWrapper()
+    it('等待 metadata 時顯示 loading 並停用，載入後切換為暫停', async () => {
+        let onMetadata
+        const audio = {
+            currentTime: 0,
+            play: vi.fn(() => Promise.resolve()),
+            pause: vi.fn(),
+            addEventListener: vi.fn((event, callback) => {
+                if (event === 'loadedmetadata') onMetadata = callback
+            }),
+            removeEventListener: vi.fn(),
+        }
+        const { wrapper } = makeWrapper({ audioFactory: () => audio })
         await wrapper.find('[aria-label="聆聽原音段落 1"]').trigger('click')
+
+        const loading = wrapper.find('[aria-label="原音載入中段落 1"]')
+        expect(loading.text()).toContain('⏳ 原音載入中…')
+        expect(loading.attributes('disabled')).toBeDefined()
+
+        onMetadata()
+        await wrapper.vm.$nextTick()
+
         expect(wrapper.find('[aria-label="暫停原音段落 1"]').exists()).toBe(true)
         await wrapper.find('[aria-label="暫停原音段落 1"]').trigger('click')
         expect(wrapper.find('[aria-label="聆聽原音段落 1"]').exists()).toBe(true)

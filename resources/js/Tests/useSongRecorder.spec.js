@@ -216,15 +216,70 @@ describe('useSongRecorder — 聆聽原音 playReference', () => {
         return factory
     }
 
-    it('playReference 設 referencePreviewLineId、依 start_time 定位播放', () => {
-        const af = fakeAudioFactory()
+    it('playReference 等 loadedmetadata 後才依 start_time 定位播放', () => {
+        const audio = new FakeAudio('/audio/1.mp3')
+        const af = vi.fn(() => audio)
         const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: makeMicRecorder(), audioFactory: af })
         r.playReference(SONG.lines[0]) // start_time 2.0
+
         expect(r.referencePreviewLineId.value).toBe(10)
-        const audio = af.created.at(-1)
+        expect(r.referenceLoadingLineId.value).toBe(10)
         expect(audio.src).toBe('/audio/1.mp3')
+        expect(audio.currentTime).toBe(0)
+        expect(audio.playCalls).toBe(0)
+
+        audio.meta()
+
         expect(audio.currentTime).toBe(2.0)
-        expect(audio.play).toHaveBeenCalled()
+        expect(audio.playCalls).toBe(1)
+        expect(r.referenceLoadingLineId.value).toBe(null)
+    })
+
+    it('loading 被另一段原音取代後，晚到的 metadata 不會播放已取消音訊', () => {
+        const created = []
+        const af = (src) => { const audio = new FakeAudio(src); created.push(audio); return audio }
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: makeMicRecorder(), audioFactory: af })
+        r.playReference(SONG.lines[0])
+        const cancelledAudio = created[0]
+
+        r.playReference(SONG.lines[1])
+        expect(r.referencePreviewLineId.value).toBe(11)
+        expect(r.referenceLoadingLineId.value).toBe(11)
+
+        cancelledAudio.meta()
+
+        expect(cancelledAudio.playCalls).toBe(0)
+        expect(r.referencePreviewLineId.value).toBe(11)
+        expect(r.referenceLoadingLineId.value).toBe(11)
+    })
+
+    it('metadata 載入失敗時清除 loading 與預覽狀態', () => {
+        const audio = new FakeAudio('/audio/1.mp3')
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: makeMicRecorder(), audioFactory: () => audio })
+        r.playReference(SONG.lines[0])
+        expect(r.referenceLoadingLineId.value).toBe(10)
+        audio.emit('error')
+        expect(r.referenceLoadingLineId.value).toBe(null)
+        expect(r.referencePreviewLineId.value).toBe(null)
+        expect(audio.paused).toBe(true)
+    })
+
+    it('metadata 後 seek 失敗時清除狀態且不播放', () => {
+        const listeners = {}
+        const audio = {
+            get currentTime() { return 0 },
+            set currentTime(_value) { throw new Error('seek failed') },
+            play: vi.fn(),
+            pause: vi.fn(),
+            addEventListener: vi.fn((event, callback) => { listeners[event] = callback }),
+            removeEventListener: vi.fn(),
+        }
+        const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: makeMicRecorder(), audioFactory: () => audio })
+        r.playReference(SONG.lines[0])
+        listeners.loadedmetadata()
+        expect(r.referenceLoadingLineId.value).toBe(null)
+        expect(r.referencePreviewLineId.value).toBe(null)
+        expect(audio.play).not.toHaveBeenCalled()
     })
 
     it('再點同段 toggle 暫停', () => {
@@ -261,7 +316,7 @@ describe('useSongRecorder — 聆聽原音 playReference', () => {
     })
 
     it('play() 被拒時不卡住，狀態回復', async () => {
-        const af = (src) => ({ src, currentTime: 0, play: vi.fn(() => Promise.reject(new Error('x'))), pause: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn() })
+        const af = (src) => ({ src, currentTime: 0, readyState: 1, play: vi.fn(() => Promise.reject(new Error('x'))), pause: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn() })
         const r = useSongRecorder(SONG, { store: createMemoryStore(), micRecorder: makeMicRecorder(), audioFactory: af })
         r.playReference(SONG.lines[0])
         await new Promise((res) => setTimeout(res, 0))
@@ -623,7 +678,7 @@ describe('useSongRecorder — 與站上其他音源互斥', () => {
         const r = useSongRecorder(SONG, {
             store: createMemoryStore(),
             micRecorder: makeMicRecorder(),
-            audioFactory: () => ({ play: vi.fn(), pause: vi.fn(), addEventListener: vi.fn(), currentTime: 0 }),
+            audioFactory: () => ({ play: vi.fn(), pause: vi.fn(), addEventListener: vi.fn(), currentTime: 0, readyState: 1 }),
         })
 
         r.playReference(SONG.lines[0])
