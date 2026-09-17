@@ -1,6 +1,7 @@
 import { mount, flushPromises, enableAutoUnmount } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import RecordingMode from '../Components/RecordingMode.vue'
+import PlayBar from '../Components/PlayBar.vue'
 import { createMemoryStore } from '../recording/recordingStore.js'
 
 enableAutoUnmount(afterEach) // 卸載時清掉提示自動消失計時器，避免跨測試干擾
@@ -174,6 +175,15 @@ describe('RecordingMode — toggle 錄音互動', () => {
 
         const other = wrapper.find('[aria-label="錄音段落 2"]')
         expect(other.attributes('disabled')).toBeDefined()
+    })
+
+    it('某段錄音中時，底部整體播放鈕被鎖住', async () => {
+        const { wrapper } = makeWrapper()
+        await wrapper.find('[aria-label="錄音段落 1"]').trigger('click')
+        await flushPromises()
+
+        expect(wrapper.findComponent(PlayBar).props('disabled')).toBe(true)
+        expect(wrapper.find('[aria-label="播放"]').attributes('disabled')).toBeDefined()
     })
 })
 

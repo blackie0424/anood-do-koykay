@@ -146,7 +146,7 @@ function canListenReference(line) {
         </div>
 
         <!-- 整體播放 -->
-        <PlayBar :playing="rec.isPlayingAll.value" :stop-mode="rec.isPlayingAll.value"
+        <PlayBar :playing="rec.isPlayingAll.value" :stop-mode="rec.isPlayingAll.value" :disabled="isSomeRecording"
             @play="rec.playAll()" @stop="rec.stopPlayAll()" />
     </div>
 </template>
