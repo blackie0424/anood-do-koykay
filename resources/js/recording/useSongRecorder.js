@@ -48,6 +48,7 @@ export function useSongRecorder(song, options = {}) {
     const playingLineId = ref(null) // 整體播放：目前播到哪一段（供高亮）
     const previewLineId = ref(null) // 單段自聽：目前正在播哪一段（供播放/暫停切換）
     const referencePreviewLineId = ref(null) // 單段聆聽原音：目前正在播哪一段
+    const referenceLoadingLineId = ref(null) // 單段原音：等待 metadata 載入的段落
     const storageBlocked = ref(false) // Safari 無痕模式等 IndexedDB 無法寫入時為 true
     const error = ref(null)
 
@@ -164,6 +165,7 @@ export function useSongRecorder(song, options = {}) {
     function stopReferencePreview() {
         if (refPreviewAudio) { refPreviewAudio.pause?.(); refPreviewAudio = null }
         referencePreviewLineId.value = null
+        referenceLoadingLineId.value = null
     }
 
     // 自聽錄音：再點同一段則暫停（toggle）；播完自動恢復。互斥：停原音、整體播放
@@ -197,21 +199,41 @@ export function useSongRecorder(song, options = {}) {
         const audio = audioFactory(song.audio_full)
         refPreviewAudio = audio
         referencePreviewLineId.value = line.id
+        referenceLoadingLineId.value = line.id
         let done = false
         const finish = () => {
             if (done) return
             done = true
             audio.removeEventListener?.('timeupdate', onTime)
+            audio.removeEventListener?.('ended', onEnded)
+            audio.removeEventListener?.('loadedmetadata', onMeta)
+            audio.removeEventListener?.('error', onError)
             if (refPreviewAudio === audio) stopReferencePreview()
         }
         const onTime = () => {
             if (end != null && audio.currentTime >= end) finish()
         }
+        const onEnded = () => finish()
+        const onError = () => finish()
+        const seekAndPlay = () => {
+            // loading 期間可能已被其他操作取消或取代；晚到的 metadata 不可重新搶播。
+            if (refPreviewAudio !== audio) return
+            try {
+                audio.currentTime = line.start_time
+            } catch {
+                finish()
+                return
+            }
+            referenceLoadingLineId.value = null
+            const p = playExclusive(audio)
+            if (p && typeof p.catch === 'function') p.catch(() => finish())
+        }
+        const onMeta = () => seekAndPlay()
         audio.addEventListener?.('timeupdate', onTime)
-        audio.addEventListener?.('ended', () => finish(), { once: true })
-        audio.currentTime = line.start_time
-        const p = playExclusive(audio)
-        if (p && typeof p.catch === 'function') p.catch(() => finish())
+        audio.addEventListener?.('ended', onEnded, { once: true })
+        audio.addEventListener?.('error', onError, { once: true })
+        if (audio.readyState >= 1) seekAndPlay()
+        else audio.addEventListener?.('loadedmetadata', onMeta, { once: true })
         return audio
     }
 
@@ -357,6 +379,7 @@ export function useSongRecorder(song, options = {}) {
         playingLineId,
         previewLineId,
         referencePreviewLineId,
+        referenceLoadingLineId,
         storageBlocked,
         error,
         hasRecording,

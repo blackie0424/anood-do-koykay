@@ -134,11 +134,14 @@ function canListenReference(line) {
                         </AppButton>
                     </div>
                     <AppButton v-if="canListenReference(line)"
-                        :aria-label="rec.referencePreviewLineId.value === line.id ? `暫停原音段落 ${line.order}` : `聆聽原音段落 ${line.order}`"
+                        :aria-label="rec.referenceLoadingLineId.value === line.id ? `原音載入中段落 ${line.order}`
+                            : rec.referencePreviewLineId.value === line.id ? `暫停原音段落 ${line.order}`
+                            : `聆聽原音段落 ${line.order}`"
                         @click="rec.playReference(line)"
-                        :disabled="isSomeRecording || rec.isPlayingAll.value"
+                        :disabled="isSomeRecording || rec.isPlayingAll.value || rec.referenceLoadingLineId.value === line.id"
                         class="mt-2 w-full rounded-full py-2 bg-indigo-100 text-indigo-700 font-medium hover:bg-indigo-200 disabled:opacity-40 disabled:cursor-not-allowed">
-                        <template v-if="rec.referencePreviewLineId.value === line.id">⏸ 暫停</template>
+                        <template v-if="rec.referenceLoadingLineId.value === line.id">⏳ 原音載入中…</template>
+                        <template v-else-if="rec.referencePreviewLineId.value === line.id">⏸ 暫停</template>
                         <template v-else>🎵 聆聽原音</template>
                     </AppButton>
                 </div>
@@ -146,7 +149,7 @@ function canListenReference(line) {
         </div>
 
         <!-- 整體播放 -->
-        <PlayBar :playing="rec.isPlayingAll.value" :stop-mode="rec.isPlayingAll.value"
+        <PlayBar :playing="rec.isPlayingAll.value" :stop-mode="rec.isPlayingAll.value" :disabled="isSomeRecording"
             @play="rec.playAll()" @stop="rec.stopPlayAll()" />
     </div>
 </template>
