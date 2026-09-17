@@ -250,9 +250,27 @@ describe('RecordingMode — 聆聽原音', () => {
         expect(wrapper.find('[aria-label="聆聽原音段落 1"]').exists()).toBe(false)
     })
 
-    it('點聆聽原音後切換為暫停，再點恢復', async () => {
-        const { wrapper } = makeWrapper()
+    it('等待 metadata 時顯示 loading 並停用，載入後切換為暫停', async () => {
+        let onMetadata
+        const audio = {
+            currentTime: 0,
+            play: vi.fn(() => Promise.resolve()),
+            pause: vi.fn(),
+            addEventListener: vi.fn((event, callback) => {
+                if (event === 'loadedmetadata') onMetadata = callback
+            }),
+            removeEventListener: vi.fn(),
+        }
+        const { wrapper } = makeWrapper({ audioFactory: () => audio })
         await wrapper.find('[aria-label="聆聽原音段落 1"]').trigger('click')
+
+        const loading = wrapper.find('[aria-label="原音載入中段落 1"]')
+        expect(loading.text()).toContain('⏳ 原音載入中…')
+        expect(loading.attributes('disabled')).toBeDefined()
+
+        onMetadata()
+        await wrapper.vm.$nextTick()
+
         expect(wrapper.find('[aria-label="暫停原音段落 1"]').exists()).toBe(true)
         await wrapper.find('[aria-label="暫停原音段落 1"]').trigger('click')
         expect(wrapper.find('[aria-label="聆聽原音段落 1"]').exists()).toBe(true)
