@@ -48,6 +48,7 @@ export function useSongRecorder(song, options = {}) {
     const playingLineId = ref(null) // 整體播放：目前播到哪一段（供高亮）
     const previewLineId = ref(null) // 單段自聽：目前正在播哪一段（供播放/暫停切換）
     const referencePreviewLineId = ref(null) // 單段聆聽原音：目前正在播哪一段
+    const pendingOverwriteLineId = ref(null) // 等待使用者決定是否覆蓋的段落
     const referenceLoadingLineId = ref(null) // 單段原音：等待 metadata 載入的段落
     const storageBlocked = ref(false) // Safari 無痕模式等 IndexedDB 無法寫入時為 true
     const error = ref(null)
@@ -58,6 +59,7 @@ export function useSongRecorder(song, options = {}) {
     let userStepAudio = null // 非 iOS 路徑：整體播放中正在播的使用者段
     let playbackAudio = null // iOS 路徑：整體播放共用的 audio 元素（手勢解鎖後可連續播）
     let activeStepCancel = null // 停止整體播放時用來結束當前段
+    let pendingOverwrite = null // { lineId, blob, duration }，確認前只留在記憶體
     let recordStartAt = 0
     let stopAllFlag = false
 
@@ -109,7 +111,7 @@ export function useSongRecorder(song, options = {}) {
     }
 
     async function startRecording(lineId) {
-        if (recordingLineId.value != null) return
+        if (recordingLineId.value != null || pendingOverwriteLineId.value != null) return
         error.value = null
         stopPreview()
         stopReferencePreview()
@@ -122,6 +124,31 @@ export function useSongRecorder(song, options = {}) {
             recordingLineId.value = null
             error.value = 'mic'
         }
+    }
+
+    async function persistRecording(lineId, blob, duration) {
+        try {
+            await store.put(song.id, lineId, blob, duration)
+        } catch {
+            // Safari 無痕模式等 IndexedDB 無法寫入
+            storageBlocked.value = true
+            return false
+        }
+        setRecording(lineId, blob, duration)
+        return true
+    }
+
+    function discardOverwrite() {
+        pendingOverwrite = null
+        pendingOverwriteLineId.value = null
+    }
+
+    async function confirmOverwrite() {
+        if (!pendingOverwrite) return false
+        const { lineId, blob, duration } = pendingOverwrite
+        const saved = await persistRecording(lineId, blob, duration)
+        discardOverwrite()
+        return saved
     }
 
     async function stopRecording() {
@@ -138,14 +165,12 @@ export function useSongRecorder(song, options = {}) {
         // 精準：解碼錄音取得實際時長；失敗才退回碼表
         const decoded = await durationFromBlob(blob)
         const duration = (Number.isFinite(decoded) && decoded > 0) ? decoded : stopwatch
-        try {
-            await store.put(song.id, lineId, blob, duration)
-        } catch {
-            // Safari 無痕模式等 IndexedDB 無法寫入
-            storageBlocked.value = true
+        if (hasRecording(lineId)) {
+            pendingOverwrite = { lineId, blob, duration }
+            pendingOverwriteLineId.value = lineId
             return
         }
-        setRecording(lineId, blob, duration)
+        await persistRecording(lineId, blob, duration)
     }
 
     async function deleteRecording(lineId) {
@@ -170,6 +195,7 @@ export function useSongRecorder(song, options = {}) {
 
     // 自聽錄音：再點同一段則暫停（toggle）；播完自動恢復。互斥：停原音、整體播放
     function playSegment(lineId) {
+        if (pendingOverwriteLineId.value != null) return null
         if (previewLineId.value === lineId) { stopPreview(); return null }
         stopPreview()
         stopReferencePreview()
@@ -190,6 +216,7 @@ export function useSongRecorder(song, options = {}) {
     // 聆聽原音：播 audio_full 依該段 start/end 切片；再點同段暫停（toggle）；播完自動恢復。
     // 互斥：停自聽、其他原音、整體播放。
     function playReference(line) {
+        if (pendingOverwriteLineId.value != null) return null
         if (referencePreviewLineId.value === line.id) { stopReferencePreview(); return null }
         stopPreview()
         stopReferencePreview()
@@ -322,7 +349,7 @@ export function useSongRecorder(song, options = {}) {
     }
 
     async function playAll() {
-        if (isPlayingAll.value) return
+        if (isPlayingAll.value || pendingOverwriteLineId.value != null) return
         // 互斥：停自聽、原音
         stopPreview()
         stopReferencePreview()
@@ -368,6 +395,7 @@ export function useSongRecorder(song, options = {}) {
         stopReferencePreview()
         micRecorder.release?.()
         for (const rec of recordings.value.values()) revokeUrl(rec.url)
+        discardOverwrite()
     }
 
     return {
@@ -381,6 +409,7 @@ export function useSongRecorder(song, options = {}) {
         referencePreviewLineId,
         referenceLoadingLineId,
         storageBlocked,
+        pendingOverwriteLineId,
         error,
         hasRecording,
         isRecording,
@@ -389,6 +418,8 @@ export function useSongRecorder(song, options = {}) {
         probeStorage,
         startRecording,
         stopRecording,
+        confirmOverwrite,
+        discardOverwrite,
         deleteRecording,
         playSegment,
         stopPreview,

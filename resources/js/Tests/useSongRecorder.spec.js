@@ -76,7 +76,7 @@ describe('useSongRecorder — 錄音狀態機（toggle）', () => {
         expect((await store.getAllForSong(1)).get(10).blob).toBe(blob)
     })
 
-    it('toggle 重新錄音會覆蓋舊錄音', async () => {
+    it('重新錄音先等待確認，確認儲存後才覆蓋舊錄音', async () => {
         const store = createMemoryStore()
         const b1 = fakeBlob('take1')
         const b2 = fakeBlob('take2')
@@ -85,7 +85,102 @@ describe('useSongRecorder — 錄音狀態機（toggle）', () => {
         await r.startRecording(10); await r.stopRecording()
         mic.stop = vi.fn(async () => b2)
         await r.startRecording(10); await r.stopRecording()
+        expect(r.pendingOverwriteLineId.value).toBe(10)
+        expect((await store.getAllForSong(1)).get(10).blob).toBe(b1)
+
+        await r.confirmOverwrite()
+
         expect((await store.getAllForSong(1)).get(10).blob).toBe(b2)
+        expect(r.pendingOverwriteLineId.value).toBe(null)
+    })
+
+    it('重新錄音選不儲存時保留原錄音並恢復操作', async () => {
+        const store = createMemoryStore()
+        const original = fakeBlob('original')
+        const mic = makeMicRecorder(original)
+        const r = useSongRecorder(SONG, { store, micRecorder: mic })
+        await r.startRecording(10); await r.stopRecording()
+        mic.stop = vi.fn(async () => fakeBlob('replacement'))
+        await r.startRecording(10); await r.stopRecording()
+
+        await r.startRecording(11)
+        expect(r.recordingLineId.value).toBe(null)
+
+        r.discardOverwrite()
+        expect(await r.confirmOverwrite()).toBe(false)
+
+        expect(r.pendingOverwriteLineId.value).toBe(null)
+        expect((await store.getAllForSong(1)).get(10).blob).toBe(original)
+        await r.startRecording(11)
+        expect(r.recordingLineId.value).toBe(11)
+    })
+
+    it('待確認期間 composable 也拒絕錄音與所有播放操作', async () => {
+        const store = createMemoryStore()
+        const mic = makeMicRecorder(fakeBlob('original'))
+        const audio = { currentTime: 0, readyState: 1, play: vi.fn(() => Promise.resolve()), pause: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn() }
+        const playStep = vi.fn(() => Promise.resolve())
+        const r = useSongRecorder(SONG, { store, micRecorder: mic, audioFactory: () => audio, playStep })
+        await r.startRecording(10); await r.stopRecording()
+        mic.stop = vi.fn(async () => fakeBlob('replacement'))
+        await r.startRecording(10); await r.stopRecording()
+
+        await r.startRecording(11)
+        expect(r.playSegment(10)).toBe(null)
+        expect(r.playReference(SONG.lines[0])).toBe(null)
+        await r.playAll()
+
+        expect(r.recordingLineId.value).toBe(null)
+        expect(r.previewLineId.value).toBe(null)
+        expect(r.referencePreviewLineId.value).toBe(null)
+        expect(r.isPlayingAll.value).toBe(false)
+        expect(audio.play).not.toHaveBeenCalled()
+        expect(playStep).not.toHaveBeenCalled()
+        expect(r.pendingOverwriteLineId.value).toBe(10)
+    })
+
+    it('既有錄音重錄為空 blob 時維持 empty 錯誤且不開確認', async () => {
+        const store = createMemoryStore()
+        const original = fakeBlob('original')
+        const mic = makeMicRecorder(original)
+        const r = useSongRecorder(SONG, { store, micRecorder: mic })
+        await r.startRecording(10); await r.stopRecording()
+        mic.stop = vi.fn(async () => new Blob([], { type: 'audio/webm' }))
+        await r.startRecording(10); await r.stopRecording()
+
+        expect(r.error.value).toBe('empty')
+        expect(r.pendingOverwriteLineId.value).toBe(null)
+        expect((await store.getAllForSong(1)).get(10).blob).toBe(original)
+    })
+
+    it('確認覆蓋時儲存失敗，保留原錄音並設 storageBlocked', async () => {
+        const store = createMemoryStore()
+        const original = fakeBlob('original')
+        const mic = makeMicRecorder(original)
+        const r = useSongRecorder(SONG, { store, micRecorder: mic })
+        await r.startRecording(10); await r.stopRecording()
+        mic.stop = vi.fn(async () => fakeBlob('replacement'))
+        await r.startRecording(10); await r.stopRecording()
+        store.put = vi.fn(async () => { throw new Error('blocked') })
+
+        await r.confirmOverwrite()
+
+        expect(r.storageBlocked.value).toBe(true)
+        expect(r.pendingOverwriteLineId.value).toBe(null)
+        expect(r.hasRecording(10)).toBe(true)
+    })
+
+    it('dispose 視為不儲存並清除待確認覆蓋', async () => {
+        const store = createMemoryStore()
+        const mic = makeMicRecorder(fakeBlob('original'))
+        const r = useSongRecorder(SONG, { store, micRecorder: mic })
+        await r.startRecording(10); await r.stopRecording()
+        mic.stop = vi.fn(async () => fakeBlob('replacement'))
+        await r.startRecording(10); await r.stopRecording()
+
+        r.dispose()
+
+        expect(r.pendingOverwriteLineId.value).toBe(null)
     })
 
     it('stopRecording 以解碼取得的實際時長為準存入', async () => {
