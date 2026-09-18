@@ -187,6 +187,73 @@ describe('RecordingMode — toggle 錄音互動', () => {
     })
 })
 
+describe('RecordingMode — 重新錄音覆蓋確認', () => {
+    async function mountWithExistingRecording() {
+        const store = createMemoryStore()
+        const original = new Blob(['original'], { type: 'audio/webm' })
+        await store.put(1, 10, original)
+        const mic = makeMic(new Blob(['replacement'], { type: 'audio/webm' }))
+        const wrapper = mount(RecordingMode, {
+            props: {
+                song: SONG,
+                options: {
+                    store,
+                    micRecorder: mic,
+                    audioFactory: () => ({ play: vi.fn(), pause: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn() }),
+                    playStep: vi.fn(() => Promise.resolve()),
+                },
+            },
+        })
+        await flushPromises()
+        await wrapper.find('[aria-label="錄音段落 1"]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[aria-label="錄音段落 1"]').trigger('click')
+        await flushPromises()
+        return { wrapper, store, original }
+    }
+
+    it('重錄完成顯示 modal，並鎖住錄音、播放、原音與整體播放', async () => {
+        const { wrapper } = await mountWithExistingRecording()
+        const dialog = wrapper.find('[role="dialog"]')
+        expect(dialog.exists()).toBe(true)
+        expect(dialog.attributes('aria-modal')).toBe('true')
+        expect(dialog.text()).toContain('要儲存這次錄音嗎？會覆蓋原本的錄音')
+        expect(wrapper.find('[aria-label="錄音段落 1"]').attributes('disabled')).toBeDefined()
+        expect(wrapper.find('[aria-label="播放段落 1"]').attributes('disabled')).toBeDefined()
+        expect(wrapper.find('[aria-label="聆聽原音段落 1"]').attributes('disabled')).toBeDefined()
+        expect(wrapper.findComponent(PlayBar).props('disabled')).toBe(true)
+    })
+
+    it('點擊遮罩或按 Escape 都不關閉 modal', async () => {
+        const { wrapper } = await mountWithExistingRecording()
+        await wrapper.find('[data-testid="overwrite-modal-overlay"]').trigger('click')
+        await wrapper.trigger('keydown', { key: 'Escape' })
+
+        expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+    })
+
+    it('選不儲存後關閉 modal、保留原錄音並恢復操作', async () => {
+        const { wrapper, store, original } = await mountWithExistingRecording()
+        await wrapper.find('[aria-label="不儲存這次錄音"]').trigger('click')
+        await flushPromises()
+
+        expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+        expect((await store.getAllForSong(1)).get(10).blob).toBe(original)
+        expect(wrapper.find('[aria-label="錄音段落 1"]').attributes('disabled')).toBeUndefined()
+        expect(wrapper.find('[aria-label="播放段落 1"]').exists()).toBe(true)
+    })
+
+    it('點 modal 的關閉按鈕等同不儲存但留在錄音頁', async () => {
+        const { wrapper } = await mountWithExistingRecording()
+        await wrapper.find('[aria-label="關閉覆蓋確認"]').trigger('click')
+        await flushPromises()
+
+        expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+        expect(wrapper.find('[aria-label="錄音段落 1"]').exists()).toBe(true)
+        expect(wrapper.emitted('close')).toBeFalsy()
+    })
+})
+
 describe('RecordingMode — 自聽播放/暫停切換', () => {
     it('點播放後按鈕變暫停，再點恢復播放', async () => {
         const store = createMemoryStore()
