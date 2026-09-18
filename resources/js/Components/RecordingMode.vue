@@ -16,6 +16,7 @@ const emit = defineEmits(['close'])
 const rec = useSongRecorder(props.song, props.options)
 
 // 有某段正在錄音時，其他段的按鈕鎖住（一次只錄一段）
+const isOverwritePending = computed(() => rec.pendingOverwriteLineId.value !== null)
 const isSomeRecording = computed(() => rec.recordingLineId.value !== null)
 
 // 頂部提示：可各自關閉；狀態存 sessionStorage（同 session 內不再顯示，關瀏覽器/PWA 後重顯）
@@ -115,7 +116,7 @@ function canListenReference(line) {
                         <AppButton
                             :aria-label="`錄音段落 ${line.order}`"
                             @click="toggleRecord(line)"
-                            :disabled="(isSomeRecording && !rec.isRecording(line.id)) || rec.isPlayingAll.value"
+                            :disabled="isOverwritePending || (isSomeRecording && !rec.isRecording(line.id)) || rec.isPlayingAll.value"
                             :class="['flex-1 rounded-full py-2.5 text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed',
                                 rec.isRecording(line.id) ? 'bg-red-600'
                                     : rec.hasRecording(line.id) ? 'bg-amber-600 hover:bg-amber-500'
@@ -127,7 +128,7 @@ function canListenReference(line) {
                         <AppButton v-if="rec.hasRecording(line.id) && !rec.isRecording(line.id)"
                             :aria-label="rec.previewLineId.value === line.id ? `暫停段落 ${line.order}` : `播放段落 ${line.order}`"
                             @click="rec.playSegment(line.id)"
-                            :disabled="isSomeRecording || rec.isPlayingAll.value"
+                            :disabled="isOverwritePending || isSomeRecording || rec.isPlayingAll.value"
                             class="flex-shrink-0 rounded-full px-4 py-2.5 bg-stone-200 text-stone-700 font-medium hover:bg-stone-300 disabled:opacity-40 disabled:cursor-not-allowed">
                             <template v-if="rec.previewLineId.value === line.id">⏸ 暫停</template>
                             <template v-else>▶ 播放</template>
@@ -138,7 +139,7 @@ function canListenReference(line) {
                             : rec.referencePreviewLineId.value === line.id ? `暫停原音段落 ${line.order}`
                             : `聆聽原音段落 ${line.order}`"
                         @click="rec.playReference(line)"
-                        :disabled="isSomeRecording || rec.isPlayingAll.value || rec.referenceLoadingLineId.value === line.id"
+                        :disabled="isOverwritePending || isSomeRecording || rec.isPlayingAll.value || rec.referenceLoadingLineId.value === line.id"
                         class="mt-2 w-full rounded-full py-2 bg-indigo-100 text-indigo-700 font-medium hover:bg-indigo-200 disabled:opacity-40 disabled:cursor-not-allowed">
                         <template v-if="rec.referenceLoadingLineId.value === line.id">⏳ 原音載入中…</template>
                         <template v-else-if="rec.referencePreviewLineId.value === line.id">⏸ 暫停</template>
@@ -149,7 +150,32 @@ function canListenReference(line) {
         </div>
 
         <!-- 整體播放 -->
-        <PlayBar :playing="rec.isPlayingAll.value" :stop-mode="rec.isPlayingAll.value" :disabled="isSomeRecording"
+
+        <!-- 重錄覆蓋確認：背景操作全部鎖住，遮罩與 Escape 不關閉，避免誤觸丟失錄音。 -->
+        <div v-if="isOverwritePending" data-testid="overwrite-modal-overlay"
+            class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+            <section role="dialog" aria-modal="true" aria-labelledby="overwrite-dialog-title"
+                class="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+                <AppButton aria-label="關閉覆蓋確認" @click="rec.discardOverwrite()"
+                    class="absolute right-3 top-3 rounded-full p-2 text-xl text-stone-500 hover:bg-stone-100">
+                    ✕
+                </AppButton>
+                <h2 id="overwrite-dialog-title" class="pr-10 text-xl font-bold text-stone-800">
+                    要儲存這次錄音嗎？會覆蓋原本的錄音
+                </h2>
+                <div class="mt-6 flex gap-3">
+                    <AppButton aria-label="不儲存這次錄音" @click="rec.discardOverwrite()"
+                        class="flex-1 rounded-full bg-stone-200 px-4 py-3 font-medium text-stone-700 hover:bg-stone-300">
+                        不儲存
+                    </AppButton>
+                    <AppButton aria-label="儲存這次錄音" @click="rec.confirmOverwrite()"
+                        class="flex-1 rounded-full bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700">
+                        儲存
+                    </AppButton>
+                </div>
+            </section>
+        </div>
+        <PlayBar :playing="rec.isPlayingAll.value" :stop-mode="rec.isPlayingAll.value" :disabled="isSomeRecording || isOverwritePending"
             @play="rec.playAll()" @stop="rec.stopPlayAll()" />
     </div>
 </template>
