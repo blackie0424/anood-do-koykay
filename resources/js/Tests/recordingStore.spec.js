@@ -1,5 +1,23 @@
-import { describe, it, expect } from 'vitest'
-import { createMemoryStore } from '../recording/recordingStore.js'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
+import { createIndexedDbStore, createMemoryStore } from '../recording/recordingStore.js'
+
+const { openDBMock } = vi.hoisted(() => ({ openDBMock: vi.fn() }))
+
+vi.mock('idb', () => ({ openDB: openDBMock }))
+
+function fakeDb(overrides = {}) {
+    return {
+        put: vi.fn(async () => {}),
+        getAllFromIndex: vi.fn(async () => []),
+        delete: vi.fn(async () => {}),
+        close: vi.fn(),
+        ...overrides,
+    }
+}
+
+beforeEach(() => {
+    openDBMock.mockReset()
+})
 
 const blob = (s) => new Blob([s], { type: 'audio/webm' })
 
@@ -62,5 +80,130 @@ describe('createMemoryStore', () => {
     it('查無資料時回傳空 Map', async () => {
         const store = createMemoryStore()
         expect((await store.getAllForSong(99)).size).toBe(0)
+    })
+})
+
+describe('createIndexedDbStore connection lifecycle', () => {
+    it('put → getAllForSong → remove 共用同一條連線', async () => {
+        const db = fakeDb({
+            getAllFromIndex: vi.fn(async () => [
+                { lineId: 10, blob: blob('saved'), duration: 123 },
+            ]),
+        })
+        openDBMock.mockResolvedValue(db)
+        const store = createIndexedDbStore()
+
+        await store.put(1, 10, blob('saved'), 123)
+        const records = await store.getAllForSong(1)
+        await store.remove(1, 10)
+
+        expect(openDBMock).toHaveBeenCalledTimes(1)
+        expect(records.get(10).duration).toBe(123)
+    })
+
+    it('versionchange 關閉目前連線，下一次操作重新開啟', async () => {
+        const firstDb = fakeDb()
+        const secondDb = fakeDb()
+        openDBMock.mockResolvedValueOnce(firstDb).mockResolvedValueOnce(secondDb)
+        const store = createIndexedDbStore()
+
+        await store.put(1, 10, blob('first'))
+        const blocking = openDBMock.mock.calls[0][2].blocking
+        blocking()
+        await store.remove(1, 10)
+        blocking()
+        await store.getAllForSong(1)
+
+        expect(firstDb.close).toHaveBeenCalledTimes(1)
+        expect(openDBMock).toHaveBeenCalledTimes(2)
+        expect(secondDb.delete).toHaveBeenCalled()
+    })
+
+    it('連線非預期 terminated 後，下一次操作重新開啟', async () => {
+        const firstDb = fakeDb()
+        const secondDb = fakeDb()
+        openDBMock.mockResolvedValueOnce(firstDb).mockResolvedValueOnce(secondDb)
+        const store = createIndexedDbStore()
+
+        await store.put(1, 10, blob('first'))
+        openDBMock.mock.calls[0][2].terminated()
+        await store.remove(1, 10)
+
+        expect(firstDb.close).not.toHaveBeenCalled()
+        expect(openDBMock).toHaveBeenCalledTimes(2)
+        expect(secondDb.delete).toHaveBeenCalledTimes(1)
+    })
+
+    it('連線已關閉的 InvalidStateError 只重連重試一次', async () => {
+        const closed = new DOMException('connection closed', 'InvalidStateError')
+        const firstDb = fakeDb({ put: vi.fn(async () => { throw closed }) })
+        const secondDb = fakeDb()
+        openDBMock.mockResolvedValueOnce(firstDb).mockResolvedValueOnce(secondDb)
+        const store = createIndexedDbStore()
+
+        await store.put(1, 10, blob('retry'))
+
+        expect(firstDb.close).toHaveBeenCalledTimes(1)
+        expect(openDBMock).toHaveBeenCalledTimes(2)
+        expect(secondDb.put).toHaveBeenCalledTimes(1)
+    })
+
+    it('非連線錯誤不重試', async () => {
+        const quota = new DOMException('quota exceeded', 'QuotaExceededError')
+        const db = fakeDb({ put: vi.fn(async () => { throw quota }) })
+        openDBMock.mockResolvedValue(db)
+        const store = createIndexedDbStore()
+
+        await expect(store.put(1, 10, blob('too large'))).rejects.toBe(quota)
+        expect(openDBMock).toHaveBeenCalledTimes(1)
+        expect(db.put).toHaveBeenCalledTimes(1)
+    })
+})
+
+describe('createIndexedDbStore close', () => {
+    it('close 關閉目前連線並讓下一次操作重新開啟', async () => {
+        const firstDb = fakeDb()
+        const secondDb = fakeDb()
+        openDBMock.mockResolvedValueOnce(firstDb).mockResolvedValueOnce(secondDb)
+        const store = createIndexedDbStore()
+
+        await store.put(1, 10, blob('first'))
+        store.close()
+        await store.getAllForSong(1)
+
+        expect(firstDb.close).toHaveBeenCalledTimes(1)
+        expect(openDBMock).toHaveBeenCalledTimes(2)
+        expect(secondDb.getAllFromIndex).toHaveBeenCalledTimes(1)
+    })
+
+    it('從未開啟或已關閉時可重複 close 且不拋錯', async () => {
+        const db = fakeDb()
+        openDBMock.mockResolvedValue(db)
+        const store = createIndexedDbStore()
+
+        expect(() => store.close()).not.toThrow()
+        await store.put(1, 10, blob('saved'))
+        store.close()
+        expect(() => store.close()).not.toThrow()
+        expect(db.close).toHaveBeenCalledTimes(1)
+    })
+
+    it('close 廢棄 pending opening，晚到的舊連線關閉且不干擾新連線', async () => {
+        let resolveFirst
+        const firstOpening = new Promise(resolve => { resolveFirst = resolve })
+        const firstDb = fakeDb()
+        const secondDb = fakeDb()
+        openDBMock.mockReturnValueOnce(firstOpening).mockResolvedValueOnce(secondDb)
+        const store = createIndexedDbStore()
+
+        const stalePut = store.put(1, 10, blob('stale'))
+        store.close()
+        await store.put(1, 10, blob('fresh'))
+        resolveFirst(firstDb)
+
+        await expect(stalePut).rejects.toMatchObject({ name: 'AbortError' })
+        expect(firstDb.close).toHaveBeenCalledTimes(1)
+        expect(secondDb.close).not.toHaveBeenCalled()
+        expect(openDBMock).toHaveBeenCalledTimes(2)
     })
 })

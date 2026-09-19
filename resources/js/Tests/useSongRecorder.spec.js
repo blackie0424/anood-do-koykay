@@ -230,6 +230,15 @@ describe('useSongRecorder — 錄音狀態機（toggle）', () => {
         expect(mic.release).toHaveBeenCalled()
     })
 
+    it('dispose 關閉 store 連線', () => {
+        const store = { ...createMemoryStore(), close: vi.fn() }
+        const r = useSongRecorder(SONG, { store, micRecorder: makeMicRecorder() })
+
+        r.dispose()
+
+        expect(store.close).toHaveBeenCalledTimes(1)
+    })
+
     it('deleteRecording 移除該段（重錄用）', async () => {
         const store = createMemoryStore()
         const r = useSongRecorder(SONG, { store, micRecorder: makeMicRecorder() })

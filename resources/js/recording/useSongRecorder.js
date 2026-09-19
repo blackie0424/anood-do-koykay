@@ -396,6 +396,7 @@ export function useSongRecorder(song, options = {}) {
         micRecorder.release?.()
         for (const rec of recordings.value.values()) revokeUrl(rec.url)
         discardOverwrite()
+        store.close?.()
     }
 
     return {
