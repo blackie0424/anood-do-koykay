@@ -6,7 +6,10 @@ import PlayBar from '../Components/PlayBar.vue'
 import { createMemoryStore } from '../recording/recordingStore.js'
 
 enableAutoUnmount(afterEach) // 卸載時清掉提示自動消失計時器，避免跨測試干擾
-beforeEach(() => { try { sessionStorage.clear() } catch { /* noop */ } })
+beforeEach(() => {
+    try { sessionStorage.clear() } catch { /* noop */ }
+    window.history.replaceState({}, '', '/')
+})
 
 const SONG = {
     id: 1,
@@ -463,5 +466,39 @@ describe('RecordingMode — 掛載載入既有錄音', () => {
         expect(wrapper.find('[aria-label="錄音段落 2"]').text()).toContain('重新錄音')
         // 沒有重複的錄音鈕：錄音段落 2 只有一顆
         expect(wrapper.findAll('[aria-label="錄音段落 2"]').length).toBe(1)
+    })
+})
+
+describe('RecordingMode — debug timing', () => {
+    it('只有 ?debug=1 才顯示診斷區塊與四項毫秒數', async () => {
+        window.history.replaceState({}, '', '/recording?debug=0')
+        const normal = makeWrapper()
+        expect(normal.wrapper.find('[data-testid="recording-diagnostics"]').exists()).toBe(false)
+        normal.wrapper.unmount()
+
+        window.history.replaceState({}, '', '/recording?debug=1')
+        let clock = 0
+        const now = vi.spyOn(performance, 'now').mockImplementation(() => { clock += 10; return clock })
+        const { wrapper } = makeWrapper()
+        await flushPromises()
+
+        const diagnostic = wrapper.get('[data-testid="recording-diagnostics"]')
+        expect(diagnostic.text()).toMatch(/麥克風初始化: \d+ms/)
+        expect(diagnostic.text()).toMatch(/讀取錄音: \d+ms/)
+        expect(diagnostic.text()).toMatch(/偵測儲存: \d+ms/)
+        expect(diagnostic.text()).toMatch(/總計: \d+ms/)
+        now.mockRestore()
+    })
+
+    it('步驟失敗仍顯示耗時、失敗標記與總計', async () => {
+        window.history.replaceState({}, '', '/recording?debug=1')
+        const store = createMemoryStore()
+        store.getAllForSong = vi.fn(async () => { throw new Error('read failed') })
+        const { wrapper } = makeWrapper({ store })
+        await flushPromises()
+
+        const text = wrapper.get('[data-testid="recording-diagnostics"]').text()
+        expect(text).toMatch(/讀取錄音: \d+ms（失敗）/)
+        expect(text).toMatch(/總計: \d+ms/)
     })
 })

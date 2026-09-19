@@ -17,6 +17,30 @@ const rec = useSongRecorder(props.song, props.options)
 
 // 有某段正在錄音時，其他段的按鈕鎖住（一次只錄一段）
 const isOverwritePending = computed(() => rec.pendingOverwriteLineId.value !== null)
+
+const debugTimingEnabled = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('debug') === '1'
+const diagnosticTimings = ref({ prepare: null, load: null, storage: null, total: null })
+
+function formatDiagnostic(key) {
+    const result = diagnosticTimings.value[key]
+    if (!result) return '計時中…'
+    return `${result.ms}ms${result.failed ? '（失敗）' : ''}`
+}
+
+async function measureDiagnostic(key, operation) {
+    const start = performance.now()
+    let failed = false
+    try {
+        await operation()
+    } catch {
+        failed = true
+    }
+    diagnosticTimings.value = {
+        ...diagnosticTimings.value,
+        [key]: { ms: Math.round(performance.now() - start), failed },
+    }
+}
 const isSomeRecording = computed(() => rec.recordingLineId.value !== null)
 
 // 頂部提示：可各自關閉；狀態存 sessionStorage（同 session 內不再顯示，關瀏覽器/PWA 後重顯）
@@ -41,9 +65,24 @@ const allHintsDismissed = computed(() => hintMismatchDismissed.value && hintLoca
 let hintTimer1 = null
 let hintTimer2 = null
 onMounted(() => {
-    rec.load()
-    rec.prepare() // 預取麥克風授權，之後按錄音才能即時開始
-    rec.probeStorage() // 偵測無痕模式等 IndexedDB 不可寫的情況
+    if (debugTimingEnabled) {
+        const totalStart = performance.now()
+        const tasks = [
+            measureDiagnostic('load', () => rec.load()),
+            measureDiagnostic('prepare', () => rec.prepare()),
+            measureDiagnostic('storage', () => rec.probeStorage()),
+        ]
+        void Promise.allSettled(tasks).then(() => {
+            diagnosticTimings.value = {
+                ...diagnosticTimings.value,
+                total: { ms: Math.round(performance.now() - totalStart), failed: false },
+            }
+        })
+    } else {
+        rec.load()
+        rec.prepare() // 預取麥克風授權，之後按錄音才能即時開始
+        rec.probeStorage() // 偵測無痕模式等 IndexedDB 不可寫的情況
+    }
     if (!hintMismatchDismissed.value) hintTimer1 = setTimeout(dismissMismatch, HINT_AUTO_MS)
     if (!hintLocalOnlyDismissed.value) hintTimer2 = setTimeout(dismissLocalOnly, HINT_AUTO_MS)
 })
@@ -67,6 +106,14 @@ function canListenReference(line) {
 
 <template>
     <div class="fixed inset-0 z-[60] bg-stone-50 flex flex-col pt-[env(safe-area-inset-top)]">
+        <div v-if="debugTimingEnabled" data-testid="recording-diagnostics"
+            class="flex-shrink-0 bg-fuchsia-100 px-4 py-2 text-sm font-mono text-fuchsia-950">
+            <p>[診斷] 麥克風初始化: {{ formatDiagnostic('prepare') }}</p>
+            <p>[診斷] 讀取錄音: {{ formatDiagnostic('load') }}</p>
+            <p>[診斷] 偵測儲存: {{ formatDiagnostic('storage') }}</p>
+            <p>[診斷] 總計: {{ formatDiagnostic('total') }}</p>
+        </div>
+
         <!-- 兩條提示都消失後，頂部顯示返回清單 -->
         <div v-if="allHintsDismissed"
             class="flex-shrink-0 px-4 py-2 bg-white border-b border-stone-200">
