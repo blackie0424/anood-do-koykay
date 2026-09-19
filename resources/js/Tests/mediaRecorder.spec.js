@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createMicRecorder, pickMimeType } from '../recording/mediaRecorder.js'
+
+let createMicRecorder, pickMimeType
 
 // jsdom 沒有 MediaRecorder / getUserMedia，用 fake 驗證 wiring。
 let recorders
@@ -26,7 +27,9 @@ function makeStream() {
 
 let streams
 let getUserMedia
-beforeEach(() => {
+beforeEach(async () => {
+    vi.resetModules()
+    ;({ createMicRecorder, pickMimeType } = await import('../recording/mediaRecorder.js'))
     streams = []
     recorders = []
     supported = new Set(['audio/webm', 'audio/mp4', 'audio/ogg'])
@@ -51,6 +54,27 @@ describe('createMicRecorder', () => {
         await mic.acquire()
         await mic.acquire()
         expect(getUserMedia).toHaveBeenCalledTimes(1)
+    })
+
+    it('同一 session 第一個實例 acquire 成功後，第二個實例不再呼叫 getUserMedia', async () => {
+        const first = createMicRecorder()
+        const second = createMicRecorder()
+
+        await first.acquire()
+        await second.acquire()
+
+        expect(getUserMedia).toHaveBeenCalledTimes(1)
+        expect(second.ready).toBe(true)
+    })
+
+    it('start 成功後，同一 session 的新實例 acquire 不再呼叫 getUserMedia', async () => {
+        const first = createMicRecorder()
+        await first.start()
+        const second = createMicRecorder()
+        await second.acquire()
+
+        expect(getUserMedia).toHaveBeenCalledTimes(1)
+        expect(second.ready).toBe(true)
     })
 
     it('start 取全新 stream 並開始錄；stop 回傳 Blob 且關閉該段 stream', async () => {
