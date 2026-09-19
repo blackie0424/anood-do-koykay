@@ -127,6 +127,7 @@ function canListenReference(line) {
                         </AppButton>
                         <AppButton v-if="rec.hasRecording(line.id) && !rec.isRecording(line.id)"
                             :aria-label="rec.previewLineId.value === line.id ? `暫停段落 ${line.order}` : `播放段落 ${line.order}`"
+                            silent
                             @click="rec.playSegment(line.id)"
                             :disabled="isOverwritePending || isSomeRecording || rec.isPlayingAll.value"
                             class="flex-shrink-0 rounded-full px-4 py-2.5 bg-stone-200 text-stone-700 font-medium hover:bg-stone-300 disabled:opacity-40 disabled:cursor-not-allowed">
@@ -135,6 +136,7 @@ function canListenReference(line) {
                         </AppButton>
                     </div>
                     <AppButton v-if="canListenReference(line)"
+                        silent
                         :aria-label="rec.referenceLoadingLineId.value === line.id ? `原音載入中段落 ${line.order}`
                             : rec.referencePreviewLineId.value === line.id ? `暫停原音段落 ${line.order}`
                             : `聆聽原音段落 ${line.order}`"
@@ -176,6 +178,7 @@ function canListenReference(line) {
             </section>
         </div>
         <PlayBar :playing="rec.isPlayingAll.value" :stop-mode="rec.isPlayingAll.value" :disabled="isSomeRecording || isOverwritePending"
+            silent
             @play="rec.playAll()" @stop="rec.stopPlayAll()" />
     </div>
 </template>
