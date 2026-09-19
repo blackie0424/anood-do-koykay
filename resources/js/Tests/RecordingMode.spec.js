@@ -1,6 +1,7 @@
 import { mount, flushPromises, enableAutoUnmount } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import RecordingMode from '../Components/RecordingMode.vue'
+import AppButton from '../Components/AppButton.vue'
 import PlayBar from '../Components/PlayBar.vue'
 import { createMemoryStore } from '../recording/recordingStore.js'
 
@@ -255,6 +256,29 @@ describe('RecordingMode — 重新錄音覆蓋確認', () => {
 })
 
 describe('RecordingMode — 自聽播放/暫停切換', () => {
+    it('段落錄音播放與原音播放按鈕都停用點擊音效', async () => {
+        const store = createMemoryStore()
+        await store.put(1, 11, new Blob(['saved'], { type: 'audio/webm' }))
+        const wrapper = mount(RecordingMode, {
+            props: {
+                song: SONG,
+                options: {
+                    store,
+                    micRecorder: makeMic(),
+                    audioFactory: () => ({ play: vi.fn(), pause: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn() }),
+                    playStep: vi.fn(() => Promise.resolve()),
+                },
+            },
+        })
+        await flushPromises()
+
+        const buttons = wrapper.findAllComponents(AppButton)
+        const preview = buttons.find(button => button.attributes('aria-label') === '播放段落 2')
+        const reference = buttons.find(button => button.attributes('aria-label') === '聆聽原音段落 1')
+        expect(preview.props('silent')).toBe(true)
+        expect(reference.props('silent')).toBe(true)
+    })
+
     it('點播放後按鈕變暫停，再點恢復播放', async () => {
         const store = createMemoryStore()
         await store.put(1, 11, new Blob(['saved'], { type: 'audio/webm' }))
@@ -372,6 +396,11 @@ describe('RecordingMode — 整體播放', () => {
 })
 
 describe('RecordingMode — 整體播放中鎖住段落按鈕', () => {
+    it('錄音頁的整體播放列停用點擊音效', () => {
+        const { wrapper } = makeWrapper()
+        expect(wrapper.findComponent(PlayBar).props('silent')).toBe(true)
+    })
+
     it('整體播放進行中，開始錄音/播放/聆聽原音全部 disabled', async () => {
         let resolveStep
         const store = createMemoryStore()
