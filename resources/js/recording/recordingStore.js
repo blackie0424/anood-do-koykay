@@ -1,3 +1,5 @@
+import { openDB } from 'idb'
+
 /**
  * 錄音本地儲存層（接唱模式 v1）。
  *
@@ -19,58 +21,107 @@ function keyOf(songId, lineId) {
     return `${songId}:${lineId}`
 }
 
-function openDb() {
-    return new Promise((resolve, reject) => {
-        const req = indexedDB.open(DB_NAME, DB_VERSION)
-        req.onupgradeneeded = () => {
-            const db = req.result
-            if (!db.objectStoreNames.contains(STORE)) {
-                const os = db.createObjectStore(STORE, { keyPath: 'key' })
-                os.createIndex('songId', 'songId', { unique: false })
-            }
-        }
-        req.onsuccess = () => resolve(req.result)
-        req.onerror = () => reject(req.error)
-    })
-}
-
-function tx(db, mode) {
-    return db.transaction(STORE, mode).objectStore(STORE)
-}
-
-function reqToPromise(req) {
-    return new Promise((resolve, reject) => {
-        req.onsuccess = () => resolve(req.result)
-        req.onerror = () => reject(req.error)
-    })
-}
-
 export function createIndexedDbStore() {
+    let dbPromise = null
+    let currentDb = null
+    let generation = 0
+
+    function invalidate(db, close = false) {
+        if (currentDb !== db) return
+        currentDb = null
+        dbPromise = null
+        if (close) db.close()
+    }
+
+    function openConnection() {
+        const connectionGeneration = generation
+        let openedDb = null
+        let managedOpening
+        const opening = openDB(DB_NAME, DB_VERSION, {
+            upgrade(db) {
+                if (!db.objectStoreNames.contains(STORE)) {
+                    const store = db.createObjectStore(STORE, { keyPath: 'key' })
+                    store.createIndex('songId', 'songId', { unique: false })
+                }
+            },
+            blocking() {
+                invalidate(openedDb, true)
+            },
+            terminated() {
+                invalidate(openedDb)
+            },
+        })
+        managedOpening = opening.then(
+            (db) => {
+                openedDb = db
+                if (generation !== connectionGeneration || dbPromise !== managedOpening) {
+                    db.close()
+                    throw new DOMException('Connection was closed before opening completed', 'AbortError')
+                }
+                currentDb = db
+                return db
+            },
+            (error) => {
+                if (dbPromise === managedOpening) dbPromise = null
+                throw error
+            },
+        )
+        dbPromise = managedOpening
+        return managedOpening
+    }
+
+    function closeConnection() {
+        generation += 1
+        dbPromise = null
+        const db = currentDb
+        currentDb = null
+        db?.close()
+    }
+
+    function getDb() {
+        return dbPromise ?? openConnection()
+    }
+
+    async function withConnection(operation, retry = true) {
+        let db = null
+        try {
+            db = await getDb()
+            return await operation(db)
+        } catch (error) {
+            if (error?.name === 'InvalidStateError') {
+                if (db) invalidate(db, true)
+                if (retry) return withConnection(operation, false)
+            }
+            throw error
+        }
+    }
+
     return {
-        async put(songId, lineId, blob, duration = null) {
-            const db = await openDb()
-            await reqToPromise(tx(db, 'readwrite').put({ key: keyOf(songId, lineId), songId, lineId, blob, duration }))
-            db.close()
+        close() {
+            closeConnection()
+        },
+        put(songId, lineId, blob, duration = null) {
+            return withConnection(db => db.put(STORE, {
+                key: keyOf(songId, lineId), songId, lineId, blob, duration,
+            }))
         },
         async getAllForSong(songId) {
-            const db = await openDb()
-            const all = await reqToPromise(tx(db, 'readonly').index('songId').getAll(songId))
-            db.close()
+            const all = await withConnection(db => db.getAllFromIndex(STORE, 'songId', songId))
             const map = new Map()
             for (const rec of all) map.set(rec.lineId, { blob: rec.blob, duration: rec.duration ?? null })
             return map
         },
-        async remove(songId, lineId) {
-            const db = await openDb()
-            await reqToPromise(tx(db, 'readwrite').delete(keyOf(songId, lineId)))
-            db.close()
+        remove(songId, lineId) {
+            return withConnection(db => db.delete(STORE, keyOf(songId, lineId)))
         },
-        async clearSong(songId) {
-            const db = await openDb()
-            const store = tx(db, 'readwrite')
-            const keys = await reqToPromise(store.index('songId').getAllKeys(songId))
-            await Promise.all(keys.map(k => reqToPromise(store.delete(k))))
-            db.close()
+        clearSong(songId) {
+            return withConnection(async (db) => {
+                const transaction = db.transaction(STORE, 'readwrite')
+                const store = transaction.objectStore(STORE)
+                const keys = await store.index('songId').getAllKeys(songId)
+                await Promise.all(keys.map(key => store.delete(key)))
+                await transaction.done
+            })
         },
     }
 }
