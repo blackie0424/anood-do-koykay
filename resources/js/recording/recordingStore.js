@@ -24,6 +24,7 @@ function keyOf(songId, lineId) {
 export function createIndexedDbStore() {
     let dbPromise = null
     let currentDb = null
+    let generation = 0
 
     function invalidate(db, close = false) {
         if (currentDb !== db) return
@@ -33,7 +34,9 @@ export function createIndexedDbStore() {
     }
 
     function openConnection() {
+        const connectionGeneration = generation
         let openedDb = null
+        let managedOpening
         const opening = openDB(DB_NAME, DB_VERSION, {
             upgrade(db) {
                 if (!db.objectStoreNames.contains(STORE)) {
@@ -48,18 +51,31 @@ export function createIndexedDbStore() {
                 invalidate(openedDb)
             },
         })
-        dbPromise = opening
-        return opening.then(
+        managedOpening = opening.then(
             (db) => {
                 openedDb = db
-                if (dbPromise === opening) currentDb = db
+                if (generation !== connectionGeneration || dbPromise !== managedOpening) {
+                    db.close()
+                    throw new DOMException('Connection was closed before opening completed', 'AbortError')
+                }
+                currentDb = db
                 return db
             },
             (error) => {
-                if (dbPromise === opening) dbPromise = null
+                if (dbPromise === managedOpening) dbPromise = null
                 throw error
             },
         )
+        dbPromise = managedOpening
+        return managedOpening
+    }
+
+    function closeConnection() {
+        generation += 1
+        dbPromise = null
+        const db = currentDb
+        currentDb = null
+        db?.close()
     }
 
     function getDb() {
@@ -81,6 +97,9 @@ export function createIndexedDbStore() {
     }
 
     return {
+        close() {
+            closeConnection()
+        },
         put(songId, lineId, blob, duration = null) {
             return withConnection(db => db.put(STORE, {
                 key: keyOf(songId, lineId), songId, lineId, blob, duration,

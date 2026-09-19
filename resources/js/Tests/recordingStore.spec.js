@@ -159,3 +159,51 @@ describe('createIndexedDbStore connection lifecycle', () => {
         expect(db.put).toHaveBeenCalledTimes(1)
     })
 })
+
+describe('createIndexedDbStore close', () => {
+    it('close 關閉目前連線並讓下一次操作重新開啟', async () => {
+        const firstDb = fakeDb()
+        const secondDb = fakeDb()
+        openDBMock.mockResolvedValueOnce(firstDb).mockResolvedValueOnce(secondDb)
+        const store = createIndexedDbStore()
+
+        await store.put(1, 10, blob('first'))
+        store.close()
+        await store.getAllForSong(1)
+
+        expect(firstDb.close).toHaveBeenCalledTimes(1)
+        expect(openDBMock).toHaveBeenCalledTimes(2)
+        expect(secondDb.getAllFromIndex).toHaveBeenCalledTimes(1)
+    })
+
+    it('從未開啟或已關閉時可重複 close 且不拋錯', async () => {
+        const db = fakeDb()
+        openDBMock.mockResolvedValue(db)
+        const store = createIndexedDbStore()
+
+        expect(() => store.close()).not.toThrow()
+        await store.put(1, 10, blob('saved'))
+        store.close()
+        expect(() => store.close()).not.toThrow()
+        expect(db.close).toHaveBeenCalledTimes(1)
+    })
+
+    it('close 廢棄 pending opening，晚到的舊連線關閉且不干擾新連線', async () => {
+        let resolveFirst
+        const firstOpening = new Promise(resolve => { resolveFirst = resolve })
+        const firstDb = fakeDb()
+        const secondDb = fakeDb()
+        openDBMock.mockReturnValueOnce(firstOpening).mockResolvedValueOnce(secondDb)
+        const store = createIndexedDbStore()
+
+        const stalePut = store.put(1, 10, blob('stale'))
+        store.close()
+        await store.put(1, 10, blob('fresh'))
+        resolveFirst(firstDb)
+
+        await expect(stalePut).rejects.toMatchObject({ name: 'AbortError' })
+        expect(firstDb.close).toHaveBeenCalledTimes(1)
+        expect(secondDb.close).not.toHaveBeenCalled()
+        expect(openDBMock).toHaveBeenCalledTimes(2)
+    })
+})
