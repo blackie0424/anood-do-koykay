@@ -16,6 +16,9 @@
 // 可能只在 stop() 時觸發、甚至完全不觸發，導致收不到 chunks（空 blob）。
 const TIMESLICE_MS = 1000
 
+// 同一分頁 session 曾成功取得權限後，後續 acquire 不必再次建立並立刻釋放 stream。
+let microphonePermissionGranted = false
+
 // 依瀏覽器挑選支援的錄音格式。
 // - Chrome/Firefox 支援 audio/webm
 // - iOS Safari 不支援 webm；isTypeSupported('audio/mp4') 有時回 false，
@@ -38,20 +41,25 @@ export function pickMimeType() {
 }
 
 export function createMicRecorder() {
-    let granted = false
+    let granted = microphonePermissionGranted
     let mr = null
     let chunks = []
     let activeStream = null
 
     async function acquire() {
-        if (granted) return
+        if (granted || microphonePermissionGranted) {
+            granted = true
+            return
+        }
         const s = await navigator.mediaDevices.getUserMedia({ audio: true })
+        microphonePermissionGranted = true
         s.getTracks().forEach((t) => t.stop()) // 只為觸發授權，立即釋放
         granted = true
     }
 
     async function start() {
         activeStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        microphonePermissionGranted = true
         granted = true
         chunks = []
         const type = pickMimeType()
