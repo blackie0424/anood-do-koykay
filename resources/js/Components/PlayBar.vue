@@ -7,6 +7,7 @@ const props = defineProps({
     playing: { type: Boolean, default: false }, // ▶/⏸ 切換
     disabled: { type: Boolean, default: false },
     label: { type: String, default: '' }, // 按鈕上方說明文字，空字串不顯示
+    silent: { type: Boolean, default: false },
     stopMode: { type: Boolean, default: false }, // true 時顯示 ⏹ 停止（整體播放中）
 })
 const emit = defineEmits(['play', 'stop'])
@@ -37,6 +38,7 @@ function onClick() {
                  歌詞捷徑）。PlayBar 不需要知道放的是什麼，維持單一職責。 -->
             <slot name="leading" />
             <AppButton @click="onClick" :disabled="disabled || loading" :aria-label="ariaLabel"
+                :silent="silent"
                 :class="['w-16 h-16 max-w-[96px] max-h-[96px] shrink-0 rounded-full text-2xl flex items-center justify-center',
                     disabled ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
                         : loading ? 'bg-stone-400 text-white cursor-wait'

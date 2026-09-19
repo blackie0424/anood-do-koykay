@@ -1,10 +1,16 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import PlayBar from '../Components/PlayBar.vue'
+import AppButton from '../Components/AppButton.vue'
 
 afterEach(() => { vi.restoreAllMocks(); delete global.AudioContext })
 
 describe('PlayBar', () => {
+    it('silent prop 會傳給內部 AppButton，預設仍會播放點擊音效', () => {
+        expect(mount(PlayBar).findComponent(AppButton).props('silent')).toBe(false)
+        expect(mount(PlayBar, { props: { silent: true } }).findComponent(AppButton).props('silent')).toBe(true)
+    })
+
     it('playing=false 顯示 ▶／aria 播放；playing=true 顯示 ⏸／aria 暫停', () => {
         const play = mount(PlayBar, { props: { playing: false } })
         expect(play.find('[aria-label="播放"]').exists()).toBe(true)
