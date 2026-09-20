@@ -34,11 +34,20 @@ function getContext() {
 // 進入時那個畫面根本不會出現。
 let unlocked = false
 
+function resumeAudioWithoutWaiting(ctx) {
+    try {
+        const promise = ctx.resume?.()
+        promise?.catch?.(() => {})
+    } catch {
+        // resume 失敗不影響按鈕功能，也不阻止後續 oscillator 排程
+    }
+}
+
 function unlockAudio(ctx) {
     // 自己包 try：解鎖失敗（環境不支援 createBuffer 等）不該連帶讓 beep 也
     // 播不出來——在不需要解鎖的平台上（桌機）beep 本來就能正常播放
     try {
-        ctx.resume?.()
+        resumeAudioWithoutWaiting(ctx)
 
         const buffer = ctx.createBuffer(1, 1, 22050)
         const source = ctx.createBufferSource()
@@ -71,6 +80,7 @@ export function playClickSound() {
 
         // 這裡一定在使用者手勢中（由按鈕點擊觸發），是合法的解鎖時機
         if (!unlocked) unlockAudio(ctx)
+        else if (ctx.state !== 'running') resumeAudioWithoutWaiting(ctx)
 
         const oscillator = ctx.createOscillator()
         const gain = ctx.createGain()
