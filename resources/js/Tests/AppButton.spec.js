@@ -75,6 +75,16 @@ describe('AppButton — 按下的視覺回饋', () => {
         expect(wrapper.classes()).toContain('active:scale-[0.97]')
         expect(wrapper.classes()).toContain('active:shadow-inner')
     })
+
+    it.each([
+        ['button', {}],
+        ['Inertia Link', { as: 'link', href: '/songs/1/reader' }],
+        ['a', { as: 'a', href: 'https://example.com' }],
+    ])('%s 使用 touch-action manipulation，避免連點被辨識為雙擊縮放', (_label, props) => {
+        const wrapper = mountBtn({ props })
+
+        expect(wrapper.classes()).toContain('touch-manipulation')
+    })
 })
 
 describe('AppButton — 渲染成不同標籤', () => {
