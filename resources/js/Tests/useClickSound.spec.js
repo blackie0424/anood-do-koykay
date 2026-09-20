@@ -106,7 +106,7 @@ describe('useClickSound', () => {
         expect(oscillator.start).toHaveBeenCalled()
     })
 
-    it('解鎖完成後，後續播放不再呼叫 resume', () => {
+    it('解鎖完成且 context 保持 running 時，後續播放不重複 resume', () => {
         const { Ctor, ctx } = makeFakeAudioContext()
         window.AudioContext = Ctor
 
@@ -115,6 +115,41 @@ describe('useClickSound', () => {
         playClickSound()  // 之後不該再解鎖
 
         expect(ctx.resume).not.toHaveBeenCalled()
+    })
+
+    it.each(['suspended', 'interrupted', 'unknown'])(
+        '解鎖後 context 變成 %s，下一次播放會重新 resume 且不等待 Promise',
+        (state) => {
+            const { Ctor, ctx, oscillator } = makeFakeAudioContext()
+            window.AudioContext = Ctor
+
+            playClickSound()
+            ctx.resume.mockClear()
+            oscillator.start.mockClear()
+            ctx.state = state
+            ctx.resume.mockImplementation(() => new Promise(() => {}))
+
+            playClickSound()
+
+            expect(ctx.resume).toHaveBeenCalledTimes(1)
+            expect(oscillator.start).toHaveBeenCalledTimes(1)
+        },
+    )
+
+    it('重新 resume 的 Promise 被拒時靜默處理，提示音仍同步排程', async () => {
+        const { Ctor, ctx, oscillator } = makeFakeAudioContext()
+        window.AudioContext = Ctor
+
+        playClickSound()
+        ctx.resume.mockClear()
+        oscillator.start.mockClear()
+        ctx.state = 'suspended'
+        ctx.resume.mockImplementation(() => Promise.reject(new Error('resume denied')))
+
+        expect(() => playClickSound()).not.toThrow()
+        expect(oscillator.start).toHaveBeenCalledTimes(1)
+        expect(ctx.resume).toHaveBeenCalledTimes(1)
+        await Promise.resolve()
     })
 
     it('瀏覽器不支援 Web Audio 時靜默失敗，不拋錯', () => {
