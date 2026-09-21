@@ -60,6 +60,22 @@ describe('SongReader — 基本行為（確認加入返回鍵未影響既有功�
         expect(wrapper.text()).toContain('第 2 段 / 共 2 段')
     })
 
+    it('A+／A- 在停用雙擊縮放後仍能調整歌詞字體', async () => {
+        const wrapper = mountReader()
+        const lyric = wrapper.findAll('p').find((el) => el.text() === 'Maomaw')
+        const buttons = wrapper.findAll('button')
+        const decrease = buttons.find((button) => button.text() === 'A-')
+        const increase = buttons.find((button) => button.text() === 'A+')
+
+        expect(lyric.attributes('style')).toContain('font-size: 3.5rem')
+
+        await increase.trigger('click')
+        expect(lyric.attributes('style')).toContain('font-size: 4rem')
+
+        await decrease.trigger('click')
+        expect(lyric.attributes('style')).toContain('font-size: 3.5rem')
+    })
+
     it('過濾掉空白歌詞行', () => {
         const wrapper = mountReader({
             ...SONG,
