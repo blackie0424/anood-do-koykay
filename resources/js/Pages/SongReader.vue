@@ -91,7 +91,7 @@ const currentLine = computed(() => lines.value[currentIdx.value]?.text_native ??
 
                 <!-- 按鈕列：加 flex-wrap，字體調大時「上一段」變寬不會擠壓
                      右側主要按鈕，放不下就自動換行 -->
-                <div class="flex flex-wrap items-center gap-3">
+                <div class="flex flex-wrap items-center gap-3 touch-manipulation">
                     <!-- 上一段：只留箭頭（chung）。文字拿掉後改用 aria-label
                          提供名稱，螢幕閱讀器仍讀得到用途。箭頭字級放大並設
                          上限，避免跟著系統字體無限變大。 -->

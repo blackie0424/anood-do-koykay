@@ -154,4 +154,14 @@ describe('SongReader — 上一段／下一段只留箭頭圖示', () => {
 
         expect(wrapper.find('button[aria-label="上一段"]').attributes('disabled')).toBeDefined()
     })
+
+    it('按鈕列停用雙擊縮放，涵蓋原生停用的上一段按鈕', () => {
+        const wrapper = mountReader()
+        const prevBtn = wrapper.find('button[aria-label="上一段"]')
+        const nextBtn = wrapper.find('button[aria-label="下一段"]')
+        const controls = prevBtn.element.parentElement
+
+        expect(controls).toBe(nextBtn.element.parentElement)
+        expect(controls.classList).toContain('touch-manipulation')
+    })
 })
