@@ -26,10 +26,11 @@ function mountReader() {
         },
     })
 }
+
 afterEach(() => vi.restoreAllMocks())
 
-
 describe('SongReader — 常駐被動觸控監聽器', () => {
+    it('事件種類與監聽選項固定為真機驗證過的組合', () => {
         expect(READER_PASSIVE_EVENT_TYPES).toEqual([
             'touchstart',
             'touchend',
@@ -42,6 +43,7 @@ describe('SongReader — 常駐被動觸控監聽器', () => {
             capture: true,
             passive: true,
         })
+    })
 
     it('掛載時註冊、卸載時以相同 handler 與 passive options 移除六種事件', () => {
         const addEventListener = vi.spyOn(document, 'addEventListener')
