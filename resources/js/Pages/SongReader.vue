@@ -10,6 +10,7 @@ import {
     formatDiagnosticEntry,
     withDelayedScale,
 } from '@/utils/readerTouchDiagnostics'
+import { installReaderPassiveTouchListeners } from '@/utils/readerPassiveTouchListeners'
 
 const props = defineProps({ song: Object })
 
@@ -29,6 +30,7 @@ const delayedScaleTimers = new Set()
 let longPressTimer = null
 let previousEventAt = null
 let nextDiagnosticId = 1
+let removeReaderPassiveTouchListeners = null
 
 const diagnosticLines = computed(() => (
     [...diagnosticEntries.value].reverse().map(formatDiagnosticEntry)
@@ -139,9 +141,12 @@ function startDiagnosticsLongPress() {
 onMounted(() => {
     const saved = parseFloat(localStorage.getItem(FONT_KEY))
     if (!isNaN(saved) && saved >= 1.5 && saved <= 6) fontSize.value = saved
+    removeReaderPassiveTouchListeners = installReaderPassiveTouchListeners(document)
 })
 
 onBeforeUnmount(() => {
+    removeReaderPassiveTouchListeners?.()
+    removeReaderPassiveTouchListeners = null
     cancelDiagnosticsLongPress()
     stopDiagnostics()
 })

@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import BackLink from '../Components/BackLink.vue'
 import SongReader from '../Pages/SongReader.vue'
+import { noopReaderTouchListener } from '../utils/readerPassiveTouchListeners'
 
 const SONG = {
     id: 1,
@@ -220,7 +221,7 @@ describe('SongReader — 暫時觸控診斷', () => {
         await wrapper.vm.$nextTick()
     }
 
-    it('預設關閉，未啟用時不註冊六種診斷事件或 visualViewport 監聽器', () => {
+    it('預設關閉時只有常駐 no-op，不註冊面板記錄器或 visualViewport 監聽器', () => {
         const addEventListener = vi.spyOn(document, 'addEventListener')
         const visualViewport = stubVisualViewport()
 
@@ -228,7 +229,9 @@ describe('SongReader — 暫時觸控診斷', () => {
 
         expect(wrapper.find('[aria-label="觸控診斷"]').exists()).toBe(false)
         for (const type of diagnosticEvents) {
-            expect(addEventListener.mock.calls.some(([eventType]) => eventType === type)).toBe(false)
+            const registrations = addEventListener.mock.calls.filter(([eventType]) => eventType === type)
+            expect(registrations).toHaveLength(1)
+            expect(registrations[0][1]).toBe(noopReaderTouchListener)
         }
         expect(visualViewport.addEventListener).not.toHaveBeenCalled()
         wrapper.unmount()
@@ -256,7 +259,11 @@ describe('SongReader — 暫時觸控診斷', () => {
         expect(panel.classes()).toContain('pointer-events-none')
         expect(clear.classes()).toContain('pointer-events-auto')
         for (const type of diagnosticEvents) {
-            const registration = addEventListener.mock.calls.find(([eventType]) => eventType === type)
+            const registration = addEventListener.mock.calls.find(
+                ([eventType, handler]) => (
+                    eventType === type && handler !== noopReaderTouchListener
+                ),
+            )
             expect(registration?.[2]).toMatchObject({ capture: true, passive: true })
         }
         for (const type of ['resize', 'scroll']) {
@@ -269,7 +276,11 @@ describe('SongReader — 暫時觸控診斷', () => {
 
         wrapper.unmount()
         for (const type of diagnosticEvents) {
-            const removal = removeEventListener.mock.calls.find(([eventType]) => eventType === type)
+            const removal = removeEventListener.mock.calls.find(
+                ([eventType, handler]) => (
+                    eventType === type && handler !== noopReaderTouchListener
+                ),
+            )
             expect(removal?.[2]).toMatchObject({ capture: true, passive: true })
         }
         expect(visualViewport.removeEventListener).toHaveBeenCalledTimes(2)
@@ -281,7 +292,9 @@ describe('SongReader — 暫時觸控診斷', () => {
         const wrapper = mountReader()
         await enableDiagnostics(wrapper)
 
-        const touchendHandler = addEventListener.mock.calls.find(([type]) => type === 'touchend')[1]
+        const touchendHandler = addEventListener.mock.calls.find(
+            ([type, handler]) => type === 'touchend' && handler !== noopReaderTouchListener,
+        )[1]
         touchendHandler({
             type: 'touchend',
             target: wrapper.find('button[aria-label="上一段"]').element,
