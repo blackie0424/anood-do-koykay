@@ -170,7 +170,7 @@ function startDiagnosticsLongPress() {
 onMounted(() => {
     const saved = parseFloat(localStorage.getItem(FONT_KEY))
     if (!isNaN(saved) && saved >= 1.5 && saved <= 6) fontSize.value = saved
-    removeReaderPassiveTouchListeners = installReaderPassiveTouchListeners(document)
+    removeReaderPassiveTouchListeners = installReaderPassiveTouchListeners(document, ['dblclick'])
 })
 
 onBeforeUnmount(() => {

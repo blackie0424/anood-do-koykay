@@ -45,14 +45,19 @@ describe('SongReader — 常駐被動觸控監聽器', () => {
         })
     })
 
-    it('掛載時註冊、卸載時以相同 handler 與 passive options 移除六種事件', () => {
+    it('掛載時只註冊 dblclick，卸載時以相同 handler 與 passive options 移除', () => {
         const addEventListener = vi.spyOn(document, 'addEventListener')
         const removeEventListener = vi.spyOn(document, 'removeEventListener')
 
         const wrapper = mountReader()
 
-        for (const type of READER_PASSIVE_EVENT_TYPES) {
-            expect(addEventListener).toHaveBeenCalledWith(
+        expect(addEventListener).toHaveBeenCalledWith(
+            'dblclick',
+            noopReaderTouchListener,
+            READER_PASSIVE_LISTENER_OPTIONS,
+        )
+        for (const type of READER_PASSIVE_EVENT_TYPES.filter(type => type !== 'dblclick')) {
+            expect(addEventListener).not.toHaveBeenCalledWith(
                 type,
                 noopReaderTouchListener,
                 READER_PASSIVE_LISTENER_OPTIONS,
@@ -61,8 +66,13 @@ describe('SongReader — 常駐被動觸控監聽器', () => {
 
         wrapper.unmount()
 
-        for (const type of READER_PASSIVE_EVENT_TYPES) {
-            expect(removeEventListener).toHaveBeenCalledWith(
+        expect(removeEventListener).toHaveBeenCalledWith(
+            'dblclick',
+            noopReaderTouchListener,
+            READER_PASSIVE_LISTENER_OPTIONS,
+        )
+        for (const type of READER_PASSIVE_EVENT_TYPES.filter(type => type !== 'dblclick')) {
+            expect(removeEventListener).not.toHaveBeenCalledWith(
                 type,
                 noopReaderTouchListener,
                 READER_PASSIVE_LISTENER_OPTIONS,

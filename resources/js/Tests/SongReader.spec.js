@@ -228,11 +228,12 @@ describe('SongReader — 暫時觸控診斷', () => {
         const wrapper = mountReader()
 
         expect(wrapper.find('[aria-label="觸控診斷"]').exists()).toBe(false)
-        for (const type of diagnosticEvents) {
-            const registrations = addEventListener.mock.calls.filter(([eventType]) => eventType === type)
-            expect(registrations).toHaveLength(1)
-            expect(registrations[0][1]).toBe(noopReaderTouchListener)
-        }
+        const registrations = addEventListener.mock.calls.filter(
+            ([eventType, handler]) => handler === noopReaderTouchListener && diagnosticEvents.includes(eventType),
+        )
+        expect(registrations).toEqual([
+            ['dblclick', noopReaderTouchListener, expect.objectContaining({ capture: true, passive: true })],
+        ])
         expect(visualViewport.addEventListener).not.toHaveBeenCalled()
         wrapper.unmount()
     })
