@@ -320,7 +320,7 @@ describe('SongReader — 暫時觸控診斷', () => {
     })
 
 
-    it('可切換 A/C/E/F 實驗組合，關閉面板後還原正式 D 組合', async () => {
+    it('可切換 A/B/C/D 監聽組合，關閉面板後還原正式 D 組合', async () => {
         const addEventListener = vi.spyOn(document, 'addEventListener')
         const removeEventListener = vi.spyOn(document, 'removeEventListener')
         stubVisualViewport()
@@ -344,13 +344,17 @@ describe('SongReader — 暫時觸控診斷', () => {
 
         addEventListener.mockClear()
         removeEventListener.mockClear()
-        await wrapper.find('button[aria-label="切換觸控監聽器組合 E"]').trigger('click')
-        expect(addEventListener).toHaveBeenCalledWith(
-            'click',
-            expect.any(Function),
-            expect.objectContaining({ capture: true, passive: true }),
-        )
-        expect(addEventListener.mock.calls.some(([eventType]) => eventType === 'dblclick')).toBe(false)
+        await wrapper.find('button[aria-label="切換觸控監聽器組合 B"]').trigger('click')
+        for (const type of ['touchstart', 'touchend', 'pointerdown', 'pointerup']) {
+            expect(addEventListener).toHaveBeenCalledWith(
+                type,
+                expect.any(Function),
+                expect.objectContaining({ capture: true, passive: true }),
+            )
+        }
+        for (const type of ['click', 'dblclick']) {
+            expect(addEventListener.mock.calls.some(([eventType]) => eventType === type)).toBe(false)
+        }
 
         addEventListener.mockClear()
         removeEventListener.mockClear()
@@ -365,22 +369,6 @@ describe('SongReader — 暫時觸控診斷', () => {
         for (const type of ['touchstart', 'touchend', 'pointerdown', 'pointerup']) {
             expect(addEventListener.mock.calls.some(([eventType]) => eventType === type)).toBe(false)
         }
-
-        addEventListener.mockClear()
-        removeEventListener.mockClear()
-        await wrapper.find('button[aria-label="切換觸控監聽器組合 F"]').trigger('click')
-        expect(addEventListener).toHaveBeenCalledWith(
-            'dblclick',
-            expect.any(Function),
-            expect.objectContaining({ capture: true, passive: true }),
-        )
-        expect(addEventListener.mock.calls.some(([eventType]) => eventType === 'click')).toBe(false)
-        for (const type of ['touchstart', 'touchend', 'pointerdown', 'pointerup']) {
-            expect(addEventListener.mock.calls.some(([eventType]) => eventType === type)).toBe(false)
-        }
-
-        expect(wrapper.find('button[aria-label="切換觸控監聽器組合 B"]').exists()).toBe(false)
-        expect(wrapper.find('button[aria-label="切換觸控監聽器組合 D"]').exists()).toBe(false)
 
         addEventListener.mockClear()
         removeEventListener.mockClear()
