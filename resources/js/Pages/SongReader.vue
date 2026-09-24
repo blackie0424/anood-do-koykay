@@ -4,15 +4,13 @@ import AppButton from '@/Components/AppButton.vue'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 import BackLink from '@/Components/BackLink.vue'
 import {
+    DIAGNOSTIC_EVENT_TYPES,
     appendRecent,
     createDiagnosticEntry,
     formatDiagnosticEntry,
     withDelayedScale,
 } from '@/utils/readerTouchDiagnostics'
-import {
-    installReaderPassiveTouchListeners,
-    READER_PASSIVE_EVENT_TYPES,
-} from '@/utils/readerPassiveTouchListeners'
+import { installReaderPassiveTouchListeners } from '@/utils/readerPassiveTouchListeners'
 
 const props = defineProps({ song: Object })
 
@@ -25,21 +23,14 @@ const fontSize = ref(3.5)
 
 const diagnosticsEnabled = ref(false)
 const diagnosticEntries = ref([])
-const diagnosticListenerConfig = ref('D')
-const DIAGNOSTIC_LISTENER_CONFIGS = {
-    A: [],
-    B: ['touchstart', 'touchend', 'pointerdown', 'pointerup'],
-    C: ['click', 'dblclick'],
-    D: READER_PASSIVE_EVENT_TYPES,
-}
 const viewportScale = ref(1)
+const diagnosticListenerOptions = { capture: true, passive: true }
 const viewportListenerOptions = { passive: true }
 const delayedScaleTimers = new Set()
 let longPressTimer = null
 let previousEventAt = null
 let nextDiagnosticId = 1
 let removeReaderPassiveTouchListeners = null
-let removeExperimentalTouchListeners = null
 
 const diagnosticLines = computed(() => (
     [...diagnosticEntries.value].reverse().map(formatDiagnosticEntry)
@@ -104,48 +95,29 @@ function clearDiagnostics() {
     previousEventAt = null
 }
 
-function installDiagnosticListenerConfig(config) {
-    removeExperimentalTouchListeners?.()
-    removeExperimentalTouchListeners = null
-    diagnosticListenerConfig.value = config
-    clearDiagnostics()
-
-    const eventTypes = DIAGNOSTIC_LISTENER_CONFIGS[config]
-    if (eventTypes.length) {
-        removeExperimentalTouchListeners = installReaderPassiveTouchListeners(
-            document,
-            eventTypes,
-            recordDiagnosticEvent,
-        )
-    }
-}
-
 function startDiagnostics() {
     if (diagnosticsEnabled.value) return
 
-    removeReaderPassiveTouchListeners?.()
-    removeReaderPassiveTouchListeners = null
     diagnosticsEnabled.value = true
     updateViewportScale()
-    installDiagnosticListenerConfig('D')
+    for (const type of DIAGNOSTIC_EVENT_TYPES) {
+        document.addEventListener(type, recordDiagnosticEvent, diagnosticListenerOptions)
+    }
     window.visualViewport?.addEventListener('resize', updateViewportScale, viewportListenerOptions)
     window.visualViewport?.addEventListener('scroll', updateViewportScale, viewportListenerOptions)
 }
 
-function stopDiagnostics({ restoreDefault = true } = {}) {
+function stopDiagnostics() {
     if (!diagnosticsEnabled.value) return
 
-    removeExperimentalTouchListeners?.()
-    removeExperimentalTouchListeners = null
+    for (const type of DIAGNOSTIC_EVENT_TYPES) {
+        document.removeEventListener(type, recordDiagnosticEvent, diagnosticListenerOptions)
+    }
     window.visualViewport?.removeEventListener('resize', updateViewportScale, viewportListenerOptions)
     window.visualViewport?.removeEventListener('scroll', updateViewportScale, viewportListenerOptions)
     clearDelayedScaleTimers()
     diagnosticsEnabled.value = false
-    diagnosticListenerConfig.value = 'D'
     previousEventAt = null
-    if (restoreDefault && !removeReaderPassiveTouchListeners) {
-        removeReaderPassiveTouchListeners = installReaderPassiveTouchListeners(document)
-    }
 }
 
 function toggleDiagnostics() {
@@ -173,10 +145,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-    stopDiagnostics({ restoreDefault: false })
     removeReaderPassiveTouchListeners?.()
     removeReaderPassiveTouchListeners = null
     cancelDiagnosticsLongPress()
+    stopDiagnostics()
 })
 
 function setFontSize(val) {
@@ -213,17 +185,8 @@ const currentLine = computed(() => lines.value[currentIdx.value]?.text_native ??
             <section v-if="diagnosticsEnabled" aria-label="觸控診斷"
                 class="fixed inset-x-2 top-2 z-[999] max-h-[48vh] overflow-auto rounded-lg bg-black/90 p-2 text-[10px] leading-tight text-white pointer-events-none">
                 <div class="flex items-center justify-between gap-2">
-                    <div class="font-bold">
-                        [觸控診斷] scale={{ viewportScale }}／目前組合：{{ diagnosticListenerConfig }}
-                    </div>
+                    <div class="font-bold">[觸控診斷] scale={{ viewportScale }}</div>
                     <div class="flex gap-1">
-                        <button v-for="config in ['A', 'B', 'C', 'D']" :key="config" type="button"
-                            :aria-label="'切換觸控監聽器組合 ' + config"
-                            class="pointer-events-auto rounded px-2 py-1 text-black"
-                            :class="diagnosticListenerConfig === config ? 'bg-amber-300' : 'bg-white'"
-                            @click.passive="installDiagnosticListenerConfig(config)">
-                            {{ config }}
-                        </button>
                         <button type="button" aria-label="清除觸控診斷"
                             class="pointer-events-auto rounded bg-white px-2 py-1 text-black"
                             @click.passive="clearDiagnostics">
@@ -237,10 +200,7 @@ const currentLine = computed(() => lines.value[currentIdx.value]?.text_native ??
                     </div>
                 </div>
                 <div class="break-all">{{ diagnosticEnvironment }}</div>
-                <div v-if="diagnosticListenerConfig === 'A'" class="mt-1">
-                    A 無事件紀錄（完全不掛觸控／點擊監聽器）
-                </div>
-                <div v-else-if="diagnosticLines.length === 0" class="mt-1">尚無事件</div>
+                <div v-if="diagnosticLines.length === 0" class="mt-1">尚無事件</div>
                 <pre v-for="(line, index) in diagnosticLines" :key="index"
                     class="mt-1 whitespace-pre-wrap border-t border-white/30 pt-1">{{ line }}</pre>
             </section>

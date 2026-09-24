@@ -17,14 +17,14 @@ export const READER_PASSIVE_LISTENER_OPTIONS = {
 // 並非官方文件保證的行為，也不宣稱已找到根因。
 export function noopReaderTouchListener() {}
 
-export function installReaderPassiveTouchListeners(target, eventTypes = READER_PASSIVE_EVENT_TYPES, handler = noopReaderTouchListener) {
-    for (const type of eventTypes) {
-        target.addEventListener(type, handler, READER_PASSIVE_LISTENER_OPTIONS)
+export function installReaderPassiveTouchListeners(target) {
+    for (const type of READER_PASSIVE_EVENT_TYPES) {
+        target.addEventListener(type, noopReaderTouchListener, READER_PASSIVE_LISTENER_OPTIONS)
     }
 
     return () => {
-        for (const type of eventTypes) {
-            target.removeEventListener(type, handler, READER_PASSIVE_LISTENER_OPTIONS)
+        for (const type of READER_PASSIVE_EVENT_TYPES) {
+            target.removeEventListener(type, noopReaderTouchListener, READER_PASSIVE_LISTENER_OPTIONS)
         }
     }
 }
