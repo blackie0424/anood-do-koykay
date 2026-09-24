@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import AppButton from '@/Components/AppButton.vue'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 import BackLink from '@/Components/BackLink.vue'
+import { installReaderPassiveTouchListeners } from '@/utils/readerPassiveTouchListeners'
 
 const props = defineProps({ song: Object })
 
@@ -12,10 +13,17 @@ const total = computed(() => lines.value.length)
 const currentIdx = ref(0)
 const FONT_KEY = 'songReaderFontSize'
 const fontSize = ref(3.5)
+let removeReaderPassiveTouchListeners = null
 
 onMounted(() => {
     const saved = parseFloat(localStorage.getItem(FONT_KEY))
     if (!isNaN(saved) && saved >= 1.5 && saved <= 6) fontSize.value = saved
+    removeReaderPassiveTouchListeners = installReaderPassiveTouchListeners(document, ['dblclick'])
+})
+
+onBeforeUnmount(() => {
+    removeReaderPassiveTouchListeners?.()
+    removeReaderPassiveTouchListeners = null
 })
 
 function setFontSize(val) {
@@ -91,7 +99,7 @@ const currentLine = computed(() => lines.value[currentIdx.value]?.text_native ??
 
                 <!-- 按鈕列：加 flex-wrap，字體調大時「上一段」變寬不會擠壓
                      右側主要按鈕，放不下就自動換行 -->
-                <div class="flex flex-wrap items-center gap-3">
+                <div class="flex flex-wrap items-center gap-3 touch-manipulation">
                     <!-- 上一段：只留箭頭（chung）。文字拿掉後改用 aria-label
                          提供名稱，螢幕閱讀器仍讀得到用途。箭頭字級放大並設
                          上限，避免跟著系統字體無限變大。 -->

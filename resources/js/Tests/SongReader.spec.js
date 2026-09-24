@@ -60,6 +60,22 @@ describe('SongReader — 基本行為（確認加入返回鍵未影響既有功�
         expect(wrapper.text()).toContain('第 2 段 / 共 2 段')
     })
 
+    it('A+／A- 在停用雙擊縮放後仍能調整歌詞字體', async () => {
+        const wrapper = mountReader()
+        const lyric = wrapper.findAll('p').find((el) => el.text() === 'Maomaw')
+        const buttons = wrapper.findAll('button')
+        const decrease = buttons.find((button) => button.text() === 'A-')
+        const increase = buttons.find((button) => button.text() === 'A+')
+
+        expect(lyric.attributes('style')).toContain('font-size: 3.5rem')
+
+        await increase.trigger('click')
+        expect(lyric.attributes('style')).toContain('font-size: 4rem')
+
+        await decrease.trigger('click')
+        expect(lyric.attributes('style')).toContain('font-size: 3.5rem')
+    })
+
     it('過濾掉空白歌詞行', () => {
         const wrapper = mountReader({
             ...SONG,
@@ -153,5 +169,15 @@ describe('SongReader — 上一段／下一段只留箭頭圖示', () => {
         const wrapper = mountReader()
 
         expect(wrapper.find('button[aria-label="上一段"]').attributes('disabled')).toBeDefined()
+    })
+
+    it('按鈕列停用雙擊縮放，涵蓋原生停用的上一段按鈕', () => {
+        const wrapper = mountReader()
+        const prevBtn = wrapper.find('button[aria-label="上一段"]')
+        const nextBtn = wrapper.find('button[aria-label="下一段"]')
+        const controls = prevBtn.element.parentElement
+
+        expect(controls).toBe(nextBtn.element.parentElement)
+        expect(controls.classList).toContain('touch-manipulation')
     })
 })

@@ -45,7 +45,7 @@ const SIZES = {
 
 // 按下回饋：輕微縮小 + 陰影內凹。只在支援滑鼠的裝置套用 hover（見
 // tailwind.config.js 的 hoverOnlyWhenSupported），按壓效果則所有裝置都有。
-const PRESS_FEEDBACK = 'transition-transform active:scale-[0.97] active:shadow-inner'
+const PRESS_FEEDBACK = 'touch-manipulation transition-transform active:scale-[0.97] active:shadow-inner'
 
 const tag = computed(() => (props.as === 'link' ? Link : props.as === 'a' ? 'a' : 'button'))
 
