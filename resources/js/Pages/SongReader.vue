@@ -3,13 +3,6 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import AppButton from '@/Components/AppButton.vue'
 import PublicLayout from '@/Layouts/PublicLayout.vue'
 import BackLink from '@/Components/BackLink.vue'
-import {
-    DIAGNOSTIC_EVENT_TYPES,
-    appendRecent,
-    createDiagnosticEntry,
-    formatDiagnosticEntry,
-    withDelayedScale,
-} from '@/utils/readerTouchDiagnostics'
 import { installReaderPassiveTouchListeners } from '@/utils/readerPassiveTouchListeners'
 
 const props = defineProps({ song: Object })
@@ -20,123 +13,7 @@ const total = computed(() => lines.value.length)
 const currentIdx = ref(0)
 const FONT_KEY = 'songReaderFontSize'
 const fontSize = ref(3.5)
-
-const diagnosticsEnabled = ref(false)
-const diagnosticEntries = ref([])
-const viewportScale = ref(1)
-const diagnosticListenerOptions = { capture: true, passive: true }
-const viewportListenerOptions = { passive: true }
-const delayedScaleTimers = new Set()
-let longPressTimer = null
-let previousEventAt = null
-let nextDiagnosticId = 1
 let removeReaderPassiveTouchListeners = null
-
-const diagnosticLines = computed(() => (
-    [...diagnosticEntries.value].reverse().map(formatDiagnosticEntry)
-))
-
-const diagnosticEnvironment = computed(() => {
-    const navigatorStandalone = navigator.standalone === true
-    const displayModeStandalone = window.matchMedia?.('(display-mode: standalone)').matches ?? false
-
-    return [
-        `navigator.standalone=${navigatorStandalone}`,
-        `display-mode:standalone=${displayModeStandalone}`,
-        `UA=${navigator.userAgent}`,
-    ].join(' | ')
-})
-
-function readViewportScale() {
-    return window.visualViewport?.scale ?? 1
-}
-
-function updateViewportScale() {
-    viewportScale.value = readViewportScale()
-}
-
-function recordDiagnosticEvent(event) {
-    const now = performance.now()
-    updateViewportScale()
-
-    const entry = createDiagnosticEntry(event, {
-        id: nextDiagnosticId++,
-        now,
-        previousAt: previousEventAt,
-        scale: viewportScale.value,
-        getStyle: (element) => window.getComputedStyle(element),
-        elementFromPoint: (x, y) => document.elementFromPoint?.(x, y) ?? null,
-    })
-    previousEventAt = now
-    diagnosticEntries.value = appendRecent(diagnosticEntries.value, entry)
-
-    if (event.type === 'touchend') {
-        const timer = window.setTimeout(() => {
-            delayedScaleTimers.delete(timer)
-            updateViewportScale()
-            diagnosticEntries.value = withDelayedScale(
-                diagnosticEntries.value,
-                entry.id,
-                viewportScale.value,
-            )
-        }, 400)
-        delayedScaleTimers.add(timer)
-    }
-}
-
-function clearDelayedScaleTimers() {
-    for (const timer of delayedScaleTimers) window.clearTimeout(timer)
-    delayedScaleTimers.clear()
-}
-
-function clearDiagnostics() {
-    clearDelayedScaleTimers()
-    diagnosticEntries.value = []
-    previousEventAt = null
-}
-
-function startDiagnostics() {
-    if (diagnosticsEnabled.value) return
-
-    diagnosticsEnabled.value = true
-    updateViewportScale()
-    for (const type of DIAGNOSTIC_EVENT_TYPES) {
-        document.addEventListener(type, recordDiagnosticEvent, diagnosticListenerOptions)
-    }
-    window.visualViewport?.addEventListener('resize', updateViewportScale, viewportListenerOptions)
-    window.visualViewport?.addEventListener('scroll', updateViewportScale, viewportListenerOptions)
-}
-
-function stopDiagnostics() {
-    if (!diagnosticsEnabled.value) return
-
-    for (const type of DIAGNOSTIC_EVENT_TYPES) {
-        document.removeEventListener(type, recordDiagnosticEvent, diagnosticListenerOptions)
-    }
-    window.visualViewport?.removeEventListener('resize', updateViewportScale, viewportListenerOptions)
-    window.visualViewport?.removeEventListener('scroll', updateViewportScale, viewportListenerOptions)
-    clearDelayedScaleTimers()
-    diagnosticsEnabled.value = false
-    previousEventAt = null
-}
-
-function toggleDiagnostics() {
-    diagnosticsEnabled.value ? stopDiagnostics() : startDiagnostics()
-}
-
-function cancelDiagnosticsLongPress() {
-    if (longPressTimer == null) return
-    window.clearTimeout(longPressTimer)
-    longPressTimer = null
-}
-
-function startDiagnosticsLongPress() {
-    cancelDiagnosticsLongPress()
-    longPressTimer = window.setTimeout(() => {
-        longPressTimer = null
-        toggleDiagnostics()
-    }, 2000)
-}
 
 onMounted(() => {
     const saved = parseFloat(localStorage.getItem(FONT_KEY))
@@ -147,8 +24,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
     removeReaderPassiveTouchListeners?.()
     removeReaderPassiveTouchListeners = null
-    cancelDiagnosticsLongPress()
-    stopDiagnostics()
 })
 
 function setFontSize(val) {
@@ -182,28 +57,6 @@ const currentLine = computed(() => lines.value[currentIdx.value]?.text_native ??
              - 主要動作用 blue-700 而非全站慣用的 blue-600：白字對比從
                5.2:1 提升到 6.7:1，年長者藍色辨識力下降時仍看得清楚。 -->
         <div class="min-h-dvh flex flex-col bg-amber-50 text-stone-900 select-none">
-            <section v-if="diagnosticsEnabled" aria-label="觸控診斷"
-                class="fixed inset-x-2 top-2 z-[999] max-h-[48vh] overflow-auto rounded-lg bg-black/90 p-2 text-[10px] leading-tight text-white pointer-events-none">
-                <div class="flex items-center justify-between gap-2">
-                    <div class="font-bold">[觸控診斷] scale={{ viewportScale }}</div>
-                    <div class="flex gap-1">
-                        <button type="button" aria-label="清除觸控診斷"
-                            class="pointer-events-auto rounded bg-white px-2 py-1 text-black"
-                            @click.passive="clearDiagnostics">
-                            清除
-                        </button>
-                        <button type="button" aria-label="關閉觸控診斷"
-                            class="pointer-events-auto rounded bg-white px-2 py-1 text-black"
-                            @click.passive="stopDiagnostics">
-                            關閉
-                        </button>
-                    </div>
-                </div>
-                <div class="break-all">{{ diagnosticEnvironment }}</div>
-                <div v-if="diagnosticLines.length === 0" class="mt-1">尚無事件</div>
-                <pre v-for="(line, index) in diagnosticLines" :key="index"
-                    class="mt-1 whitespace-pre-wrap border-t border-white/30 pt-1">{{ line }}</pre>
-            </section>
 
             <!-- 右上角字體調整 -->
             <div class="fixed top-3 right-3 z-10 flex items-center gap-1">
@@ -225,14 +78,7 @@ const currentLine = computed(() => lines.value[currentIdx.value]?.text_native ??
                     <BackLink size="lg" />
                 </div>
                 <p class="text-stone-700 text-sm truncate">{{ song.title_native }}</p>
-                <p data-reader-diagnostics-trigger
-                    class="text-stone-600 text-xs mt-0.5 select-none [-webkit-touch-callout:none]"
-                    @pointerdown.passive="startDiagnosticsLongPress"
-                    @pointerup.passive="cancelDiagnosticsLongPress"
-                    @pointercancel.passive="cancelDiagnosticsLongPress"
-                    @pointerleave.passive="cancelDiagnosticsLongPress">
-                    第 {{ currentIdx + 1 }} 段 / 共 {{ total }} 段
-                </p>
+                <p class="text-stone-600 text-xs mt-0.5">第 {{ currentIdx + 1 }} 段 / 共 {{ total }} 段</p>
             </div>
 
             <!-- 中央歌詞顯示 -->
