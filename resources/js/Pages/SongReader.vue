@@ -28,8 +28,9 @@ const diagnosticEntries = ref([])
 const diagnosticListenerConfig = ref('D')
 const DIAGNOSTIC_LISTENER_CONFIGS = {
     A: [],
-    B: ['touchstart', 'touchend', 'pointerdown', 'pointerup'],
+    E: ['click'],
     C: ['click', 'dblclick'],
+    F: ['dblclick'],
     D: READER_PASSIVE_EVENT_TYPES,
 }
 const viewportScale = ref(1)
@@ -217,7 +218,7 @@ const currentLine = computed(() => lines.value[currentIdx.value]?.text_native ??
                         [觸控診斷] scale={{ viewportScale }}／目前組合：{{ diagnosticListenerConfig }}
                     </div>
                     <div class="flex gap-1">
-                        <button v-for="config in ['A', 'B', 'C', 'D']" :key="config" type="button"
+                        <button v-for="config in ['A', 'C', 'E', 'F']" :key="config" type="button"
                             :aria-label="'切換觸控監聽器組合 ' + config"
                             class="pointer-events-auto rounded px-2 py-1 text-black"
                             :class="diagnosticListenerConfig === config ? 'bg-amber-300' : 'bg-white'"
