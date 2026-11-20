@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\LineCatalogBuilder;
 use App\Services\LineSongLookupService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ class LineWebhookController extends Controller
 
     private const MEMBER_JOINED_MESSAGE = "歡迎新朋友！\n".self::HOW_TO_MESSAGE;
 
-    public function __construct(private LineSongLookupService $lookup) {}
+    public function __construct(private LineSongLookupService $lookup, private LineCatalogBuilder $catalog) {}
 
     public function handle(Request $request): JsonResponse
     {
@@ -85,6 +86,16 @@ class LineWebhookController extends Controller
 
         if ($query === '') {
             $this->sendReply($replyToken, self::USAGE_MESSAGE);
+
+            return;
+        }
+
+        if ($query === LineSongLookupService::CATALOG_KEYWORD) {
+            $this->sendMessage($replyToken, $this->catalog->build(
+                $this->lookup->catalogSongs(),
+                $isMultiPerson,
+                rtrim(config('app.url'), '/')
+            ));
 
             return;
         }
@@ -179,6 +190,11 @@ class LineWebhookController extends Controller
 
     private function sendReply(string $replyToken, string $text): void
     {
+        $this->sendMessage($replyToken, ['type' => 'text', 'text' => $text]);
+    }
+
+    private function sendMessage(string $replyToken, array $message): void
+    {
         $token = config('services.line.channel_access_token');
         if (! $token) {
             return;
@@ -186,9 +202,7 @@ class LineWebhookController extends Controller
 
         Http::withToken($token)->post('https://api.line.me/v2/bot/message/reply', [
             'replyToken' => $replyToken,
-            'messages' => [
-                ['type' => 'text', 'text' => $text],
-            ],
+            'messages' => [$message],
         ]);
     }
 

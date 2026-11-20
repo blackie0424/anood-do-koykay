@@ -3,13 +3,14 @@
 namespace App\Services;
 
 use App\Models\Song;
+use Illuminate\Support\Collection;
 
 class LineSongLookupService
 {
     // 一般文字（不是 LINE 標記的藍字）的 @Anood 前綴：不分大小寫，可接「助理」。
     private const BOT_PREFIX_PATTERN = '/^@anood(?:助理)?/iu';
 
-    private const CATALOG_KEYWORD = '目錄';
+    public const CATALOG_KEYWORD = '目錄';
 
     /**
      * 解析 LINE 訊息文字，取出查詢內容。
@@ -54,6 +55,31 @@ class LineSongLookupService
         return $rest === self::CATALOG_KEYWORD || ctype_digit($rest);
     }
 
+    /**
+     * 目錄用的歌曲清單：已發佈的歌，有頁碼的在前（依頁碼數值、再依編號），沒有頁碼的在後（依編號）。
+     * 頁碼只認首碼 1～9 的 ASCII 純數字；NULL、空白、前導零、全形、含字母都算沒有頁碼。
+     * 在程式內分類排序，不靠資料庫轉型，避免不同資料庫行為不同。
+     *
+     * @return Collection<int, array{id: int, title: string, page: ?int}>
+     */
+    public function catalogSongs(): Collection
+    {
+        $songs = Song::where('status', 'published')
+            ->orderBy('id')
+            ->get(['id', 'title_native', 'book_number'])
+            ->map(fn (Song $song) => [
+                'id' => $song->id,
+                'title' => $song->title_native,
+                'page' => preg_match('/^[1-9][0-9]*$/D', (string) $song->book_number) ? (int) $song->book_number : null,
+            ]);
+
+        return $songs->sortBy([
+            fn ($a, $b) => ($a['page'] === null) <=> ($b['page'] === null),
+            fn ($a, $b) => $a['page'] <=> $b['page'],
+            fn ($a, $b) => $a['id'] <=> $b['id'],
+        ])->values();
+    }
+
     private function trimSpaces(string $text): string
     {
         return preg_replace('/^[\s\x{3000}]+|[\s\x{3000}]+$/u', '', $text) ?? $text;
@@ -69,8 +95,10 @@ class LineSongLookupService
         }
 
         if (ctype_digit($query)) {
+            // 同頁碼有多首時固定回編號最小的一首（與目錄的排序一致）
             return Song::where('status', 'published')
                 ->where('book_number', $query)
+                ->orderBy('id')
                 ->first();
         }
 

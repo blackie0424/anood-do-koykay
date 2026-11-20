@@ -508,6 +508,310 @@ class LineWebhookTest extends TestCase
         Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', "/songs/{$song->id}"));
     }
 
+    // ── 目錄（輪播） ─────────────────────────────────────────────
+
+    private const PAGE_COLOR = '#2F7D5B';
+
+    private const NO_PAGE_COLOR = '#8A6D1F';
+
+    private const NAV_COLOR = '#5A6772';
+
+    /** 取出剛送出的第一則回覆訊息 */
+    private function sentMessage(): array
+    {
+        $recorded = Http::recorded();
+        $this->assertNotEmpty($recorded, '沒有送出任何回覆');
+
+        return $recorded[0][0]->data()['messages'][0];
+    }
+
+    private function carouselBubbles(): array
+    {
+        $message = $this->sentMessage();
+        $this->assertSame('flex', $message['type']);
+        $this->assertSame('carousel', $message['contents']['type']);
+
+        return $message['contents']['contents'];
+    }
+
+    /** 一張卡片每一行的文字（頁碼與歌名用全形空白連起來） */
+    private function rowTexts(array $bubble): array
+    {
+        return array_map(
+            fn ($row) => implode('　', array_column($row['contents'] ?? [$row], 'text')),
+            $bubble['body']['contents']
+        );
+    }
+
+    private function headerTitle(array $bubble): string
+    {
+        return $bubble['header']['contents'][0]['text'];
+    }
+
+    private function headerSubtitle(array $bubble): string
+    {
+        return $bubble['header']['contents'][1]['text'];
+    }
+
+    private function footerText(array $bubble): string
+    {
+        return $bubble['footer']['contents'][0]['text'];
+    }
+
+    private function publishedSong(?string $page, string $title): Song
+    {
+        return Song::factory()->published()->create(['book_number' => $page, 'title_native' => $title, 'title_zh' => 'ZH-'.$title]);
+    }
+
+    public function test_catalog_in_direct_message_replies_with_one_carousel_and_alt_text(): void
+    {
+        Http::fake();
+        $this->publishedSong('44', 'A');
+        $this->publishedSong(null, 'B');
+        Song::factory()->create(['book_number' => '1', 'title_native' => 'draft']);
+
+        $this->signedPost($this->textEvent('目錄'))->assertStatus(200);
+
+        $this->assertCount(1, Http::recorded());
+        $this->assertSame('Anood 詩歌目錄，共 2 首', $this->sentMessage()['altText']);
+        $this->carouselBubbles();
+    }
+
+    /** @dataProvider groupCatalogTriggers */
+    public function test_catalog_in_group_replies_when_bot_is_addressed(string $text, string $mention): void
+    {
+        Http::fake();
+        $this->publishedSong('44', 'A');
+
+        $this->signedPost($this->groupTextEvent($text, $mention))->assertStatus(200);
+
+        $this->assertSame('flex', $this->sentMessage()['type']);
+    }
+
+    public static function groupCatalogTriggers(): array
+    {
+        return [
+            '真 @' => ['@Anood助理 目錄', 'bot'],
+            '手打 @ 有空格' => ['@anood助理 目錄', 'none'],
+            '手打 @ 無空格' => ['@Anood目錄', 'none'],
+        ];
+    }
+
+    public function test_catalog_in_group_without_mention_is_ignored(): void
+    {
+        Http::fake();
+        $this->publishedSong('44', 'A');
+
+        $this->signedPost($this->groupTextEvent('目錄', 'none'))->assertStatus(200);
+
+        $this->assertNoReplySent();
+    }
+
+    public function test_catalog_classifies_page_numbers_and_sorts_independently(): void
+    {
+        Http::fake();
+        $this->publishedSong('12', 'a');
+        $this->publishedSong('5', 'b');
+        $this->publishedSong('044', 'c');
+        $this->publishedSong('0', 'd');
+        $this->publishedSong(' 7', 'e');
+        $this->publishedSong('7 ', 'f');
+        $this->publishedSong('１２', 'g');
+        $this->publishedSong('12A', 'h');
+        $this->publishedSong(null, 'i');
+        $this->publishedSong('', 'j');
+        $this->publishedSong(' ', 'k');
+        $this->publishedSong('5', 'l');
+        $this->publishedSong('100', 'm');
+        Song::factory()->create(['book_number' => '3', 'title_native' => 'draft']);
+
+        $this->signedPost($this->textEvent('目錄'))->assertStatus(200);
+
+        $bubbles = $this->carouselBubbles();
+        $this->assertCount(3, $bubbles);
+        $this->assertSame(['5　b', '5　l', '12　a', '100　m'], $this->rowTexts($bubbles[0]));
+        $this->assertSame(['c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'], $this->rowTexts($bubbles[1]));
+        $this->assertSame(['k'], $this->rowTexts($bubbles[2]));
+    }
+
+    public function test_catalog_splits_cards_of_eight_and_never_mixes_page_and_no_page_songs(): void
+    {
+        Http::fake();
+        for ($page = 1; $page <= 20; $page++) {
+            $this->publishedSong((string) $page, "P{$page}");
+        }
+        for ($i = 1; $i <= 5; $i++) {
+            $this->publishedSong(null, "N{$i}");
+        }
+
+        $this->signedPost($this->textEvent('目錄'))->assertStatus(200);
+
+        $bubbles = $this->carouselBubbles();
+        $this->assertCount(4, $bubbles);
+        $this->assertSame(['第 1～8 頁', '第 9～16 頁', '第 17～20 頁', '沒有頁碼的歌'], array_map(fn ($b) => $this->headerTitle($b), $bubbles));
+        $this->assertSame(
+            ['第 1 張／共 4 張・共 25 首', '第 2 張／共 4 張・共 25 首', '第 3 張／共 4 張・共 25 首', '第 4 張／共 4 張・共 25 首'],
+            array_map(fn ($b) => $this->headerSubtitle($b), $bubbles)
+        );
+        $this->assertCount(8, $bubbles[0]['body']['contents']);
+        $this->assertCount(4, $bubbles[2]['body']['contents']);
+        $this->assertSame(['N1', 'N2', 'N3', 'N4', 'N5'], $this->rowTexts($bubbles[3]));
+    }
+
+    public function test_catalog_numbers_multiple_no_page_cards(): void
+    {
+        Http::fake();
+        for ($i = 1; $i <= 9; $i++) {
+            $this->publishedSong(null, "N{$i}");
+        }
+
+        $this->signedPost($this->textEvent('目錄'))->assertStatus(200);
+
+        $titles = array_map(fn ($b) => $this->headerTitle($b), $this->carouselBubbles());
+        $this->assertSame(['沒有頁碼的歌（一）', '沒有頁碼的歌（二）'], $titles);
+    }
+
+    public function test_catalog_card_title_says_single_page_when_all_songs_share_one_page(): void
+    {
+        Http::fake();
+        $this->publishedSong('44', 'A');
+        $this->publishedSong('44', 'B');
+        $this->publishedSong('44', 'C');
+
+        $this->signedPost($this->textEvent('目錄'))->assertStatus(200);
+
+        $this->assertSame('第 44 頁', $this->headerTitle($this->carouselBubbles()[0]));
+    }
+
+    public function test_catalog_row_opens_song_page_and_hides_chinese_title(): void
+    {
+        Http::fake();
+        Config::set('app.url', 'https://anood.test/');
+        $withPage = $this->publishedSong('44', 'Yeso ko anoyongan imo');
+        $withoutPage = $this->publishedSong(null, '主愛我');
+
+        $this->signedPost($this->textEvent('目錄'))->assertStatus(200);
+
+        $bubbles = $this->carouselBubbles();
+        $this->assertSame("https://anood.test/songs/{$withPage->id}", $bubbles[0]['body']['contents'][0]['action']['uri']);
+        $this->assertSame("https://anood.test/songs/{$withoutPage->id}", $bubbles[1]['body']['contents'][0]['action']['uri']);
+        $this->assertStringNotContainsString('ZH-', json_encode($this->sentMessage(), JSON_UNESCAPED_UNICODE));
+    }
+
+    public function test_catalog_footer_hint_in_direct_message(): void
+    {
+        Http::fake();
+        $this->publishedSong('44', 'A');
+        $this->publishedSong('60', 'B');
+        $this->publishedSong(null, '主愛我');
+
+        $this->signedPost($this->textEvent('目錄'))->assertStatus(200);
+
+        $bubbles = $this->carouselBubbles();
+        $this->assertSame('輸入頁碼就可以點歌，例如 44', $this->footerText($bubbles[0]));
+        $this->assertSame('輸入歌名就可以點歌，例如 主愛我', $this->footerText($bubbles[1]));
+    }
+
+    public function test_catalog_footer_hint_in_group_asks_to_mention_bot(): void
+    {
+        Http::fake();
+        $this->publishedSong('44', 'A');
+        $this->publishedSong(null, '主愛我');
+
+        $this->signedPost($this->groupTextEvent('@Anood助理 目錄', 'bot'))->assertStatus(200);
+
+        $bubbles = $this->carouselBubbles();
+        $this->assertSame('@Anood助理 加頁碼就可以點歌，例如 44', $this->footerText($bubbles[0]));
+        $this->assertSame('@Anood助理 加歌名就可以點歌，例如 主愛我', $this->footerText($bubbles[1]));
+    }
+
+    public function test_catalog_header_colors_tell_page_and_no_page_cards_apart(): void
+    {
+        Http::fake();
+        $this->publishedSong('44', 'A');
+        $this->publishedSong(null, 'B');
+
+        $this->signedPost($this->textEvent('目錄'))->assertStatus(200);
+
+        $bubbles = $this->carouselBubbles();
+        $this->assertSame(self::PAGE_COLOR, $bubbles[0]['header']['backgroundColor']);
+        $this->assertSame(self::NO_PAGE_COLOR, $bubbles[1]['header']['backgroundColor']);
+        $this->assertSame('#FFFFFF', $bubbles[0]['header']['contents'][0]['color']);
+    }
+
+    public function test_catalog_with_exactly_twelve_cards_lists_everything_without_nav_card(): void
+    {
+        Http::fake();
+        for ($page = 1; $page <= 88; $page++) {
+            $this->publishedSong((string) $page, "P{$page}");
+        }
+        $this->publishedSong(null, 'Last');
+
+        $this->signedPost($this->textEvent('目錄'))->assertStatus(200);
+
+        $bubbles = $this->carouselBubbles();
+        $this->assertCount(12, $bubbles);
+        $this->assertSame('第 12 張／共 12 張・共 89 首', $this->headerSubtitle($bubbles[11]));
+        $this->assertSame(self::NO_PAGE_COLOR, $bubbles[11]['header']['backgroundColor']);
+        $this->assertSame(['Last'], $this->rowTexts($bubbles[11]));
+    }
+
+    public function test_catalog_over_twelve_cards_replaces_last_with_nav_card(): void
+    {
+        Http::fake();
+        Config::set('app.url', 'https://anood.test');
+        for ($page = 1; $page <= 89; $page++) {
+            $this->publishedSong((string) $page, "P{$page}");
+        }
+        $this->publishedSong(null, 'Last');
+
+        $this->signedPost($this->textEvent('目錄'))->assertStatus(200);
+
+        $bubbles = $this->carouselBubbles();
+        $this->assertCount(12, $bubbles);
+        $this->assertSame('第 11 張／共 12 張・共 90 首', $this->headerSubtitle($bubbles[10]));
+        $nav = $bubbles[11];
+        $this->assertSame(self::NAV_COLOR, $nav['header']['backgroundColor']);
+        $this->assertSame('第 12 張／共 12 張・共 90 首', $this->headerSubtitle($nav));
+        $json = json_encode($nav, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $this->assertStringContainsString('還有 2 首歌未列出，請到網站查看', $json);
+        $this->assertStringContainsString('https://anood.test/', $json);
+        $this->assertStringNotContainsString('Last', json_encode($bubbles, JSON_UNESCAPED_UNICODE));
+    }
+
+    public function test_catalog_without_published_songs_replies_with_text(): void
+    {
+        Http::fake();
+        Song::factory()->create(['book_number' => '1', 'title_native' => 'draft']);
+
+        $this->signedPost($this->textEvent('目錄'))->assertStatus(200);
+
+        $message = $this->sentMessage();
+        $this->assertSame('text', $message['type']);
+        $this->assertSame('目前還沒有已發佈的歌曲', $message['text']);
+    }
+
+    public function test_title_containing_catalog_keyword_is_still_found_by_full_title(): void
+    {
+        Http::fake();
+        $song = $this->publishedSong(null, '詩歌目錄第一首');
+
+        $this->signedPost($this->textEvent('詩歌目錄第一首'))->assertStatus(200);
+
+        $this->assertStringContainsString("/songs/{$song->id}", $this->sentMessage()['text']);
+    }
+
+    public function test_page_query_with_duplicate_page_replies_with_lowest_song_id(): void
+    {
+        Http::fake();
+        $first = $this->publishedSong('44', 'First');
+        $this->publishedSong('44', 'Second');
+
+        $this->signedPost($this->textEvent('44'))->assertStatus(200);
+
+        $this->assertStringContainsString("/songs/{$first->id}", $this->sentMessage()['text']);
+    }
+
     // ── join／memberJoined：群組歡迎訊息 ──────────────────────────
 
     public function test_join_event_pushes_welcome_message_to_group(): void
