@@ -476,6 +476,28 @@ class LineWebhookTest extends TestCase
         Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', "/songs/{$song->id}"));
     }
 
+    public function test_direct_message_keeps_legacy_leading_mention_stripping(): void
+    {
+        // 私訊不受手打 @Anood 規則影響：舊規則會把整段「@Anood44」當成 @ 去掉，變成空查詢回簡介
+        Http::fake();
+        Song::factory()->published()->create(['book_number' => '44']);
+
+        $this->signedPost($this->textEvent('@Anood44'))->assertStatus(200);
+
+        Http::assertSent(fn ($request) => ($request->data()['messages'][0]['text'] ?? '') === self::INTRO_TEXT);
+    }
+
+    public function test_real_mention_of_bot_renamed_with_anood_prefix_is_parsed_by_legacy_rule(): void
+    {
+        // Bot 改名為「Anoodle」時，真 @ 的文字「@Anoodle 44」要整段當 @ 去掉，而不是留下「le 44」
+        Http::fake();
+        $song = Song::factory()->published()->create(['book_number' => '44']);
+
+        $this->signedPost($this->groupTextEvent('@Anoodle 44', 'bot'))->assertStatus(200);
+
+        Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', "/songs/{$song->id}"));
+    }
+
     public function test_real_mention_with_renamed_bot_still_strips_leading_mention(): void
     {
         Http::fake();

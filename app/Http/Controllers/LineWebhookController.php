@@ -52,33 +52,27 @@ class LineWebhookController extends Controller
 
     private function handleEvent(array $event): void
     {
-        $type = $event['type'] ?? null;
+        match ($event['type'] ?? null) {
+            'join' => $this->handleGroupEvent($event, self::JOIN_MESSAGE),
+            'memberJoined' => $this->handleGroupEvent($event, self::MEMBER_JOINED_MESSAGE),
+            'message' => $this->handleMessageEvent($event),
+            default => null,
+        };
+    }
 
-        if ($type === 'join') {
-            $this->handleGroupEvent($event, self::JOIN_MESSAGE);
-
-            return;
-        }
-
-        if ($type === 'memberJoined') {
-            $this->handleGroupEvent($event, self::MEMBER_JOINED_MESSAGE);
-
-            return;
-        }
-
-        if ($type !== 'message') {
-            return;
-        }
+    private function handleMessageEvent(array $event): void
+    {
         if (($event['message']['type'] ?? null) !== 'text') {
             return;
         }
 
         $source = $event['source'] ?? [];
+        $isMultiPerson = $this->isMultiPersonSource($source);
 
         // 群組／多人聊天室：只有明確 @ 到機器人本身（真 @ 或手打的「@Anood」開頭）才回應。
         // 不然群組裡每一句閒聊都會被當成點歌查詢、每句都被回一則訊息，人多時會嚴重干擾。
         // 私訊（1 對 1）不需要 @，照常回應。
-        if ($this->isMultiPersonSource($source) && ! $this->isAddressedToBot($event)) {
+        if ($isMultiPerson && ! $this->isAddressedToBot($event)) {
             return;
         }
 
@@ -87,7 +81,7 @@ class LineWebhookController extends Controller
             return;
         }
 
-        $query = $this->lookup->parseQuery($event['message']['text'] ?? '');
+        $query = $this->lookup->parseQuery($event['message']['text'] ?? '', $isMultiPerson);
 
         if ($query === '') {
             $this->sendReply($replyToken, self::USAGE_MESSAGE);

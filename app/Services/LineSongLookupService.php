@@ -12,19 +12,24 @@ class LineSongLookupService
     private const CATALOG_KEYWORD = '目錄';
 
     /**
-     * 解析 LINE 訊息文字：去除開頭的 @mention 與頭尾空白（含全形空白）。
-     * 開頭是 @Anood 時只去掉這個前綴一次（例如「@Anood @王小明」→「@王小明」）；
-     * 其他開頭的 @（例如 Bot 改名後的真 @「@詩歌小秘書 44」→「44」）沿用舊規則。
+     * 解析 LINE 訊息文字，取出查詢內容。
+     * 群組／多人聊天室裡，文字被認定是叫 Bot（見 isAddressedByPlainText）時，只去掉開頭的 @Anood 前綴一次
+     * （例如「@Anood @王小明」→「@王小明」）；其他情況（私訊、Bot 改名後的真 @「@詩歌小秘書 44」、
+     * 「@Anoodle 44」）沿用舊規則：去除開頭整段 @mention 與頭尾空白。
      */
-    public function parseQuery(string $text): string
+    public function parseQuery(string $text, bool $inMultiPersonChat = false): string
     {
-        $text = $this->trimSpaces($text);
+        if ($inMultiPersonChat && $this->isAddressedByPlainText($text)) {
+            $text = $this->trimSpaces($text);
+            preg_match(self::BOT_PREFIX_PATTERN, $text, $match);
 
-        if (preg_match(self::BOT_PREFIX_PATTERN, $text, $match)) {
             return $this->trimSpaces(substr($text, strlen($match[0])));
         }
 
-        return $this->trimSpaces(preg_replace('/^@\S+\s*/u', '', $text) ?? $text);
+        $text = trim($text);
+        $text = preg_replace('/^@\S+\s*/u', '', $text) ?? $text;
+
+        return trim($text);
     }
 
     /**
