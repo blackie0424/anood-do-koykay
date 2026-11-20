@@ -128,6 +128,7 @@ class LineWebhookTest extends TestCase
         Http::assertSent(function ($request) use ($song) {
             $data = $request->data();
             $text = $data['messages'][0]['text'] ?? '';
+
             return $request->url() === 'https://api.line.me/v2/bot/message/reply'
                 && $data['replyToken'] === 'reply-token-1'
                 && str_contains($text, 'Yeso ko anoyongan imo')
@@ -148,7 +149,8 @@ class LineWebhookTest extends TestCase
 
         Http::assertSent(function ($request) use ($song) {
             $text = $request->data()['messages'][0]['text'] ?? '';
-            return str_contains($text, "/songs/{$song->id}") && !str_contains($text, '?');
+
+            return str_contains($text, "/songs/{$song->id}") && ! str_contains($text, '?');
         });
     }
 
@@ -225,7 +227,8 @@ class LineWebhookTest extends TestCase
 
         Http::assertSent(function ($request) {
             $text = $request->data()['messages'][0]['text'] ?? '';
-            return str_contains($text, '輸入頁碼或歌名就可以點歌') && !str_contains($text, '找不到');
+
+            return str_contains($text, '輸入頁碼或歌名就可以點歌') && ! str_contains($text, '找不到');
         });
     }
 
@@ -383,6 +386,7 @@ class LineWebhookTest extends TestCase
 
         Http::assertSent(function ($request) {
             $data = $request->data();
+
             return $request->url() === 'https://api.line.me/v2/bot/message/push'
                 && $data['to'] === 'group-123'
                 && str_contains($data['messages'][0]['text'], 'Anood 助理')
@@ -412,6 +416,7 @@ class LineWebhookTest extends TestCase
 
         Http::assertSent(function ($request) {
             $data = $request->data();
+
             return $request->url() === 'https://api.line.me/v2/bot/message/push'
                 && $data['to'] === 'group-456'
                 && str_contains($data['messages'][0]['text'], '歡迎新朋友');

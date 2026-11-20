@@ -3,26 +3,26 @@
 namespace App\Http\Controllers;
 
 use App\Services\LineSongLookupService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
 class LineWebhookController extends Controller
 {
     private const USAGE_MESSAGE = "輸入頁碼或歌名就可以點歌囉 🎵\n例如：44　或　主愛我\n（群組裡請先 @ 我再輸入）";
-    private const JOIN_MESSAGE = "大家好，我是 Anood 助理 🎵\n輸入「@Anood助理 頁碼」或「@Anood助理 歌名」就可以點歌！\n例如：@Anood助理 44 或 @Anood助理 主愛我";
-    private const MEMBER_JOINED_MESSAGE = "歡迎新朋友！輸入「@Anood助理 頁碼」可以點達悟族詩歌 🎵";
 
-    public function __construct(private LineSongLookupService $lookup)
-    {
-    }
+    private const JOIN_MESSAGE = "大家好，我是 Anood 助理 🎵\n輸入「@Anood助理 頁碼」或「@Anood助理 歌名」就可以點歌！\n例如：@Anood助理 44 或 @Anood助理 主愛我";
+
+    private const MEMBER_JOINED_MESSAGE = '歡迎新朋友！輸入「@Anood助理 頁碼」可以點達悟族詩歌 🎵';
+
+    public function __construct(private LineSongLookupService $lookup) {}
 
     public function handle(Request $request): JsonResponse
     {
         $body = $request->getContent();
         $signature = $request->header('X-Line-Signature');
 
-        if (!$this->verifySignature($body, $signature)) {
+        if (! $this->verifySignature($body, $signature)) {
             return response()->json(['message' => 'invalid signature'], 400);
         }
 
@@ -39,7 +39,7 @@ class LineWebhookController extends Controller
     {
         $secret = config('services.line.channel_secret');
 
-        if (!$secret || !$signature) {
+        if (! $secret || ! $signature) {
             return false;
         }
 
@@ -54,11 +54,13 @@ class LineWebhookController extends Controller
 
         if ($type === 'join') {
             $this->handleGroupEvent($event, self::JOIN_MESSAGE);
+
             return;
         }
 
         if ($type === 'memberJoined') {
             $this->handleGroupEvent($event, self::MEMBER_JOINED_MESSAGE);
+
             return;
         }
 
@@ -74,12 +76,12 @@ class LineWebhookController extends Controller
         // 群組／多人聊天室：只有明確 @ 到機器人本身才回應。不然群組裡每一句
         // 閒聊都會被當成點歌查詢、每句都被回一則訊息，人多時會嚴重干擾。
         // 私訊（1 對 1）不需要 @，照常回應。
-        if ($this->isMultiPersonSource($source) && !$this->isBotMentioned($event)) {
+        if ($this->isMultiPersonSource($source) && ! $this->isBotMentioned($event)) {
             return;
         }
 
         $replyToken = $event['replyToken'] ?? null;
-        if (!$replyToken) {
+        if (! $replyToken) {
             return;
         }
 
@@ -87,6 +89,7 @@ class LineWebhookController extends Controller
 
         if ($query === '') {
             $this->sendReply($replyToken, self::USAGE_MESSAGE);
+
             return;
         }
 
@@ -132,7 +135,7 @@ class LineWebhookController extends Controller
         $token = config('services.line.channel_access_token');
         $userId = $source['userId'] ?? null;
 
-        if (!$token || !$userId) {
+        if (! $token || ! $userId) {
             return null;
         }
 
@@ -146,7 +149,7 @@ class LineWebhookController extends Controller
             default => null,
         };
 
-        if (!$url) {
+        if (! $url) {
             return null;
         }
 
@@ -165,7 +168,7 @@ class LineWebhookController extends Controller
     private function handleGroupEvent(array $event, string $message): void
     {
         $groupId = $event['source']['groupId'] ?? null;
-        if (!$groupId) {
+        if (! $groupId) {
             return;
         }
 
@@ -175,7 +178,7 @@ class LineWebhookController extends Controller
     private function sendReply(string $replyToken, string $text): void
     {
         $token = config('services.line.channel_access_token');
-        if (!$token) {
+        if (! $token) {
             return;
         }
 
@@ -190,7 +193,7 @@ class LineWebhookController extends Controller
     private function sendPush(string $to, string $text): void
     {
         $token = config('services.line.channel_access_token');
-        if (!$token) {
+        if (! $token) {
             return;
         }
 
