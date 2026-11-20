@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
  */
 class LineCatalogBuilder
 {
-    private const SONGS_PER_CARD = 8;
+    private const SONGS_PER_CARD = 6;
 
     private const MAX_CARDS = 12;
 
@@ -19,6 +19,13 @@ class LineCatalogBuilder
     private const NO_PAGE_COLOR = '#8A6D1F';
 
     private const NAV_COLOR = '#5A6772';
+
+    // 每行做成按鈕外觀，讓可點範圍看得出來、手指不容易按到隔壁那行
+    private const ROW_BACKGROUND = '#F0F0F0';
+
+    private const ROW_RADIUS = '8px';
+
+    private const ROW_PADDING = '12px';
 
     private const TAP_HINT = '點一下想聽的歌名，就會開啟播放頁面';
 
@@ -134,15 +141,18 @@ class LineCatalogBuilder
 
     private function songRow(array $song, string $siteUrl): array
     {
-        $title = ['type' => 'text', 'text' => $song['title'], 'size' => 'sm', 'wrap' => true, 'flex' => 5];
+        $title = ['type' => 'text', 'text' => $song['title'], 'size' => 'md', 'wrap' => true, 'flex' => 5];
         $contents = $song['page'] === null
             ? [$title]
-            : [['type' => 'text', 'text' => $song['page'], 'size' => 'sm', 'weight' => 'bold', 'color' => self::PAGE_COLOR, 'flex' => 1], $title];
+            : [['type' => 'text', 'text' => $song['page'], 'size' => 'md', 'weight' => 'bold', 'color' => self::PAGE_COLOR, 'flex' => 1], $title];
 
         return [
             'type' => 'box',
             'layout' => 'horizontal',
             'spacing' => 'md',
+            'backgroundColor' => self::ROW_BACKGROUND,
+            'cornerRadius' => self::ROW_RADIUS,
+            'paddingAll' => self::ROW_PADDING,
             'action' => [
                 'type' => 'uri',
                 'label' => mb_substr($song['title'], 0, self::ACTION_LABEL_LIMIT),

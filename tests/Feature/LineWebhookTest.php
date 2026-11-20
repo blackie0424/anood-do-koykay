@@ -632,8 +632,8 @@ class LineWebhookTest extends TestCase
         $bubbles = $this->carouselBubbles();
         $this->assertCount(3, $bubbles);
         $this->assertSame(['5　b', '5　l', '12　a', '100　m'], $this->rowTexts($bubbles[0]));
-        $this->assertSame(['c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'], $this->rowTexts($bubbles[1]));
-        $this->assertSame(['k'], $this->rowTexts($bubbles[2]));
+        $this->assertSame(['c', 'd', 'e', 'f', 'g', 'h'], $this->rowTexts($bubbles[1]));
+        $this->assertSame(['i', 'j', 'k'], $this->rowTexts($bubbles[2]));
     }
 
     public function test_catalog_keeps_twenty_digit_page_numbers_exact_and_sorted_by_value(): void
@@ -663,7 +663,7 @@ class LineWebhookTest extends TestCase
         $this->assertNotSame($bigger->id, $big->id);
     }
 
-    public function test_catalog_splits_cards_of_eight_and_never_mixes_page_and_no_page_songs(): void
+    public function test_catalog_splits_cards_of_six_and_never_mixes_page_and_no_page_songs(): void
     {
         Http::fake();
         for ($page = 1; $page <= 20; $page++) {
@@ -676,15 +676,18 @@ class LineWebhookTest extends TestCase
         $this->signedPost($this->textEvent('目錄'))->assertStatus(200);
 
         $bubbles = $this->carouselBubbles();
-        $this->assertCount(4, $bubbles);
-        $this->assertSame(['第 1～8 頁', '第 9～16 頁', '第 17～20 頁', '沒有頁碼的歌'], array_map(fn ($b) => $this->headerTitle($b), $bubbles));
+        $this->assertCount(5, $bubbles);
         $this->assertSame(
-            ['第 1 張／共 4 張・共 25 首', '第 2 張／共 4 張・共 25 首', '第 3 張／共 4 張・共 25 首', '第 4 張／共 4 張・共 25 首'],
+            ['第 1～6 頁', '第 7～12 頁', '第 13～18 頁', '第 19～20 頁', '沒有頁碼的歌'],
+            array_map(fn ($b) => $this->headerTitle($b), $bubbles)
+        );
+        $this->assertSame(
+            array_map(fn ($n) => "第 {$n} 張／共 5 張・共 25 首", [1, 2, 3, 4, 5]),
             array_map(fn ($b) => $this->headerSubtitle($b), $bubbles)
         );
-        $this->assertCount(8, $bubbles[0]['body']['contents']);
-        $this->assertCount(4, $bubbles[2]['body']['contents']);
-        $this->assertSame(['N1', 'N2', 'N3', 'N4', 'N5'], $this->rowTexts($bubbles[3]));
+        $this->assertCount(6, $bubbles[0]['body']['contents']);
+        $this->assertCount(2, $bubbles[3]['body']['contents']);
+        $this->assertSame(['N1', 'N2', 'N3', 'N4', 'N5'], $this->rowTexts($bubbles[4]));
     }
 
     public function test_catalog_numbers_multiple_no_page_cards(): void
@@ -725,6 +728,15 @@ class LineWebhookTest extends TestCase
         $this->assertSame("https://anood.test/songs/{$withPage->id}", $bubbles[0]['body']['contents'][0]['action']['uri']);
         $this->assertSame("https://anood.test/songs/{$withoutPage->id}", $bubbles[1]['body']['contents'][0]['action']['uri']);
         $this->assertStringNotContainsString('ZH-', json_encode($this->sentMessage(), JSON_UNESCAPED_UNICODE));
+
+        // 每行是按鈕外觀：淺灰底、圓角、加大內距，行與行之間留 8px（spacing md）
+        $row = $bubbles[0]['body']['contents'][0];
+        $this->assertSame('#F0F0F0', $row['backgroundColor']);
+        $this->assertSame('8px', $row['cornerRadius']);
+        $this->assertSame('12px', $row['paddingAll']);
+        $this->assertSame('md', $bubbles[0]['body']['spacing']);
+        $this->assertSame('md', $row['contents'][0]['size']);
+        $this->assertSame('md', $row['contents'][1]['size']);
     }
 
     public function test_catalog_footer_hint_in_direct_message(): void
@@ -771,7 +783,7 @@ class LineWebhookTest extends TestCase
     public function test_catalog_with_exactly_twelve_cards_lists_everything_without_nav_card(): void
     {
         Http::fake();
-        for ($page = 1; $page <= 88; $page++) {
+        for ($page = 1; $page <= 66; $page++) {
             $this->publishedSong((string) $page, "P{$page}");
         }
         $this->publishedSong(null, 'Last');
@@ -780,7 +792,7 @@ class LineWebhookTest extends TestCase
 
         $bubbles = $this->carouselBubbles();
         $this->assertCount(12, $bubbles);
-        $this->assertSame('第 12 張／共 12 張・共 89 首', $this->headerSubtitle($bubbles[11]));
+        $this->assertSame('第 12 張／共 12 張・共 67 首', $this->headerSubtitle($bubbles[11]));
         $this->assertSame(self::NO_PAGE_COLOR, $bubbles[11]['header']['backgroundColor']);
         $this->assertSame(['Last'], $this->rowTexts($bubbles[11]));
     }
@@ -789,7 +801,7 @@ class LineWebhookTest extends TestCase
     {
         Http::fake();
         Config::set('app.url', 'https://anood.test');
-        for ($page = 1; $page <= 89; $page++) {
+        for ($page = 1; $page <= 67; $page++) {
             $this->publishedSong((string) $page, "P{$page}");
         }
         $this->publishedSong(null, 'Last');
@@ -798,10 +810,10 @@ class LineWebhookTest extends TestCase
 
         $bubbles = $this->carouselBubbles();
         $this->assertCount(12, $bubbles);
-        $this->assertSame('第 11 張／共 12 張・共 90 首', $this->headerSubtitle($bubbles[10]));
+        $this->assertSame('第 11 張／共 12 張・共 68 首', $this->headerSubtitle($bubbles[10]));
         $nav = $bubbles[11];
         $this->assertSame(self::NAV_COLOR, $nav['header']['backgroundColor']);
-        $this->assertSame('第 12 張／共 12 張・共 90 首', $this->headerSubtitle($nav));
+        $this->assertSame('第 12 張／共 12 張・共 68 首', $this->headerSubtitle($nav));
         $json = json_encode($nav, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $this->assertStringContainsString('還有 2 首歌未列出，請到網站查看', $json);
         $this->assertStringContainsString('https://anood.test/', $json);
