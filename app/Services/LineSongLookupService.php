@@ -6,15 +6,52 @@ use App\Models\Song;
 
 class LineSongLookupService
 {
+    // 一般文字（不是 LINE 標記的藍字）的 @Anood 前綴：不分大小寫，可接「助理」。
+    private const BOT_PREFIX_PATTERN = '/^@anood(?:助理)?/iu';
+
+    private const CATALOG_KEYWORD = '目錄';
+
     /**
-     * 解析 LINE 訊息文字：去除開頭的群組 @mention（例如「@詩歌小秘書 44」→「44」），並去除頭尾空白。
+     * 解析 LINE 訊息文字：去除開頭的 @mention 與頭尾空白（含全形空白）。
+     * 開頭是 @Anood 時只去掉這個前綴一次（例如「@Anood @王小明」→「@王小明」）；
+     * 其他開頭的 @（例如 Bot 改名後的真 @「@詩歌小秘書 44」→「44」）沿用舊規則。
      */
     public function parseQuery(string $text): string
     {
-        $text = trim($text);
-        $text = preg_replace('/^@\S+\s*/u', '', $text) ?? $text;
+        $text = $this->trimSpaces($text);
 
-        return trim($text);
+        if (preg_match(self::BOT_PREFIX_PATTERN, $text, $match)) {
+            return $this->trimSpaces(substr($text, strlen($match[0])));
+        }
+
+        return $this->trimSpaces(preg_replace('/^@\S+\s*/u', '', $text) ?? $text);
+    }
+
+    /**
+     * 群組裡手打的「@Anood…」算不算在叫 Bot。
+     * 前綴後面有空白或訊息結束：算。前綴後面緊接其他字：只有剩下的字剛好是「目錄」或純數字頁碼才算，
+     * 避免「@Anood其他人 44」這種對別人說的話被當成點歌。
+     */
+    public function isAddressedByPlainText(string $text): bool
+    {
+        $text = $this->trimSpaces($text);
+
+        if (! preg_match(self::BOT_PREFIX_PATTERN, $text, $match)) {
+            return false;
+        }
+
+        $rest = substr($text, strlen($match[0]));
+
+        if ($rest === '' || preg_match('/^[\s\x{3000}]/u', $rest)) {
+            return true;
+        }
+
+        return $rest === self::CATALOG_KEYWORD || ctype_digit($rest);
+    }
+
+    private function trimSpaces(string $text): string
+    {
+        return preg_replace('/^[\s\x{3000}]+|[\s\x{3000}]+$/u', '', $text) ?? $text;
     }
 
     /**

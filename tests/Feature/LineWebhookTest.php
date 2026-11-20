@@ -14,6 +14,10 @@ class LineWebhookTest extends TestCase
 
     private string $secret = 'test-channel-secret';
 
+    private const INTRO_TEXT = "大家好，我是 Anood 助理 🎵\n手上有紙本歌本：輸入歌本上的頁碼，例如 44\n手上沒有歌本：輸入「目錄」，看有哪些歌和頁碼\n（群組裡請先 @Anood助理 再輸入）";
+
+    private const MEMBER_JOINED_TEXT = "歡迎新朋友！\n手上有紙本歌本：輸入歌本上的頁碼，例如 44\n手上沒有歌本：輸入「目錄」，看有哪些歌和頁碼\n（群組裡請先 @Anood助理 再輸入）";
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -216,7 +220,7 @@ class LineWebhookTest extends TestCase
 
         $this->signedPost($this->textEvent('@詩歌小秘書'))->assertStatus(200);
 
-        Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', '輸入頁碼或歌名就可以點歌'));
+        Http::assertSent(fn ($request) => ($request->data()['messages'][0]['text'] ?? '') === self::INTRO_TEXT);
     }
 
     public function test_empty_text_replies_with_usage_message_not_not_found(): void
@@ -228,7 +232,7 @@ class LineWebhookTest extends TestCase
         Http::assertSent(function ($request) {
             $text = $request->data()['messages'][0]['text'] ?? '';
 
-            return str_contains($text, '輸入頁碼或歌名就可以點歌') && ! str_contains($text, '找不到');
+            return $text === self::INTRO_TEXT && ! str_contains($text, '找不到');
         });
     }
 
@@ -283,7 +287,7 @@ class LineWebhookTest extends TestCase
 
         $this->signedPost($this->groupTextEvent('@Anood助理', 'bot'))->assertStatus(200);
 
-        Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', '輸入頁碼或歌名就可以點歌'));
+        Http::assertSent(fn ($request) => ($request->data()['messages'][0]['text'] ?? '') === self::INTRO_TEXT);
     }
 
     public function test_room_message_without_mention_is_ignored(): void
@@ -372,6 +376,116 @@ class LineWebhookTest extends TestCase
         Http::assertNotSent(fn ($request) => str_contains($request->url(), '/member/'));
     }
 
+    // ── 群組一般文字 @Anood（不是 LINE 標記的藍字） ─────────────
+
+    private function assertReplySentToLine(): void
+    {
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.line.me/v2/bot/message/reply');
+    }
+
+    /** @dataProvider plainTextMentionPageQueries */
+    public function test_group_plain_text_anood_prefix_triggers_song_lookup(string $text): void
+    {
+        Http::fake();
+        $song = Song::factory()->published()->create(['book_number' => '44']);
+
+        $this->signedPost($this->groupTextEvent($text, 'none'))->assertStatus(200);
+
+        Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', "/songs/{$song->id}"));
+    }
+
+    public static function plainTextMentionPageQueries(): array
+    {
+        return [
+            '空格分隔' => ['@Anood 44'],
+            '大小寫不分且接助理' => ['@anood助理 44'],
+            '無空格純數字' => ['@Anood44'],
+            '助理後無空格純數字' => ['@Anood助理44'],
+            '前綴前有全形空白' => ['　@Anood 44'],
+            '全形空白分隔' => ['@Anood　44'],
+        ];
+    }
+
+    public function test_group_plain_text_anood_with_title_after_space_finds_song(): void
+    {
+        Http::fake();
+        $song = Song::factory()->published()->create(['title_native' => '主愛我']);
+
+        $this->signedPost($this->groupTextEvent('@Anood 主愛我', 'none'))->assertStatus(200);
+
+        Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', "/songs/{$song->id}"));
+    }
+
+    public function test_group_plain_text_anood_without_space_before_catalog_keyword_is_answered(): void
+    {
+        Http::fake();
+
+        $this->signedPost($this->groupTextEvent('@Anood目錄', 'none'))->assertStatus(200);
+
+        $this->assertReplySentToLine();
+    }
+
+    public function test_group_plain_text_anood_only_replies_with_usage(): void
+    {
+        Http::fake();
+
+        $this->signedPost($this->groupTextEvent('@Anood', 'none'))->assertStatus(200);
+
+        Http::assertSent(fn ($request) => ($request->data()['messages'][0]['text'] ?? '') === self::INTRO_TEXT);
+    }
+
+    public function test_room_plain_text_anood_prefix_triggers_song_lookup(): void
+    {
+        Http::fake();
+        $song = Song::factory()->published()->create(['book_number' => '44']);
+
+        $this->signedPost($this->groupTextEvent('@Anood 44', 'none', 'room'))->assertStatus(200);
+
+        Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', "/songs/{$song->id}"));
+    }
+
+    /** @dataProvider plainTextNotAddressedToBot */
+    public function test_group_text_not_addressed_to_bot_is_ignored(string $text): void
+    {
+        Http::fake();
+        Song::factory()->published()->create(['book_number' => '44', 'title_native' => '主愛我']);
+
+        $this->signedPost($this->groupTextEvent($text, 'none'))->assertStatus(200);
+
+        $this->assertNoReplySent();
+    }
+
+    public static function plainTextNotAddressedToBot(): array
+    {
+        return [
+            '對別人說話' => ['@王小明 44'],
+            'Anood 後緊接其他人名' => ['@Anood其他人 44'],
+            '無空格歌名' => ['@Anood主愛我'],
+            'Anood 出現在中間' => ['大家看 @Anood 目錄'],
+            '字母接在 Anood 後' => ['@Anoodle 44'],
+        ];
+    }
+
+    public function test_plain_text_prefix_is_stripped_only_once(): void
+    {
+        Http::fake();
+        $song = Song::factory()->published()->create(['title_native' => '@王小明 的歌']);
+
+        $this->signedPost($this->groupTextEvent('@Anood @王小明', 'none'))->assertStatus(200);
+
+        Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', "/songs/{$song->id}"));
+    }
+
+    public function test_real_mention_with_renamed_bot_still_strips_leading_mention(): void
+    {
+        Http::fake();
+        $song = Song::factory()->published()->create(['book_number' => '44']);
+
+        $this->signedPost($this->groupTextEvent('@詩歌小秘書 44', 'bot'))->assertStatus(200);
+
+        Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', "/songs/{$song->id}"));
+    }
+
     // ── join／memberJoined：群組歡迎訊息 ──────────────────────────
 
     public function test_join_event_pushes_welcome_message_to_group(): void
@@ -389,8 +503,7 @@ class LineWebhookTest extends TestCase
 
             return $request->url() === 'https://api.line.me/v2/bot/message/push'
                 && $data['to'] === 'group-123'
-                && str_contains($data['messages'][0]['text'], 'Anood 助理')
-                && str_contains($data['messages'][0]['text'], '點歌');
+                && $data['messages'][0]['text'] === self::INTRO_TEXT;
         });
     }
 
@@ -419,7 +532,7 @@ class LineWebhookTest extends TestCase
 
             return $request->url() === 'https://api.line.me/v2/bot/message/push'
                 && $data['to'] === 'group-456'
-                && str_contains($data['messages'][0]['text'], '歡迎新朋友');
+                && $data['messages'][0]['text'] === self::MEMBER_JOINED_TEXT;
         });
     }
 
