@@ -2,27 +2,30 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\LineCatalogBuilder;
 use App\Services\LineSongLookupService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
 class LineWebhookController extends Controller
 {
-    private const USAGE_MESSAGE = "輸入頁碼或歌名就可以點歌囉 🎵\n例如：44　或　主愛我\n（群組裡請先 @ 我再輸入）";
-    private const JOIN_MESSAGE = "大家好，我是 Anood 助理 🎵\n輸入「@Anood助理 頁碼」或「@Anood助理 歌名」就可以點歌！\n例如：@Anood助理 44 或 @Anood助理 主愛我";
-    private const MEMBER_JOINED_MESSAGE = "歡迎新朋友！輸入「@Anood助理 頁碼」可以點達悟族詩歌 🎵";
+    private const HOW_TO_MESSAGE = "手上有紙本歌本：輸入歌本上的頁碼，例如 44\n手上沒有歌本：輸入「目錄」，看有哪些歌和頁碼\n（群組裡請先 @Anood助理 再輸入）";
 
-    public function __construct(private LineSongLookupService $lookup)
-    {
-    }
+    private const USAGE_MESSAGE = "大家好，我是 Anood 助理 🎵\n".self::HOW_TO_MESSAGE;
+
+    private const JOIN_MESSAGE = self::USAGE_MESSAGE;
+
+    private const MEMBER_JOINED_MESSAGE = "歡迎新朋友！\n".self::HOW_TO_MESSAGE;
+
+    public function __construct(private LineSongLookupService $lookup, private LineCatalogBuilder $catalog) {}
 
     public function handle(Request $request): JsonResponse
     {
         $body = $request->getContent();
         $signature = $request->header('X-Line-Signature');
 
-        if (!$this->verifySignature($body, $signature)) {
+        if (! $this->verifySignature($body, $signature)) {
             return response()->json(['message' => 'invalid signature'], 400);
         }
 
@@ -39,7 +42,7 @@ class LineWebhookController extends Controller
     {
         $secret = config('services.line.channel_secret');
 
-        if (!$secret || !$signature) {
+        if (! $secret || ! $signature) {
             return false;
         }
 
@@ -50,43 +53,50 @@ class LineWebhookController extends Controller
 
     private function handleEvent(array $event): void
     {
-        $type = $event['type'] ?? null;
+        match ($event['type'] ?? null) {
+            'join' => $this->handleGroupEvent($event, self::JOIN_MESSAGE),
+            'memberJoined' => $this->handleGroupEvent($event, self::MEMBER_JOINED_MESSAGE),
+            'message' => $this->handleMessageEvent($event),
+            default => null,
+        };
+    }
 
-        if ($type === 'join') {
-            $this->handleGroupEvent($event, self::JOIN_MESSAGE);
-            return;
-        }
-
-        if ($type === 'memberJoined') {
-            $this->handleGroupEvent($event, self::MEMBER_JOINED_MESSAGE);
-            return;
-        }
-
-        if ($type !== 'message') {
-            return;
-        }
+    private function handleMessageEvent(array $event): void
+    {
         if (($event['message']['type'] ?? null) !== 'text') {
             return;
         }
 
         $source = $event['source'] ?? [];
+        $isMultiPerson = $this->isMultiPersonSource($source);
 
-        // 群組／多人聊天室：只有明確 @ 到機器人本身才回應。不然群組裡每一句
-        // 閒聊都會被當成點歌查詢、每句都被回一則訊息，人多時會嚴重干擾。
+        // 群組／多人聊天室：只有明確 @ 到機器人本身（真 @ 或手打的「@Anood」開頭）才回應。
+        // 不然群組裡每一句閒聊都會被當成點歌查詢、每句都被回一則訊息，人多時會嚴重干擾。
         // 私訊（1 對 1）不需要 @，照常回應。
-        if ($this->isMultiPersonSource($source) && !$this->isBotMentioned($event)) {
+        if ($isMultiPerson && ! $this->isAddressedToBot($event)) {
             return;
         }
 
         $replyToken = $event['replyToken'] ?? null;
-        if (!$replyToken) {
+        if (! $replyToken) {
             return;
         }
 
-        $query = $this->lookup->parseQuery($event['message']['text'] ?? '');
+        $query = $this->lookup->parseQuery($event['message']['text'] ?? '', $isMultiPerson);
 
         if ($query === '') {
             $this->sendReply($replyToken, self::USAGE_MESSAGE);
+
+            return;
+        }
+
+        if ($query === LineSongLookupService::CATALOG_KEYWORD) {
+            $this->sendMessage($replyToken, $this->catalog->build(
+                $this->lookup->catalogSongs(),
+                $isMultiPerson,
+                rtrim(config('app.url'), '/')
+            ));
+
             return;
         }
 
@@ -102,6 +112,12 @@ class LineWebhookController extends Controller
     private function isMultiPersonSource(array $source): bool
     {
         return in_array($source['type'] ?? null, ['group', 'room'], true);
+    }
+
+    private function isAddressedToBot(array $event): bool
+    {
+        return $this->isBotMentioned($event)
+            || $this->lookup->isAddressedByPlainText($event['message']['text'] ?? '');
     }
 
     // 只認「明確 @ 到機器人本身」（LINE 在 mentionees 標記 isSelf）。
@@ -132,7 +148,7 @@ class LineWebhookController extends Controller
         $token = config('services.line.channel_access_token');
         $userId = $source['userId'] ?? null;
 
-        if (!$token || !$userId) {
+        if (! $token || ! $userId) {
             return null;
         }
 
@@ -146,7 +162,7 @@ class LineWebhookController extends Controller
             default => null,
         };
 
-        if (!$url) {
+        if (! $url) {
             return null;
         }
 
@@ -165,7 +181,7 @@ class LineWebhookController extends Controller
     private function handleGroupEvent(array $event, string $message): void
     {
         $groupId = $event['source']['groupId'] ?? null;
-        if (!$groupId) {
+        if (! $groupId) {
             return;
         }
 
@@ -174,23 +190,26 @@ class LineWebhookController extends Controller
 
     private function sendReply(string $replyToken, string $text): void
     {
+        $this->sendMessage($replyToken, ['type' => 'text', 'text' => $text]);
+    }
+
+    private function sendMessage(string $replyToken, array $message): void
+    {
         $token = config('services.line.channel_access_token');
-        if (!$token) {
+        if (! $token) {
             return;
         }
 
         Http::withToken($token)->post('https://api.line.me/v2/bot/message/reply', [
             'replyToken' => $replyToken,
-            'messages' => [
-                ['type' => 'text', 'text' => $text],
-            ],
+            'messages' => [$message],
         ]);
     }
 
     private function sendPush(string $to, string $text): void
     {
         $token = config('services.line.channel_access_token');
-        if (!$token) {
+        if (! $token) {
             return;
         }
 
