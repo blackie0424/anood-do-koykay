@@ -554,9 +554,10 @@ class LineWebhookTest extends TestCase
         return $bubble['header']['contents'][1]['text'];
     }
 
-    private function footerText(array $bubble): string
+    /** 卡片底部提示的每一行文字 */
+    private function footerLines(array $bubble): array
     {
-        return $bubble['footer']['contents'][0]['text'];
+        return array_column($bubble['footer']['contents'], 'text');
     }
 
     private function publishedSong(?string $page, string $title): Song
@@ -653,7 +654,7 @@ class LineWebhookTest extends TestCase
             $this->rowTexts($bubble)
         );
         $this->assertSame('第 9～99999999999999999999 頁', $this->headerTitle($bubble));
-        $this->assertSame('輸入頁碼就可以點歌，例如 9', $this->footerText($bubble));
+        $this->assertSame(['點一下想聽的歌名，就會開啟播放頁面', '也可以輸入頁碼點歌，例如：9'], $this->footerLines($bubble));
 
         // 目錄上顯示的頁碼，輸入後要能點到同一首
         Http::fake();
@@ -736,8 +737,8 @@ class LineWebhookTest extends TestCase
         $this->signedPost($this->textEvent('目錄'))->assertStatus(200);
 
         $bubbles = $this->carouselBubbles();
-        $this->assertSame('輸入頁碼就可以點歌，例如 44', $this->footerText($bubbles[0]));
-        $this->assertSame('輸入歌名就可以點歌，例如 主愛我', $this->footerText($bubbles[1]));
+        $this->assertSame(['點一下想聽的歌名，就會開啟播放頁面', '也可以輸入頁碼點歌，例如：44'], $this->footerLines($bubbles[0]));
+        $this->assertSame(['點一下想聽的歌名，就會開啟播放頁面', '也可以輸入歌名點歌，例如：主愛我'], $this->footerLines($bubbles[1]));
     }
 
     public function test_catalog_footer_hint_in_group_asks_to_mention_bot(): void
@@ -749,8 +750,8 @@ class LineWebhookTest extends TestCase
         $this->signedPost($this->groupTextEvent('@Anood助理 目錄', 'bot'))->assertStatus(200);
 
         $bubbles = $this->carouselBubbles();
-        $this->assertSame('@Anood助理 加頁碼就可以點歌，例如 44', $this->footerText($bubbles[0]));
-        $this->assertSame('@Anood助理 加歌名就可以點歌，例如 主愛我', $this->footerText($bubbles[1]));
+        $this->assertSame(['點一下想聽的歌名，就會開啟播放頁面', '也可以輸入頁碼點歌，例如：@Anood助理 44'], $this->footerLines($bubbles[0]));
+        $this->assertSame(['點一下想聽的歌名，就會開啟播放頁面', '也可以輸入歌名點歌，例如：@Anood助理 主愛我'], $this->footerLines($bubbles[1]));
     }
 
     public function test_catalog_header_colors_tell_page_and_no_page_cards_apart(): void

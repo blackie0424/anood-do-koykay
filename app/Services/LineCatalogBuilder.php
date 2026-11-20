@@ -20,6 +20,8 @@ class LineCatalogBuilder
 
     private const NAV_COLOR = '#5A6772';
 
+    private const TAP_HINT = '點一下想聽的歌名，就會開啟播放頁面';
+
     private const EMPTY_MESSAGE = '目前還沒有已發佈的歌曲';
 
     private const NO_PAGE_NUMERALS = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
@@ -101,7 +103,7 @@ class LineCatalogBuilder
                 'spacing' => 'md',
                 'contents' => array_map(fn ($song) => $this->songRow($song, $siteUrl), $card['songs']),
             ],
-            'footer' => $this->footer($this->hint($card, $inMultiPersonChat)),
+            'footer' => $this->footer([self::TAP_HINT, $this->inputHint($card, $inMultiPersonChat)]),
         ];
     }
 
@@ -119,14 +121,15 @@ class LineCatalogBuilder
         return $first === $last ? "第 {$first} 頁" : "第 {$first}～{$last} 頁";
     }
 
-    private function hint(array $card, bool $inMultiPersonChat): string
+    /** 第二行提示：完整的輸入範例，群組要連同 @ 一起寫 */
+    private function inputHint(array $card, bool $inMultiPersonChat): string
     {
         $first = $card['songs'][0];
         $subject = $card['hasPage'] ? '頁碼' : '歌名';
         $example = $card['hasPage'] ? $first['page'] : $first['title'];
-        $prefix = $inMultiPersonChat ? '@Anood助理 加' : '輸入';
+        $prefix = $inMultiPersonChat ? '@Anood助理 ' : '';
 
-        return "{$prefix}{$subject}就可以點歌，例如 {$example}";
+        return "也可以輸入{$subject}點歌，例如：{$prefix}{$example}";
     }
 
     private function songRow(array $song, string $siteUrl): array
@@ -181,15 +184,18 @@ class LineCatalogBuilder
         ];
     }
 
-    private function footer(string $hint): array
+    /** @param  string[]  $hints  底部提示，一行一個 */
+    private function footer(array $hints): array
     {
         return [
             'type' => 'box',
             'layout' => 'vertical',
             'backgroundColor' => '#F4F4F4',
-            'contents' => [
-                ['type' => 'text', 'text' => $hint, 'size' => 'xs', 'color' => '#555555', 'wrap' => true],
-            ],
+            'spacing' => 'xs',
+            'contents' => array_map(
+                fn ($hint) => ['type' => 'text', 'text' => $hint, 'size' => 'xs', 'color' => '#555555', 'wrap' => true],
+                $hints
+            ),
         ];
     }
 }
