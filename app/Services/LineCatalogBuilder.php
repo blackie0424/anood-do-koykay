@@ -28,7 +28,7 @@ class LineCatalogBuilder
     private const ACTION_LABEL_LIMIT = 20;
 
     /**
-     * @param  Collection<int, array{id: int, title: string, page: ?int}>  $songs  已排好序（有頁碼在前）
+     * @param  Collection<int, array{id: int, title: string, page: ?string}>  $songs  已排好序（有頁碼在前）
      */
     public function build(Collection $songs, bool $inMultiPersonChat, string $siteUrl): array
     {
@@ -134,7 +134,7 @@ class LineCatalogBuilder
         $title = ['type' => 'text', 'text' => $song['title'], 'size' => 'sm', 'wrap' => true, 'flex' => 5];
         $contents = $song['page'] === null
             ? [$title]
-            : [['type' => 'text', 'text' => (string) $song['page'], 'size' => 'sm', 'weight' => 'bold', 'color' => self::PAGE_COLOR, 'flex' => 1], $title];
+            : [['type' => 'text', 'text' => $song['page'], 'size' => 'sm', 'weight' => 'bold', 'color' => self::PAGE_COLOR, 'flex' => 1], $title];
 
         return [
             'type' => 'box',

@@ -60,7 +60,7 @@ class LineSongLookupService
      * 頁碼只認首碼 1～9 的 ASCII 純數字；NULL、空白、前導零、全形、含字母都算沒有頁碼。
      * 在程式內分類排序，不靠資料庫轉型，避免不同資料庫行為不同。
      *
-     * @return Collection<int, array{id: int, title: string, page: ?int}>
+     * @return Collection<int, array{id: int, title: string, page: ?string}>
      */
     public function catalogSongs(): Collection
     {
@@ -70,12 +70,13 @@ class LineSongLookupService
             ->map(fn (Song $song) => [
                 'id' => $song->id,
                 'title' => $song->title_native,
-                'page' => preg_match('/^[1-9][0-9]*$/D', (string) $song->book_number) ? (int) $song->book_number : null,
+                'page' => preg_match('/^[1-9][0-9]*$/D', (string) $song->book_number) ? $song->book_number : null,
             ]);
 
         return $songs->sortBy([
             fn ($a, $b) => ($a['page'] === null) <=> ($b['page'] === null),
-            fn ($a, $b) => $a['page'] <=> $b['page'],
+            // 頁碼保留原字串（最長 20 字元，可能超過整數範圍）；沒有前導零，所以位數少的較小，位數相同再比字串
+            fn ($a, $b) => [strlen($a['page'] ?? ''), $a['page']] <=> [strlen($b['page'] ?? ''), $b['page']],
             fn ($a, $b) => $a['id'] <=> $b['id'],
         ])->values();
     }

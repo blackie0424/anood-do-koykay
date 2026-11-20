@@ -6,6 +6,7 @@ use App\Models\Song;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class LineWebhookTest extends TestCase
@@ -383,7 +384,7 @@ class LineWebhookTest extends TestCase
         Http::assertSent(fn ($request) => $request->url() === 'https://api.line.me/v2/bot/message/reply');
     }
 
-    /** @dataProvider plainTextMentionPageQueries */
+    #[DataProvider('plainTextMentionPageQueries')]
     public function test_group_plain_text_anood_prefix_triggers_song_lookup(string $text): void
     {
         Http::fake();
@@ -444,7 +445,7 @@ class LineWebhookTest extends TestCase
         Http::assertSent(fn ($request) => str_contains($request->data()['messages'][0]['text'] ?? '', "/songs/{$song->id}"));
     }
 
-    /** @dataProvider plainTextNotAddressedToBot */
+    #[DataProvider('plainTextNotAddressedToBot')]
     public function test_group_text_not_addressed_to_bot_is_ignored(string $text): void
     {
         Http::fake();
@@ -577,7 +578,7 @@ class LineWebhookTest extends TestCase
         $this->carouselBubbles();
     }
 
-    /** @dataProvider groupCatalogTriggers */
+    #[DataProvider('groupCatalogTriggers')]
     public function test_catalog_in_group_replies_when_bot_is_addressed(string $text, string $mention): void
     {
         Http::fake();
@@ -632,6 +633,33 @@ class LineWebhookTest extends TestCase
         $this->assertSame(['5　b', '5　l', '12　a', '100　m'], $this->rowTexts($bubbles[0]));
         $this->assertSame(['c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'], $this->rowTexts($bubbles[1]));
         $this->assertSame(['k'], $this->rowTexts($bubbles[2]));
+    }
+
+    public function test_catalog_keeps_twenty_digit_page_numbers_exact_and_sorted_by_value(): void
+    {
+        // 頁碼欄位最長 20 字元；超過 64 位整數範圍的頁碼不能被轉成整數而失真
+        Http::fake();
+        $bigger = $this->publishedSong('99999999999999999999', 'Bigger');
+        $big = $this->publishedSong('99999999999999999998', 'Big');
+        $this->publishedSong('9999999999999999999', 'Nineteen');
+        $this->publishedSong('100', 'Hundred');
+        $this->publishedSong('9', 'Nine');
+
+        $this->signedPost($this->textEvent('目錄'))->assertStatus(200);
+
+        $bubble = $this->carouselBubbles()[0];
+        $this->assertSame(
+            ['9　Nine', '100　Hundred', '9999999999999999999　Nineteen', '99999999999999999998　Big', '99999999999999999999　Bigger'],
+            $this->rowTexts($bubble)
+        );
+        $this->assertSame('第 9～99999999999999999999 頁', $this->headerTitle($bubble));
+        $this->assertSame('輸入頁碼就可以點歌，例如 9', $this->footerText($bubble));
+
+        // 目錄上顯示的頁碼，輸入後要能點到同一首
+        Http::fake();
+        $this->signedPost($this->textEvent('99999999999999999999'))->assertStatus(200);
+        $this->assertStringContainsString("/songs/{$bigger->id}", $this->sentMessage()['text']);
+        $this->assertNotSame($bigger->id, $big->id);
     }
 
     public function test_catalog_splits_cards_of_eight_and_never_mixes_page_and_no_page_songs(): void
