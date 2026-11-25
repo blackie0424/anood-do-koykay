@@ -9,15 +9,13 @@ const props = defineProps({ songs: Array })
 const page = usePage()
 const isAdmin = page.props.auth?.user?.role === 'admin'
 
-const VALID_TABS = ['all', 'no-audio', 'no-score', 'draft', 'ready', 'pending_review', 'published']
-
 const filter = ref('all')
 const search = ref('')
 
 onMounted(() => {
     const params = new URLSearchParams(window.location.search)
     const tab = params.get('tab')
-    if (tab && VALID_TABS.includes(tab)) filter.value = tab
+    if (tab && FILTERS.some(f => f.key === tab)) filter.value = tab
     const q = params.get('q')
     if (q) search.value = q
 })
@@ -42,17 +40,26 @@ watch(search, (q) => {
     window.history.replaceState({}, '', url.toString())
 })
 
+const FILTERS = [
+    { key: 'all',            label: '全部',   match: () => true },
+    { key: 'no-audio',       label: '無音訊', match: s => !s.audio_full },
+    { key: 'no-score',       label: '無歌譜', match: s => s.scores_count === 0 },
+    { key: 'draft',          label: '草稿',   match: s => s.status !== 'published' },
+    { key: 'ready',          label: '待發布', match: s => s.status !== 'published' && s.audio_full && s.scores_count > 0 },
+    { key: 'pending_review', label: '未審核', match: s => s.status === 'pending_review' },
+    { key: 'published',      label: '已發布', match: s => s.status === 'published' },
+]
+
+const allSongs = computed(() => props.songs ?? [])
+
+const filters = computed(() => FILTERS.map(f => ({
+    key: f.key,
+    label: `${f.label} (${allSongs.value.filter(f.match).length})`,
+})))
+
 const filteredSongs = computed(() => {
-    if (!props.songs) return []
-    let result = props.songs
-    switch (filter.value) {
-        case 'no-audio': result = result.filter(s => !s.audio_full); break
-        case 'no-score': result = result.filter(s => s.scores_count === 0); break
-        case 'draft':    result = result.filter(s => s.status !== 'published'); break
-        case 'ready':          result = result.filter(s => s.status !== 'published' && s.audio_full && s.scores_count > 0); break
-        case 'pending_review': result = result.filter(s => s.status === 'pending_review'); break
-        case 'published':      result = result.filter(s => s.status === 'published'); break
-    }
+    const current = FILTERS.find(f => f.key === filter.value) ?? FILTERS[0]
+    let result = allSongs.value.filter(current.match)
     const q = search.value.trim().toLowerCase()
     if (q) {
         result = result.filter(s =>
@@ -63,16 +70,6 @@ const filteredSongs = computed(() => {
     }
     return result
 })
-
-const filters = [
-    { key: 'all',       label: '全部' },
-    { key: 'no-audio',  label: '無音訊' },
-    { key: 'no-score',  label: '無歌譜' },
-    { key: 'draft',     label: '草稿' },
-    { key: 'ready',          label: '待發布' },
-    { key: 'pending_review', label: '未審核' },
-    { key: 'published',      label: '已發布' },
-]
 
 function formatDuration(seconds) {
     if (!seconds) return ''
@@ -105,6 +102,7 @@ async function deleteSong(id) {
                 placeholder="搜尋頁碼、族語或中文歌名…"
                 class="border rounded px-3 py-1.5 text-sm bg-white flex-1 max-w-xs" />
         </div>
+        <p class="text-sm text-stone-500 mb-2">共 {{ filteredSongs.length }} 首</p>
 
         <div class="bg-white rounded-lg shadow overflow-hidden">
             <table class="w-full">
